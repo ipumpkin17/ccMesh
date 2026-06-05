@@ -6,6 +6,7 @@ import { useFilterStore } from "@/stores";
 import { DnDList } from "./_components/DnDList";
 import { EndpointForm } from "./_components/EndpointForm";
 import { FilterBar } from "./_components/FilterBar";
+import { ModelList } from "./_components/ModelList";
 
 export function Endpoints() {
   const { data: endpoints, isLoading } = useEndpoints();
@@ -52,6 +53,7 @@ export function Endpoints() {
       ) : (
         <DnDList endpoints={filtered} draggable={dragEnabled} onEdit={openEdit} />
       )}
+      <ModelList />
       <EndpointForm open={formOpen} onOpenChange={setFormOpen} editing={editing} />
     </div>
   );

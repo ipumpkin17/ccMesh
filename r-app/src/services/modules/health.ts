@@ -1,12 +1,21 @@
 import { request } from "../request";
 
+export interface MaskedEndpoint {
+  name: string;
+  apiUrl: string;
+  maskedKey: string;
+  enabled: boolean;
+  testStatus: string;
+}
+
 export interface HealthInfo {
   status: string;
   deviceId: string;
+  proxyRunning: boolean;
   enabledEndpoints: number;
+  endpoints: MaskedEndpoint[];
 }
 
-/** 健康检查（脱敏端点列表等在阶段 4/8 补全）。 */
 export const healthApi = {
   getHealth: () => request<HealthInfo>("get_health"),
 };
