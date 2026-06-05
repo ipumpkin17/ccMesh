@@ -9,12 +9,13 @@ use tauri::Manager;
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
-    // 分级日志：默认 info，可由 RUST_LOG 覆盖（动态级别在 P4-9 接入）
-    tracing_subscriber::fmt()
-        .with_env_filter(
-            tracing_subscriber::EnvFilter::try_from_default_env()
-                .unwrap_or_else(|_| tracing_subscriber::EnvFilter::new("info")),
-        )
+    // 控制台 fmt 层（RUST_LOG 可覆盖）+ 捕获层（动态级别 + log-line 事件推送）
+    use tracing_subscriber::prelude::*;
+    let console_filter = tracing_subscriber::EnvFilter::try_from_default_env()
+        .unwrap_or_else(|_| tracing_subscriber::EnvFilter::new("info"));
+    tracing_subscriber::registry()
+        .with(tracing_subscriber::fmt::layer().with_filter(console_filter))
+        .with(modules::logs::CaptureLayer)
         .init();
 
     tauri::Builder::default()
@@ -29,6 +30,15 @@ pub fn run() {
                 let conn = pool.get()?;
                 modules::storage::migration::run_migrations(&conn)?;
             }
+
+            // 日志级别（从配置恢复）+ 实时推送接线
+            {
+                let conn = pool.get()?;
+                if let Ok(Some(level)) = modules::storage::config_repo::get_value(&conn, "logLevel") {
+                    modules::logs::set_level(&level);
+                }
+            }
+            modules::logs::set_app_handle(handle.clone());
 
             // 设备唯一 ID
             let device_id = {
@@ -61,7 +71,21 @@ pub fn run() {
             commands::stats::get_stats,
             commands::stats::get_archive_months,
             commands::stats::get_monthly_archive,
-            commands::stats::delete_monthly_stats
+            commands::stats::delete_monthly_stats,
+            commands::config::get_config,
+            commands::config::get_all_config,
+            commands::config::set_config,
+            commands::endpoint::list_endpoints,
+            commands::endpoint::create_endpoint,
+            commands::endpoint::update_endpoint,
+            commands::endpoint::delete_endpoint,
+            commands::endpoint::reorder_endpoints,
+            commands::endpoint::clone_endpoint,
+            commands::endpoint::test_endpoint,
+            commands::models::get_models,
+            commands::tokens::count_tokens,
+            commands::logs::get_recent_logs,
+            commands::logs::set_log_level
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
