@@ -1,0 +1,95 @@
+use rusqlite::Connection;
+
+use crate::error::AppResult;
+
+/// 版本化迁移脚本。新增表/列时在末尾追加一条，`run_migrations` 会按当前版本幂等增量执行。
+const MIGRATIONS: &[&str] = &[
+    // v1：核心表 + 索引
+    "CREATE TABLE IF NOT EXISTS endpoints (
+        id           INTEGER PRIMARY KEY AUTOINCREMENT,
+        name         TEXT    NOT NULL UNIQUE,
+        api_url      TEXT    NOT NULL,
+        api_key      TEXT    NOT NULL DEFAULT '',
+        auth_mode    TEXT    NOT NULL DEFAULT 'api_key',
+        enabled      INTEGER NOT NULL DEFAULT 1,
+        transformer  TEXT    NOT NULL DEFAULT 'claude',
+        model        TEXT    NOT NULL DEFAULT '',
+        remark       TEXT    NOT NULL DEFAULT '',
+        sort_order   INTEGER NOT NULL DEFAULT 0,
+        test_status  TEXT    NOT NULL DEFAULT 'unknown',
+        created_at   TEXT    NOT NULL DEFAULT (datetime('now')),
+        updated_at   TEXT    NOT NULL DEFAULT (datetime('now'))
+    );
+
+    CREATE TABLE IF NOT EXISTS endpoint_credentials (
+        id           INTEGER PRIMARY KEY AUTOINCREMENT,
+        endpoint_id  INTEGER NOT NULL,
+        api_key      TEXT    NOT NULL,
+        enabled      INTEGER NOT NULL DEFAULT 1,
+        sort_order   INTEGER NOT NULL DEFAULT 0,
+        FOREIGN KEY(endpoint_id) REFERENCES endpoints(id) ON DELETE CASCADE
+    );
+
+    CREATE TABLE IF NOT EXISTS daily_stats (
+        id            INTEGER PRIMARY KEY AUTOINCREMENT,
+        endpoint_name TEXT    NOT NULL,
+        date          TEXT    NOT NULL,
+        requests      INTEGER NOT NULL DEFAULT 0,
+        errors        INTEGER NOT NULL DEFAULT 0,
+        input_tokens  INTEGER NOT NULL DEFAULT 0,
+        output_tokens INTEGER NOT NULL DEFAULT 0,
+        device_id     TEXT    NOT NULL DEFAULT '',
+        UNIQUE(endpoint_name, date, device_id)
+    );
+    CREATE INDEX IF NOT EXISTS idx_daily_stats_date     ON daily_stats(date);
+    CREATE INDEX IF NOT EXISTS idx_daily_stats_endpoint ON daily_stats(endpoint_name);
+    CREATE INDEX IF NOT EXISTS idx_daily_stats_device   ON daily_stats(device_id);
+
+    CREATE TABLE IF NOT EXISTS credential_usage (
+        id               INTEGER PRIMARY KEY AUTOINCREMENT,
+        endpoint_name    TEXT    NOT NULL,
+        credential_index INTEGER NOT NULL DEFAULT 0,
+        date             TEXT    NOT NULL,
+        requests         INTEGER NOT NULL DEFAULT 0,
+        errors           INTEGER NOT NULL DEFAULT 0,
+        input_tokens     INTEGER NOT NULL DEFAULT 0,
+        output_tokens    INTEGER NOT NULL DEFAULT 0,
+        device_id        TEXT    NOT NULL DEFAULT '',
+        UNIQUE(endpoint_name, credential_index, date, device_id)
+    );
+
+    CREATE TABLE IF NOT EXISTS app_config (
+        key   TEXT PRIMARY KEY,
+        value TEXT NOT NULL
+    );",
+];
+
+/// 幂等执行迁移：读取 `schema_version` 当前版本，仅应用尚未执行的脚本。
+pub fn run_migrations(conn: &Connection) -> AppResult<()> {
+    conn.execute_batch(
+        "CREATE TABLE IF NOT EXISTS schema_version (
+            version    INTEGER NOT NULL,
+            applied_at TEXT    NOT NULL DEFAULT (datetime('now'))
+        );",
+    )?;
+
+    let current: i64 = conn.query_row(
+        "SELECT COALESCE(MAX(version), 0) FROM schema_version",
+        [],
+        |row| row.get(0),
+    )?;
+
+    for (idx, script) in MIGRATIONS.iter().enumerate() {
+        let version = (idx + 1) as i64;
+        if version > current {
+            conn.execute_batch(script)?;
+            conn.execute(
+                "INSERT INTO schema_version(version) VALUES (?1)",
+                [version],
+            )?;
+            tracing::info!(version, "已应用数据库迁移");
+        }
+    }
+
+    Ok(())
+}
