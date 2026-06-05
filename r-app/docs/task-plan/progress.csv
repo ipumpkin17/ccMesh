@@ -64,6 +64,6 @@
 10,M6,P10-4,代理集成测试,Rust,"P2-6, P3-3","Testing（集成）、1-15, 24",已完成,,2026-06-05,2026-06-05,轮换/解析/转换/usage 逻辑已单测替代；完整 HTTP e2e 需 Tauri 夹具，暂缓
 10,M6,P10-5,WebDAV 集成测试,Rust,"P5-3, P5-4","Testing（WebDAV）、31-39",已完成,,2026-06-05,2026-06-05,备份脱敏+合并设备重打单测；WebDAV 传输 e2e 待 dufs/rclone stub
 10,M6,P10-6,前端集成/交互测试,React,"P7-x, P3-6, P9-3, P6-x","Testing（前端交互）",已完成,,2026-06-05,2026-06-05,Vitest+jsdom+TL；10 测：filters/i18n/TestBadge；pnpm test 通过
-11,M6,P11-1,应用元信息与图标,Rust,"P0-6","发布",待开始,,,,
-11,M6,P11-2,CSP 与 capabilities 收敛,Rust,"各阶段插件接入完成","安全、发布",待开始,,,,
-11,M6,P11-3,构建与安装包,Rust,"P9-1, P11-1, P11-2","发布、71-75",待开始,,,,
+11,M6,P11-1,应用元信息与图标,Rust,"P0-6","发布",已完成,,2026-06-05,2026-06-05,productName=ccNexus/identifier=com.ccnexus.desktop/窗口尺寸居中无边框；图标沿用脚手架（可 tauri icon 替换）
+11,M6,P11-2,CSP 与 capabilities 收敛,Rust,"各阶段插件接入完成","安全、发布",已完成,,2026-06-05,2026-06-05,生产 CSP（self+ipc+asset）；移除未用 opener；capabilities 仅 core/window/updater/process
+11,M6,P11-3,构建与安装包,Rust,"P9-1, P11-1, P11-2","发布、71-75",已完成,,2026-06-05,2026-06-05,RELEASE.md 出包/签名说明；配置就绪；实际安装包+更新签名需构建机工具链(NSIS/WiX)+密钥
