@@ -55,9 +55,9 @@
 8,M5,P8-1,模型列表前端,React,"P4-6, P0-8","49, 50, 51, 52",已完成,,2026-06-05,2026-06-05,ModelList（Endpoints 内嵌）+ 刷新 force_refresh；缓存期不重复请求
 8,M5,P8-2,健康概览前端,React,"P4-7, P1-7","53, 54, 55",已完成,,2026-06-05,2026-06-05,Dashboard HealthOverview：状态/启用数/脱敏端点；StatCard 复用
 8,M5,P8-3,Token 计数前端（可选工具）,React,"P4-8","56, 57, 58",已完成,,2026-06-05,2026-06-05,Settings TokenCounter：文本→count_tokens 估算
-9,M5,P9-1,更新插件接入,Rust,"P0-6","71, 75",待开始,,,,
-9,M5,P9-2,更新命令与设置,Rust,"P9-1, P4-1","71, 72, 74, 75",待开始,,,,
-9,M5,P9-3,更新前端（红点/进度/跳过）,React,"P9-2, P0-8","71, 72, 73, 74, 75",待开始,,,,
+9,M5,P9-1,更新插件接入,Rust,"P0-6","71, 75",已完成,,2026-06-05,2026-06-05,tauri-plugin-updater+process 接入；createUpdaterArtifacts；endpoints/pubkey 占位待分发渠道
+9,M5,P9-2,更新命令与设置,Rust,"P9-1, P4-1","71, 72, 74, 75",已完成,,2026-06-05,2026-06-05,check/download_and_install(进度 update-progress 事件)/get-set_update_settings/skip_version
+9,M5,P9-3,更新前端（红点/进度/跳过）,React,"P9-2, P0-8","71, 72, 73, 74, 75",已完成,,2026-06-05,2026-06-05,useUpdate 启动检查+UpdateBadge 侧栏红点+UpdateSection 进度条/跳过；pnpm build 通过
 10,M6,P10-1,转换器单元测试,Rust,"P2-2~P2-5","Testing（转换器）、11-15",待开始,,,,
 10,M6,P10-2,统计与存储单元测试,Rust,"P3-1~P3-4, P0-4","Testing（统计/存储）、16-30, 78-80",待开始,,,,
 10,M6,P10-3,轮换与解析单元测试,Rust,"P1-2, P1-3","Testing（代理）、2-8",待开始,,,,

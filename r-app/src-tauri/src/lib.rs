@@ -20,6 +20,8 @@ pub fn run() {
 
     tauri::Builder::default()
         .plugin(tauri_plugin_opener::init())
+        .plugin(tauri_plugin_updater::Builder::new().build())
+        .plugin(tauri_plugin_process::init())
         .setup(|app| {
             let handle = app.handle().clone();
 
@@ -132,7 +134,12 @@ pub fn run() {
             commands::webdav::webdav_delete_backup,
             commands::window::set_language,
             commands::window::apply_close_action,
-            commands::window::hide_to_tray
+            commands::window::hide_to_tray,
+            commands::update::check_for_updates,
+            commands::update::download_and_install,
+            commands::update::get_update_settings,
+            commands::update::set_update_settings,
+            commands::update::skip_version
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
