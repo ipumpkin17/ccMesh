@@ -1,10 +1,12 @@
-import { Placeholder } from "@/components/common";
+import { BackupList } from "./_components/BackupList";
+import { WebdavForm } from "./_components/WebdavForm";
 
 export function Sync() {
   return (
-    <Placeholder
-      title="同步"
-      description="WebDAV 配置、备份、恢复与多设备同步"
-    />
+    <div className="mx-auto flex max-w-3xl flex-col gap-6">
+      <h1 className="text-2xl font-light tracking-tight">同步</h1>
+      <WebdavForm />
+      <BackupList />
+    </div>
   );
 }

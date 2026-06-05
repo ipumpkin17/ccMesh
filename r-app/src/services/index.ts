@@ -3,3 +3,5 @@ export * from "./request";
 export * from "./modules/health";
 export * from "./modules/proxy";
 export * from "./modules/stats";
+export * from "./modules/config";
+export * from "./modules/webdav";
