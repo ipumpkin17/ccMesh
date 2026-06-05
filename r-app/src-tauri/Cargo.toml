@@ -34,10 +34,11 @@ reqwest_dav = "0.3.3"
 futures = "0.3.32"
 async-trait = "0.1.89"
 tokio = { version = "1.52.3", features = ["full"] }
-reqwest = { version = "0.13.4", features = ["json", "stream"] }
+reqwest = { version = "0.13.4", features = ["gzip", "json", "stream"] }
 rusqlite = { version = "0.39.0", features = ["bundled"] }
 chrono = { version = "0.4.45", features = ["serde"] }
 uuid = { version = "1.23.2", features = ["v4"] }
 tracing-subscriber = { version = "0.3.23", features = ["env-filter"] }
 tokio-util = "0.7.18"
+tokio-stream = "0.1.18"
 

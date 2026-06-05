@@ -15,12 +15,12 @@
 1,M2,P1-5,axum 代理服务启停与路由,Rust,"P1-4","1, 2",已完成,,2026-06-05,2026-06-05,axum 路由+graceful shutdown；models/count_tokens 占位待 P4
 1,M2,P1-6,代理命令（启停/状态/手动切换）,Rust,"P1-5","1, 2, 10",已完成,,2026-06-05,2026-06-05,start/stop/status/switch + proxy-status-changed 事件
 1,M2,P1-7,代理控制前端,React,"P1-6, P0-8","1, 2, 10",已完成,,2026-06-05,2026-06-05,Dashboard ProxyControl：Switch+StatusDot+事件订阅；pnpm build 通过
-2,M2,P2-1,Transformer trait 与注册表,Rust,"P0-2","11, 12, 扩展性",待开始,,,,
-2,M2,P2-2,Claude ↔ OpenAI Chat 非流式转换,Rust,"P2-1","11, 12, 13",待开始,,,,
-2,M2,P2-3,工具调用（tool_use）转换,Rust,"P2-2","14",待开始,,,,
-2,M2,P2-4,思考/推理内容转换,Rust,"P2-2","15",待开始,,,,
-2,M2,P2-5,流式 SSE 转换,Rust,"P2-3, P2-4, P1-4","13, 14, 15, 22, 23",待开始,,,,
-2,M2,P2-6,代理接入转换器,Rust,"P2-5, P1-5","11, 12, 13, 14, 15",待开始,,,,
+2,M2,P2-1,Transformer trait 与注册表,Rust,"P0-2","11, 12, 扩展性",已完成,,2026-06-05,2026-06-05,Transformer trait+UpstreamFormat+Identity+get_transformer
+2,M2,P2-2,Claude ↔ OpenAI Chat 非流式转换,Rust,"P2-1","11, 12, 13",已完成,,2026-06-05,2026-06-05,请求/响应双向；system/max_completion_tokens/stop_reason；9 单测
+2,M2,P2-3,工具调用（tool_use）转换,Rust,"P2-2","14",已完成,,2026-06-05,2026-06-05,tool_use↔tool_calls、tool_result↔role:tool、tool_choice
+2,M2,P2-4,思考/推理内容转换,Rust,"P2-2","15",已完成,,2026-06-05,2026-06-05,<think> 标签拆 thinking 块；流式 reasoning_content→thinking_delta
+2,M2,P2-5,流式 SSE 转换,Rust,"P2-3, P2-4, P1-4","13, 14, 15, 22, 23",已完成,,2026-06-05,2026-06-05,StreamConverter：message_start/block/delta/stop+usage；3 单测
+2,M2,P2-6,代理接入转换器,Rust,"P2-5, P1-5","11, 12, 13, 14, 15",已完成,,2026-06-05,2026-06-05,forward 接入：请求转换+缓冲/流式响应转换+路径改写；cargo check 通过
 3,M3,P3-1,统计数据模型与仓库,Rust,"P0-4","20, 21, 22, 23, 26, 30",待开始,,,,
 3,M3,P3-2,四周期日期与聚合,Rust,"P3-1","16, 17, 18, 19, 25",待开始,,,,
 3,M3,P3-3,防抖保存与事件推送,Rust,"P3-2, P1-6","24, 性能",待开始,,,,

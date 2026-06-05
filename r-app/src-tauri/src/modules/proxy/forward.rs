@@ -8,10 +8,18 @@ use axum::response::{IntoResponse, Response};
 use tauri::AppHandle;
 use tokio_util::sync::CancellationToken;
 
+use futures::StreamExt;
+use serde_json::Value;
+use tokio::sync::mpsc;
+use tokio_stream::wrappers::ReceiverStream;
+
 use crate::models::endpoint::Endpoint;
 use crate::modules::proxy::resolver;
 use crate::modules::proxy::rotation::{self, Rotation};
 use crate::modules::storage::{db::DbPool, endpoint_repo};
+use crate::modules::transform::claude_openai::openai_response_to_claude;
+use crate::modules::transform::streaming::StreamConverter;
+use crate::modules::transform::transformer::{get_transformer, UpstreamFormat};
 
 /// 每端点在途请求计数 + 取消令牌（手动切换时中止在途请求）。
 #[derive(Default)]
@@ -129,19 +137,17 @@ pub async fn handle_proxy(
     headers: HeaderMap,
     body: Bytes,
 ) -> Response {
-    let path_and_query = uri
-        .path_and_query()
-        .map(|p| p.as_str().to_string())
-        .unwrap_or_else(|| "/".to_string());
+    let path = uri.path().to_string();
 
-    // 从 JSON body 尽力解析 model
-    let model: Option<String> = serde_json::from_slice::<serde_json::Value>(&body)
-        .ok()
-        .and_then(|v| {
-            v.get("model")
-                .and_then(|m| m.as_str())
-                .map(|s| s.to_string())
-        });
+    // 解析请求体（model / stream / 供转换复用）
+    let body_json: Option<Value> = serde_json::from_slice(&body).ok();
+    let model: Option<String> = body_json
+        .as_ref()
+        .and_then(|v| v.get("model").and_then(|m| m.as_str()).map(String::from));
+    let client_wants_stream = body_json
+        .as_ref()
+        .and_then(|v| v.get("stream").and_then(|s| s.as_bool()))
+        .unwrap_or(false);
 
     // 头部 map（小写键）
     let mut hmap = HashMap::new();
@@ -206,9 +212,25 @@ pub async fn handle_proxy(
         };
         st.set_current(&ep.name);
 
+        let format = UpstreamFormat::from_transformer_name(&ep.transformer);
+        // 请求转换（Claude → 上游）；Claude 直通
+        let attempt_body: Bytes = match (&body_json, format) {
+            (Some(cj), UpstreamFormat::OpenAiChat) => get_transformer(format)
+                .transform_request(cj, Some(&ep.model))
+                .ok()
+                .and_then(|v| serde_json::to_vec(&v).ok())
+                .map(Bytes::from)
+                .unwrap_or_else(|| body.clone()),
+            _ => body.clone(),
+        };
+        let upstream_path = match format {
+            UpstreamFormat::OpenAiChat => "/v1/chat/completions",
+            UpstreamFormat::Claude => path.as_str(),
+        };
+
         let token = st.active.start(&ep.name);
         let result = tokio::select! {
-            r = send_upstream(&st, &ep, &method, &path_and_query, &headers, &body) => Some(r),
+            r = send_upstream(&st, &ep, &method, upstream_path, &headers, &attempt_body) => Some(r),
             _ = token.cancelled() => None,
         };
         st.active.finish(&ep.name);
@@ -224,7 +246,17 @@ pub async fn handle_proxy(
             }
             Some(Ok(resp)) => {
                 let status = resp.status().as_u16();
-                if status == 200 || !rotation::should_retry_status(status) {
+                if status == 200 {
+                    return match format {
+                        UpstreamFormat::Claude => relay_response(resp),
+                        UpstreamFormat::OpenAiChat if client_wants_stream => {
+                            stream_transform_response(resp, model.clone().unwrap_or_default())
+                        }
+                        UpstreamFormat::OpenAiChat => transform_buffered_response(resp).await,
+                    };
+                }
+                if !rotation::should_retry_status(status) {
+                    // 最终非重试状态（400/401）原样回传
                     return relay_response(resp);
                 }
                 last_err = format!("上游返回 {status}");
@@ -262,21 +294,24 @@ async fn send_upstream(
     st: &ProxyState,
     ep: &Endpoint,
     method: &Method,
-    path_and_query: &str,
+    upstream_path: &str,
     headers: &HeaderMap,
     body: &Bytes,
 ) -> reqwest::Result<reqwest::Response> {
     let base = ep.api_url.trim_end_matches('/');
-    let url = format!("{base}{path_and_query}");
+    let url = format!("{base}{upstream_path}");
     let rmethod =
         reqwest::Method::from_bytes(method.as_str().as_bytes()).unwrap_or(reqwest::Method::POST);
     let mut rb = st.client.request(rmethod, url);
 
-    // 复制客户端头部（剔除 Host / Content-Length / 控制头）
+    // 复制客户端头部（剔除 Host / Content-Length / Accept-Encoding / 客户端凭证 / 控制头）
     for (k, v) in headers.iter() {
         let kn = k.as_str().to_ascii_lowercase();
         if kn == "host"
             || kn == "content-length"
+            || kn == "accept-encoding"
+            || kn == "authorization"
+            || kn == "x-api-key"
             || kn == resolver::ENDPOINT_HEADER
             || kn == resolver::ENDPOINT_HEADER_ALT
         {
@@ -325,5 +360,65 @@ fn relay_response(resp: reqwest::Response) -> Response {
     let mut response = Response::new(body);
     *response.status_mut() = status;
     *response.headers_mut() = out;
+    response
+}
+
+/// 非流式 OpenAI 响应 → 缓冲后转换为 Claude JSON 回传。
+async fn transform_buffered_response(resp: reqwest::Response) -> Response {
+    match resp.text().await {
+        Ok(text) => match serde_json::from_str::<Value>(&text) {
+            Ok(openai) => (StatusCode::OK, axum::Json(openai_response_to_claude(&openai))).into_response(),
+            Err(_) => json_error(StatusCode::BAD_GATEWAY, "上游响应解析失败"),
+        },
+        Err(e) => json_error(StatusCode::BAD_GATEWAY, &format!("读取上游响应失败: {e}")),
+    }
+}
+
+/// 流式 OpenAI SSE → 边解析边转换为 Claude SSE 事件流回传。
+fn stream_transform_response(resp: reqwest::Response, model: String) -> Response {
+    let (tx, rx) = mpsc::channel::<Result<Bytes, std::io::Error>>(32);
+    tokio::spawn(async move {
+        let mut converter = StreamConverter::new(model, 0);
+        let mut stream = resp.bytes_stream();
+        let mut buf = String::new();
+        while let Some(item) = stream.next().await {
+            let chunk = match item {
+                Ok(c) => c,
+                Err(_) => break,
+            };
+            buf.push_str(&String::from_utf8_lossy(&chunk));
+            while let Some(nl) = buf.find('\n') {
+                let line: String = buf[..nl].to_string();
+                buf.drain(..=nl);
+                let line = line.trim();
+                let Some(data) = line.strip_prefix("data:") else {
+                    continue;
+                };
+                let data = data.trim();
+                if data == "[DONE]" {
+                    for ev in converter.finish() {
+                        let _ = tx.send(Ok(Bytes::from(ev))).await;
+                    }
+                } else if !data.is_empty() {
+                    if let Ok(j) = serde_json::from_str::<Value>(data) {
+                        for ev in converter.process_chunk(&j) {
+                            let _ = tx.send(Ok(Bytes::from(ev))).await;
+                        }
+                    }
+                }
+            }
+        }
+        // 上游未发 [DONE] 时兜底收尾（finish 幂等）
+        for ev in converter.finish() {
+            let _ = tx.send(Ok(Bytes::from(ev))).await;
+        }
+    });
+
+    let body = Body::from_stream(ReceiverStream::new(rx));
+    let mut response = Response::new(body);
+    response.headers_mut().insert(
+        axum::http::header::CONTENT_TYPE,
+        HeaderValue::from_static("text/event-stream"),
+    );
     response
 }
