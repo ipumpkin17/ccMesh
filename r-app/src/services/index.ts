@@ -5,3 +5,5 @@ export * from "./modules/proxy";
 export * from "./modules/stats";
 export * from "./modules/config";
 export * from "./modules/webdav";
+export * from "./modules/window";
+export * from "./modules/logs";
