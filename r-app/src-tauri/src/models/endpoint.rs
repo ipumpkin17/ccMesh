@@ -11,9 +11,14 @@ pub struct Endpoint {
     /// 认证模式：api_key（默认）/ auth_token 等。
     pub auth_mode: String,
     pub enabled: bool,
+    /// 是否经全局代理出网（代理地址见 AppConfig.proxy_url）。
+    pub use_proxy: bool,
     /// 转换器名：claude / openai。
     pub transformer: String,
+    /// 可选锁定模型：非空则强制覆盖客户端请求的 model（专用型端点）；空则透传。
     pub model: String,
+    /// 对外暴露/已选的模型清单（聚合型端点，供 /v1/models 公布与 UI 展示）。
+    pub models: Vec<String>,
     pub remark: String,
     pub sort_order: i64,
     /// 测试状态：unknown / available / unavailable。
@@ -44,10 +49,14 @@ pub struct CreateEndpointRequest {
     pub auth_mode: String,
     #[serde(default = "default_true")]
     pub enabled: bool,
+    #[serde(default)]
+    pub use_proxy: bool,
     #[serde(default = "default_transformer")]
     pub transformer: String,
     #[serde(default)]
     pub model: String,
+    #[serde(default)]
+    pub models: Vec<String>,
     #[serde(default)]
     pub remark: String,
 }
@@ -60,8 +69,10 @@ pub struct UpdateEndpointRequest {
     pub api_key: Option<String>,
     pub auth_mode: Option<String>,
     pub enabled: Option<bool>,
+    pub use_proxy: Option<bool>,
     pub transformer: Option<String>,
     pub model: Option<String>,
+    pub models: Option<Vec<String>>,
     pub remark: Option<String>,
 }
 

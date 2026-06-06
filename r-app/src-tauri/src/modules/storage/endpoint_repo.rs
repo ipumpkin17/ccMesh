@@ -3,7 +3,7 @@ use rusqlite::{params, Connection, OptionalExtension, Row};
 use crate::error::{AppError, AppResult};
 use crate::models::endpoint::{CreateEndpointRequest, Endpoint, UpdateEndpointRequest};
 
-const COLS: &str = "id, name, api_url, api_key, auth_mode, enabled, transformer, model, remark, sort_order, test_status, created_at, updated_at";
+const COLS: &str = "id, name, api_url, api_key, auth_mode, enabled, use_proxy, transformer, model, models, remark, sort_order, test_status, created_at, updated_at";
 
 fn row_to_endpoint(row: &Row) -> rusqlite::Result<Endpoint> {
     Ok(Endpoint {
@@ -13,8 +13,13 @@ fn row_to_endpoint(row: &Row) -> rusqlite::Result<Endpoint> {
         api_key: row.get("api_key")?,
         auth_mode: row.get("auth_mode")?,
         enabled: row.get::<_, i64>("enabled")? != 0,
+        use_proxy: row.get::<_, i64>("use_proxy")? != 0,
         transformer: row.get("transformer")?,
         model: row.get("model")?,
+        models: {
+            let s: String = row.get("models")?;
+            serde_json::from_str(&s).unwrap_or_default()
+        },
         remark: row.get("remark")?,
         sort_order: row.get("sort_order")?,
         test_status: row.get("test_status")?,
@@ -74,16 +79,18 @@ pub fn create(conn: &Connection, req: &CreateEndpointRequest) -> AppResult<Endpo
 
     conn.execute(
         "INSERT INTO endpoints
-            (name, api_url, api_key, auth_mode, enabled, transformer, model, remark, sort_order)
-         VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9)",
+            (name, api_url, api_key, auth_mode, enabled, use_proxy, transformer, model, models, remark, sort_order)
+         VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11)",
         params![
             req.name,
             req.api_url,
             req.api_key,
             req.auth_mode,
             req.enabled as i64,
+            req.use_proxy as i64,
             req.transformer,
             req.model,
+            serde_json::to_string(&req.models).unwrap_or_else(|_| "[]".into()),
             req.remark,
             next_order,
         ],
@@ -117,11 +124,17 @@ pub fn update(conn: &Connection, id: i64, req: &UpdateEndpointRequest) -> AppRes
     if let Some(v) = req.enabled {
         e.enabled = v;
     }
+    if let Some(v) = req.use_proxy {
+        e.use_proxy = v;
+    }
     if let Some(ref v) = req.transformer {
         e.transformer = v.clone();
     }
     if let Some(ref v) = req.model {
         e.model = v.clone();
+    }
+    if let Some(ref v) = req.models {
+        e.models = v.clone();
     }
     if let Some(ref v) = req.remark {
         e.remark = v.clone();
@@ -130,16 +143,19 @@ pub fn update(conn: &Connection, id: i64, req: &UpdateEndpointRequest) -> AppRes
     conn.execute(
         "UPDATE endpoints SET
             name = ?1, api_url = ?2, api_key = ?3, auth_mode = ?4, enabled = ?5,
-            transformer = ?6, model = ?7, remark = ?8, updated_at = datetime('now')
-         WHERE id = ?9",
+            use_proxy = ?6, transformer = ?7, model = ?8, models = ?9, remark = ?10,
+            updated_at = datetime('now')
+         WHERE id = ?11",
         params![
             e.name,
             e.api_url,
             e.api_key,
             e.auth_mode,
             e.enabled as i64,
+            e.use_proxy as i64,
             e.transformer,
             e.model,
+            serde_json::to_string(&e.models).unwrap_or_else(|_| "[]".into()),
             e.remark,
             id,
         ],
@@ -195,8 +211,10 @@ mod tests {
             api_key: String::new(),
             auth_mode: "api_key".into(),
             enabled: true,
+            use_proxy: false,
             transformer: "claude".into(),
             model: String::new(),
+            models: Vec::new(),
             remark: String::new(),
         }
     }
@@ -208,8 +226,10 @@ mod tests {
             api_key: None,
             auth_mode: None,
             enabled,
+            use_proxy: None,
             transformer: None,
             model: None,
+            models: None,
             remark: None,
         }
     }

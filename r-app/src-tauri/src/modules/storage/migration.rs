@@ -62,6 +62,9 @@ const MIGRATIONS: &[&str] = &[
         key   TEXT PRIMARY KEY,
         value TEXT NOT NULL
     );",
+    // v2：端点一对多模型清单 + 端点级代理开关
+    "ALTER TABLE endpoints ADD COLUMN models    TEXT    NOT NULL DEFAULT '[]';
+     ALTER TABLE endpoints ADD COLUMN use_proxy INTEGER NOT NULL DEFAULT 0;",
 ];
 
 /// 幂等执行迁移：读取 `schema_version` 当前版本，仅应用尚未执行的脚本。

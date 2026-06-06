@@ -23,6 +23,8 @@ pub const SAFE_CONFIG_KEYS: &[&str] = &[
     "webdav_statsPath",
     "update_autoCheck",
     "update_checkInterval",
+    "openaiUa",
+    "claudeCliUa",
 ];
 
 pub fn get_value(conn: &Connection, key: &str) -> AppResult<Option<String>> {
@@ -82,6 +84,9 @@ pub fn get_config(conn: &Connection) -> AppResult<AppConfig> {
         auto_dark_start: parse_str(&m, "autoDarkStart", &d.auto_dark_start),
         close_window_behavior: parse_str(&m, "closeWindowBehavior", &d.close_window_behavior),
         models_cache_ttl: parse_i64(&m, "modelsCacheTtl", d.models_cache_ttl),
+        proxy_url: parse_str(&m, "proxyUrl", &d.proxy_url),
+        openai_ua: parse_str(&m, "openaiUa", &d.openai_ua),
+        claude_cli_ua: parse_str(&m, "claudeCliUa", &d.claude_cli_ua),
         update: UpdateSettings {
             auto_check: parse_bool(&m, "update_autoCheck", true),
             check_interval: parse_i64(&m, "update_checkInterval", 24),

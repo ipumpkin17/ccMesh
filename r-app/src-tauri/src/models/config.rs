@@ -45,6 +45,12 @@ pub struct AppConfig {
     pub auto_dark_start: String,  // "HH:MM"
     pub close_window_behavior: String, // quit/minimize/ask
     pub models_cache_ttl: i64,         // 分钟
+    /// 全局代理地址（空=直连）；端点 use_proxy 为真时经此代理出网。
+    pub proxy_url: String,
+    /// 转发到 OpenAI 端点时覆盖 User-Agent（空=透传客户端）。
+    pub openai_ua: String,
+    /// 转发到 Claude 端点时覆盖 User-Agent（空=透传客户端）。
+    pub claude_cli_ua: String,
     pub update: UpdateSettings,
     pub webdav: WebDavConfig,
 }
@@ -61,6 +67,9 @@ impl Default for AppConfig {
             auto_dark_start: "19:00".into(),
             close_window_behavior: "ask".into(),
             models_cache_ttl: 30,
+            proxy_url: String::new(),
+            openai_ua: String::new(),
+            claude_cli_ua: String::new(),
             update: UpdateSettings::default(),
             webdav: WebDavConfig::default(),
         }

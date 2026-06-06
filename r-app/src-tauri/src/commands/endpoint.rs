@@ -61,8 +61,10 @@ pub fn clone_endpoint(state: State<AppState>, id: i64) -> AppResult<Endpoint> {
         api_key: src.api_key,
         auth_mode: src.auth_mode,
         enabled: src.enabled,
+        use_proxy: src.use_proxy,
         transformer: src.transformer,
         model: src.model,
+        models: src.models,
         remark: src.remark,
     };
     endpoint_repo::create(&conn, &req)
