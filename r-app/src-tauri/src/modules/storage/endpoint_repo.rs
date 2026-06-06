@@ -257,5 +257,34 @@ mod tests {
         assert_eq!(list[0].name, "b");
         assert_eq!(list[1].name, "a");
     }
+
+    #[test]
+    fn models_and_use_proxy_roundtrip() {
+        let c = db();
+        let mut r = req("agg");
+        r.models = vec!["gpt-5".into(), "deepseek-r1".into()];
+        r.use_proxy = true;
+        let created = create(&c, &r).unwrap();
+        assert_eq!(created.models, vec!["gpt-5".to_string(), "deepseek-r1".to_string()]);
+        assert!(created.use_proxy);
+
+        let got = get_by_id(&c, created.id).unwrap().unwrap();
+        assert_eq!(got.models, vec!["gpt-5".to_string(), "deepseek-r1".to_string()]);
+        assert!(got.use_proxy);
+
+        update(
+            &c,
+            created.id,
+            &UpdateEndpointRequest {
+                models: Some(vec![]),
+                use_proxy: Some(false),
+                ..Default::default()
+            },
+        )
+        .unwrap();
+        let got2 = get_by_id(&c, created.id).unwrap().unwrap();
+        assert!(got2.models.is_empty());
+        assert!(!got2.use_proxy);
+    }
 }
 

@@ -120,4 +120,17 @@ mod tests {
             .unwrap();
         assert_eq!(n, 3);
     }
+
+    #[test]
+    fn v2_adds_models_and_use_proxy_columns() {
+        let c = Connection::open_in_memory().unwrap();
+        run_migrations(&c).unwrap();
+        let cols: Vec<String> = {
+            let mut stmt = c.prepare("PRAGMA table_info(endpoints)").unwrap();
+            let rows = stmt.query_map([], |r| r.get::<_, String>(1)).unwrap();
+            rows.filter_map(Result::ok).collect()
+        };
+        assert!(cols.contains(&"models".to_string()));
+        assert!(cols.contains(&"use_proxy".to_string()));
+    }
 }
