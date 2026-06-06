@@ -123,6 +123,7 @@ pub fn run() {
             commands::endpoint::clone_endpoint,
             commands::endpoint::test_endpoint,
             commands::models::get_models,
+            commands::models::fetch_endpoint_models,
             commands::tokens::count_tokens,
             commands::logs::get_recent_logs,
             commands::logs::set_log_level,

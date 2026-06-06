@@ -5,7 +5,7 @@ use serde_json::{json, Value};
 use tauri::State;
 
 use crate::error::{AppError, AppResult};
-use crate::modules::models_cache::fetch_models;
+use crate::modules::models_cache::{fetch_model_ids, fetch_models};
 use crate::modules::storage::{config_repo, endpoint_repo};
 use crate::state::AppState;
 
@@ -52,4 +52,18 @@ pub async fn get_models(
         cache.updated_at = Some(Utc::now());
     }
     Ok(json!({ "object": "list", "data": all }))
+}
+
+/// 拉取指定上游端点的可用模型 id 列表（供端点表单「刷新」按钮；端点可能尚未保存，故按字段传参）。
+#[tauri::command]
+pub async fn fetch_endpoint_models(
+    api_url: String,
+    api_key: String,
+    transformer: String,
+) -> AppResult<Vec<String>> {
+    let client = reqwest::Client::builder()
+        .timeout(Duration::from_secs(15))
+        .build()
+        .map_err(|e| AppError::Proxy(format!("构建客户端失败: {e}")))?;
+    Ok(fetch_model_ids(&client, &api_url, &api_key, &transformer).await)
 }
