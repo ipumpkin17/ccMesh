@@ -64,45 +64,7 @@ pub fn period_stats(conn: &Connection, start: &str, end: &str) -> AppResult<Peri
     Ok(ps)
 }
 
-/// 列出有数据的归档月份（"YYYY-MM" 倒序）。
-pub fn archive_months(conn: &Connection) -> AppResult<Vec<String>> {
-    let mut stmt = conn.prepare(
-        "SELECT DISTINCT strftime('%Y-%m', date) AS m FROM daily_stats
-         WHERE date IS NOT NULL AND date != '' ORDER BY m DESC",
-    )?;
-    let rows = stmt.query_map([], |r| r.get::<_, String>(0))?;
-    let mut out = Vec::new();
-    for r in rows {
-        out.push(r?);
-    }
-    Ok(out)
-}
-
-/// 某月每端点每日明细。
-pub fn monthly_data(conn: &Connection, month: &str) -> AppResult<Vec<DailyStat>> {
-    let mut stmt = conn.prepare(
-        "SELECT endpoint_name, date, SUM(requests), SUM(errors), SUM(input_tokens), SUM(output_tokens),
-                SUM(cache_creation_tokens), SUM(cache_read_tokens)
-         FROM daily_stats WHERE strftime('%Y-%m', date) = ?1
-         GROUP BY endpoint_name, date ORDER BY date DESC, endpoint_name",
-    )?;
-    let rows = stmt.query_map(params![month], row_to_daily)?;
-    let mut out = Vec::new();
-    for r in rows {
-        out.push(r?);
-    }
-    Ok(out)
-}
-
-/// 删除某月全部统计。返回删除行数。
-pub fn delete_month(conn: &Connection, month: &str) -> AppResult<usize> {
-    let n = conn.execute(
-        "DELETE FROM daily_stats WHERE strftime('%Y-%m', date) = ?1",
-        params![month],
-    )?;
-    Ok(n)
-}
-
+/// 行映射：daily_stats 聚合行 → DailyStat。
 fn row_to_daily(r: &rusqlite::Row) -> rusqlite::Result<DailyStat> {
     Ok(DailyStat {
         endpoint_name: r.get(0)?,
@@ -176,18 +138,6 @@ mod tests {
         assert_eq!(ps.cache_creation_tokens, 6);
         assert_eq!(ps.cache_read_tokens, 9);
         assert_eq!(ps.endpoints.len(), 1);
-    }
-
-    #[test]
-    fn monthly_archive_list_and_delete() {
-        let c = db();
-        upsert(&c, "ep", "2026-05-01", "dev", 1, 0, 0, 0, 0, 0).unwrap();
-        upsert(&c, "ep", "2026-06-01", "dev", 1, 0, 0, 0, 0, 0).unwrap();
-        let months = archive_months(&c).unwrap();
-        assert!(months.contains(&"2026-06".to_string()));
-        assert!(months.contains(&"2026-05".to_string()));
-        assert_eq!(delete_month(&c, "2026-05").unwrap(), 1);
-        assert!(!archive_months(&c).unwrap().contains(&"2026-05".to_string()));
     }
 
     #[test]
