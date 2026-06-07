@@ -2,6 +2,7 @@ import { useState } from "react";
 
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { EndpointStatsPanel } from "./_components/EndpointStatsPanel";
+import { UsagePanel } from "./_components/UsagePanel";
 
 const TOP_TABS = [
   { key: "endpoint", label: "端点统计" },
@@ -30,10 +31,7 @@ export function Statistics() {
           <EndpointStatsPanel />
         </TabsContent>
         <TabsContent value="usage">
-          {/* WP3 用量统计在此挂载 UsagePanel */}
-          <p className="py-8 text-center text-sm text-ink-mute">
-            用量统计开发中…
-          </p>
+          <UsagePanel />
         </TabsContent>
       </Tabs>
     </div>
