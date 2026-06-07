@@ -10,6 +10,8 @@ pub struct DailyStat {
     pub errors: i64,
     pub input_tokens: i64,
     pub output_tokens: i64,
+    pub cache_creation_tokens: i64,
+    pub cache_read_tokens: i64,
 }
 
 /// 某端点在一个周期内的聚合。
@@ -21,6 +23,8 @@ pub struct EndpointStat {
     pub errors: i64,
     pub input_tokens: i64,
     pub output_tokens: i64,
+    pub cache_creation_tokens: i64,
+    pub cache_read_tokens: i64,
 }
 
 /// 单周期聚合（总量 + 每端点明细）。
@@ -31,6 +35,8 @@ pub struct PeriodStats {
     pub errors: i64,
     pub input_tokens: i64,
     pub output_tokens: i64,
+    pub cache_creation_tokens: i64,
+    pub cache_read_tokens: i64,
     pub endpoints: Vec<EndpointStat>,
 }
 
@@ -52,4 +58,40 @@ pub struct StatsOverview {
     pub this_week: PeriodStats,
     pub this_month: PeriodStats,
     pub trend: TrendCompare,
+}
+
+/// 逐条请求明细（对应 `request_logs`）。事件推送时 `id` 为 0（尚未落库）。
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct RequestLog {
+    pub id: i64,
+    /// 请求时间（Unix 毫秒，UTC）。
+    pub ts: i64,
+    pub endpoint_name: String,
+    pub inbound_format: String,
+    pub upstream_url: String,
+    pub status_code: Option<i64>,
+    pub is_error: bool,
+    pub input_tokens: i64,
+    pub output_tokens: i64,
+    pub cache_creation_tokens: i64,
+    pub cache_read_tokens: i64,
+    pub model: Option<String>,
+    pub duration_ms: Option<i64>,
+}
+
+/// 请求明细分页结果。
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct RequestLogPage {
+    pub items: Vec<RequestLog>,
+    pub total: i64,
+}
+
+/// 历史记录分页结果（按端点×日聚合行）。
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct StatsHistoryPage {
+    pub items: Vec<DailyStat>,
+    pub total: i64,
 }
