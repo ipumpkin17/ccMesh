@@ -1,14 +1,14 @@
 阶段,里程碑,任务编号,标题,所属层,前置任务,PRD Story,状态,负责人,开始日期,完成日期,备注
-WP1,数据层地基,1.1,daily_stats 增加缓存创建/缓存读取两列(v3迁移),后端,,4;5,未开始,claude,,,增列式改造保持向后兼容
-WP1,数据层地基,1.2,Token解析补充缓存字段(流式+非流式),后端,1.1,5,未开始,claude,,,usage.rs
-WP1,数据层地基,1.3,聚合器/仓储/模型结构体同步缓存字段,后端,1.1;1.2,3;4,未开始,claude,,,aggregator/stats_repo/models
-WP1,数据层地基,1.4,新建 request_logs 明细表+v3迁移,后端,1.1,9;10;11;12;13;14;17,未开始,claude,,,含 ts/endpoint/inbound/upstream/status/tokens 等
-WP1,数据层地基,1.5,采集点双写(透传 model/状态码/时间/入站/出站),后端,1.4,9;10;11;12;13,未开始,claude,,,forward.rs 记录汇聚点
-WP1,数据层地基,1.6,get_request_logs 分页+时间段查询命令,后端,1.4,15;16,未开始,claude,,,
-WP1,数据层地基,1.7,request-logged 实时事件,后端,1.5,35,未开始,claude,,,payload 单条明细
-WP1,数据层地基,1.8,request_logs 90天保留与清理,后端,1.4,17,未开始,claude,,,插入时或启动时清理
-WP1,数据层地基,1.9,历史记录命令 get_stats_history+删除,后端,1.3,6;7;8,未开始,claude,,,替代原按月接口
-WP1,数据层地基,1.10,前端 services/types 同步(缓存/RequestLog/事件),前端,1.6;1.7;1.9,36,未开始,claude,,,stats.ts/request.ts
+WP1,数据层地基,1.1,daily_stats 增加缓存创建/缓存读取两列(v3迁移),后端,,4;5,完成,claude,2026-06-07,2026-06-07,增列式改造保持向后兼容
+WP1,数据层地基,1.2,Token解析补充缓存字段(流式+非流式),后端,1.1,5,完成,claude,2026-06-07,2026-06-07,usage.rs 返回 TokenUsage
+WP1,数据层地基,1.3,聚合器/仓储/模型结构体同步缓存字段,后端,1.1;1.2,3;4,完成,claude,2026-06-07,2026-06-07,aggregator/stats_repo/models
+WP1,数据层地基,1.4,新建 request_logs 明细表+v3迁移,后端,1.1,9;10;11;12;13;14;17,完成,claude,2026-06-07,2026-06-07,含 ts/endpoint/inbound/upstream/status/tokens 等
+WP1,数据层地基,1.5,采集点双写(透传 model/状态码/时间/入站/出站),后端,1.4,9;10;11;12;13,完成,claude,2026-06-07,2026-06-07,forward.rs RequestMeta 贯穿
+WP1,数据层地基,1.6,get_request_logs 分页+时间段查询命令,后端,1.4,15;16,完成,claude,2026-06-07,2026-06-07,
+WP1,数据层地基,1.7,request-logged 实时事件,后端,1.5,35,完成,claude,2026-06-07,2026-06-07,payload 单条明细
+WP1,数据层地基,1.8,request_logs 90天保留与清理,后端,1.4,17,完成,claude,2026-06-07,2026-06-07,flush 内每小时至多清理一次
+WP1,数据层地基,1.9,历史记录命令 get_stats_history+删除,后端,1.3,6;7;8,完成,claude,2026-06-07,2026-06-07,保留旧按月接口待WP2移除
+WP1,数据层地基,1.10,前端 services/types 同步(缓存/RequestLog/事件),前端,1.6;1.7;1.9,36,完成,claude,2026-06-07,2026-06-07,stats.ts/request.ts
 WP2,统计页改造,2.1,顶部一级Tab(端点统计|用量统计),前端,,1;2,未开始,claude,,,周期Tab降为子级
 WP2,统计页改造,2.2,端点统计表新增缓存两列,前端,1.10,3;4,未开始,claude,,,EndpointStatsTable
 WP2,统计页改造,2.3,通用分页组件,前端,,7;16;33,未开始,claude,,,库内当前无分页组件
