@@ -7,5 +7,6 @@ pub mod proxy;
 pub mod stats;
 pub mod tokens;
 pub mod update;
+pub mod usage;
 pub mod webdav;
 pub mod window;

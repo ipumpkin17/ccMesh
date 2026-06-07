@@ -87,6 +87,27 @@ const MIGRATIONS: &[&str] = &[
      );
      CREATE INDEX IF NOT EXISTS idx_request_logs_ts       ON request_logs(ts);
      CREATE INDEX IF NOT EXISTS idx_request_logs_endpoint ON request_logs(endpoint_name);",
+    // v4：本机用量统计（Claude Code / Codex 会话 JSONL 增量同步）
+    "CREATE TABLE IF NOT EXISTS usage_records (
+        id                    INTEGER PRIMARY KEY AUTOINCREMENT,
+        app_type              TEXT    NOT NULL,
+        record_key            TEXT    NOT NULL,
+        date                  TEXT    NOT NULL,
+        model                 TEXT    NOT NULL DEFAULT '',
+        requests              INTEGER NOT NULL DEFAULT 0,
+        input_tokens          INTEGER NOT NULL DEFAULT 0,
+        output_tokens         INTEGER NOT NULL DEFAULT 0,
+        cache_creation_tokens INTEGER NOT NULL DEFAULT 0,
+        cache_read_tokens     INTEGER NOT NULL DEFAULT 0,
+        UNIQUE(app_type, record_key)
+     );
+     CREATE INDEX IF NOT EXISTS idx_usage_records_date ON usage_records(date);
+     CREATE INDEX IF NOT EXISTS idx_usage_records_app  ON usage_records(app_type);
+
+     CREATE TABLE IF NOT EXISTS usage_sync_state (
+        file_path TEXT PRIMARY KEY,
+        mtime_ns  INTEGER NOT NULL
+     );",
 ];
 
 /// 幂等执行迁移：读取 `schema_version` 当前版本，仅应用尚未执行的脚本。

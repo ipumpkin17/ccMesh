@@ -7,4 +7,5 @@ pub mod tokens;
 pub mod transform;
 pub mod tray;
 pub mod usage;
+pub mod usage_local;
 pub mod webdav;

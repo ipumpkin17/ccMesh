@@ -17,3 +17,11 @@ pub fn app_data_dir(app: &AppHandle) -> AppResult<PathBuf> {
 pub fn db_path(app: &AppHandle) -> AppResult<PathBuf> {
     Ok(app_data_dir(app)?.join("ccnexus.db"))
 }
+
+/// 用户主目录（Windows: `%USERPROFILE%`，Unix: `$HOME`）。用于定位本机工具会话日志。
+pub fn home_dir() -> Option<PathBuf> {
+    std::env::var_os("USERPROFILE")
+        .or_else(|| std::env::var_os("HOME"))
+        .map(PathBuf::from)
+        .filter(|p| !p.as_os_str().is_empty())
+}
