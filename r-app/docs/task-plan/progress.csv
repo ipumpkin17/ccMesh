@@ -15,11 +15,11 @@ WP2,统计页改造,2.3,通用分页组件,前端,,7;16;33,完成,claude,2026-06
 WP2,统计页改造,2.4,历史记录弹窗(分页+按行/按天删除),前端,1.10;2.3,6;7;8,完成,claude,2026-06-07,2026-06-07,HistoryDialog 替换 HistoryPanel
 WP2,统计页改造,2.5,共享 RequestMonitor 组件(live/ranged+Token悬停),前端,1.10;2.3,9;10;11;12;13;14;15;16;36,完成,claude,2026-06-07,2026-06-07,Req9 共享;拆出纯表 RequestLogTable
 WP2,统计页改造,2.6,端点统计下半接入 RequestMonitor(ranged),前端,2.5,9;10;11;12;13;14;15;16,完成,claude,2026-06-07,2026-06-07,EndpointStatsPanel 集成
-WP3,用量统计MVP,3.1,用量表+同步进度表迁移,后端,,18;19;20;21;22;23;24,未开始,claude,,,mtime+偏移增量
-WP3,用量统计MVP,3.2,Claude Code 读取器(增量+去重),后端,3.1,18;24,未开始,claude,,,~/.claude/projects JSONL
-WP3,用量统计MVP,3.3,Codex 读取器(累计取差+增量),后端,3.1,19;24,未开始,claude,,,~/.codex/sessions JSONL
-WP3,用量统计MVP,3.4,聚合查询命令(sync/summary/by_model/by_day),后端,3.2;3.3,20;21;22;23;24;25,未开始,claude,,,无成本字段
-WP3,用量统计MVP,3.5,用量统计前端(总量卡+按模型表+按天表+过滤+刷新),前端,3.4,20;21;22;23;24;25,未开始,claude,,,挂统计页用量Tab
+WP3,用量统计MVP,3.1,用量表+同步进度表迁移,后端,,18;19;20;21;22;23;24,完成,claude,2026-06-07,2026-06-07,migration v4: usage_records/usage_sync_state
+WP3,用量统计MVP,3.2,Claude Code 读取器(增量+去重),后端,3.1,18;24,完成,claude,2026-06-07,2026-06-07,usage_local/claude.rs 同id取max
+WP3,用量统计MVP,3.3,Codex 读取器(累计取差+增量),后端,3.1,19;24,完成,claude,2026-06-07,2026-06-07,usage_local/codex.rs 逐事件delta
+WP3,用量统计MVP,3.4,聚合查询命令(sync/summary/by_model/by_day),后端,3.2;3.3,20;21;22;23;24;25,完成,claude,2026-06-07,2026-06-07,commands/usage.rs
+WP3,用量统计MVP,3.5,用量统计前端(总量卡片+按模型表+按天表+过滤+刷新),前端,3.4,20;21;22;23;24;25,完成,claude,2026-06-07,2026-06-07,UsagePanel 替换占位
 WP4,仪表盘改造,4.1,第一卡片改左3右2栅格,前端,,26;27,未开始,claude,,,响应式可堆叠
 WP4,仪表盘改造,4.2,左侧启用端点列表+当前工作端点高亮,前端,4.1,26;34,未开始,claude,,,别名用 name
 WP4,仪表盘改造,4.3,右侧代理信息+开关+端口点击跳设置,前端,4.1,27;28,未开始,claude,,,复用 ProxyControl 逻辑
