@@ -16,7 +16,7 @@ use tokio_stream::wrappers::ReceiverStream;
 use crate::models::endpoint::Endpoint;
 use crate::modules::proxy::resolver;
 use crate::modules::proxy::rotation::{self, Rotation};
-use crate::modules::stats::aggregator::StatsAggregator;
+use crate::modules::stats::aggregator::{RequestRecord, StatsAggregator};
 use crate::modules::storage::{db::DbPool, endpoint_repo};
 use crate::modules::usage;
 use crate::modules::transform::claude_openai::openai_response_to_claude;
@@ -98,6 +98,37 @@ impl ProxyState {
     }
 }
 
+/// 单次请求的元信息，贯穿响应处理并用于构造统计明细记录。
+#[derive(Clone)]
+struct RequestMeta {
+    endpoint: String,
+    model: Option<String>,
+    inbound_format: String,
+    upstream_url: String,
+    started_ms: i64,
+}
+
+impl RequestMeta {
+    /// 在记录时构造 `RequestRecord`：现在时间减去开始时间得到耗时。
+    fn into_record(
+        &self,
+        status_code: Option<i64>,
+        is_error: bool,
+        tu: usage::TokenUsage,
+    ) -> RequestRecord {
+        RequestRecord {
+            endpoint_name: self.endpoint.clone(),
+            model: self.model.clone(),
+            inbound_format: self.inbound_format.clone(),
+            upstream_url: self.upstream_url.clone(),
+            status_code,
+            is_error,
+            usage: tu,
+            duration_ms: Some(chrono::Utc::now().timestamp_millis() - self.started_ms),
+        }
+    }
+}
+
 fn json_error(status: StatusCode, message: &str) -> Response {
     (
         status,
@@ -147,6 +178,7 @@ pub async fn handle_proxy(
     body: Bytes,
 ) -> Response {
     let path = uri.path().to_string();
+    let started_ms = chrono::Utc::now().timestamp_millis();
 
     // 解析请求体（model / stream / 供转换复用）
     let body_json: Option<Value> = serde_json::from_slice(&body).ok();
@@ -300,25 +332,30 @@ pub async fn handle_proxy(
             }
             Some(Ok(resp)) => {
                 let status = resp.status().as_u16();
+                let meta = RequestMeta {
+                    endpoint: ep.name.clone(),
+                    model: model.clone(),
+                    inbound_format: (if inbound_openai { "openai" } else { "claude" }).to_string(),
+                    upstream_url: ep.api_url.clone(),
+                    started_ms,
+                };
                 if status == 200 {
                     // 真实 token 由各响应处理函数解析上游 usage 后记录
                     let stats = st.stats.clone();
-                    let name = ep.name.clone();
                     return match (needs_transform, client_wants_stream) {
-                        (true, true) => stream_transform_response(
-                            resp,
-                            model.clone().unwrap_or_default(),
-                            stats,
-                            name,
-                        ),
-                        (true, false) => transform_buffered_response(resp, stats, name).await,
-                        (false, true) => relay_stream_response(resp, stats, name, format),
-                        (false, false) => relay_buffered_response(resp, stats, name, format).await,
+                        (true, true) => stream_transform_response(resp, stats, meta),
+                        (true, false) => transform_buffered_response(resp, stats, meta).await,
+                        (false, true) => relay_stream_response(resp, stats, meta, format),
+                        (false, false) => relay_buffered_response(resp, stats, meta, format).await,
                     };
                 }
                 if !rotation::should_retry_status(status) {
                     // 最终非重试状态（400/401）原样回传（错误无 usage）
-                    st.stats.record(&ep.name, status >= 400, 0, 0);
+                    st.stats.record(meta.into_record(
+                        Some(status as i64),
+                        status >= 400,
+                        usage::TokenUsage::default(),
+                    ));
                     return relay_passthrough(resp);
                 }
                 last_err = format!("上游返回 {status}");
@@ -347,7 +384,16 @@ pub async fn handle_proxy(
     }
 
     if !last_endpoint.is_empty() {
-        st.stats.record(&last_endpoint, true, 0, 0);
+        st.stats.record(RequestRecord {
+            endpoint_name: last_endpoint.clone(),
+            model: model.clone(),
+            inbound_format: (if inbound_openai { "openai" } else { "claude" }).to_string(),
+            upstream_url: String::new(),
+            status_code: None,
+            is_error: true,
+            usage: usage::TokenUsage::default(),
+            duration_ms: Some(chrono::Utc::now().timestamp_millis() - started_ms),
+        });
     }
     json_error(
         StatusCode::BAD_GATEWAY,
@@ -460,7 +506,7 @@ fn relay_passthrough(resp: reqwest::Response) -> Response {
 async fn relay_buffered_response(
     resp: reqwest::Response,
     stats: Arc<StatsAggregator>,
-    endpoint: String,
+    meta: RequestMeta,
     format: UpstreamFormat,
 ) -> Response {
     let status = StatusCode::from_u16(resp.status().as_u16()).unwrap_or(StatusCode::BAD_GATEWAY);
@@ -469,10 +515,10 @@ async fn relay_buffered_response(
         Ok(b) => b,
         Err(e) => return json_error(StatusCode::BAD_GATEWAY, &format!("读取上游响应失败: {e}")),
     };
-    let (i, o) = serde_json::from_slice::<Value>(&bytes)
+    let tu = serde_json::from_slice::<Value>(&bytes)
         .map(|j| usage::from_response(&j, format))
-        .unwrap_or((0, 0));
-    stats.record(&endpoint, false, i, o);
+        .unwrap_or_default();
+    stats.record(meta.into_record(Some(status.as_u16() as i64), false, tu));
     let mut response = Response::new(Body::from(bytes));
     *response.status_mut() = status;
     *response.headers_mut() = out;
@@ -483,7 +529,7 @@ async fn relay_buffered_response(
 fn relay_stream_response(
     resp: reqwest::Response,
     stats: Arc<StatsAggregator>,
-    endpoint: String,
+    meta: RequestMeta,
     format: UpstreamFormat,
 ) -> Response {
     let status = StatusCode::from_u16(resp.status().as_u16()).unwrap_or(StatusCode::BAD_GATEWAY);
@@ -502,8 +548,8 @@ fn relay_stream_response(
                 break;
             }
         }
-        let (i, o) = acc.finish();
-        stats.record(&endpoint, false, i, o);
+        let tu = acc.finish();
+        stats.record(meta.into_record(Some(status.as_u16() as i64), false, tu));
     });
     let body = Body::from_stream(ReceiverStream::new(rx));
     let mut response = Response::new(body);
@@ -516,13 +562,13 @@ fn relay_stream_response(
 async fn transform_buffered_response(
     resp: reqwest::Response,
     stats: Arc<StatsAggregator>,
-    endpoint: String,
+    meta: RequestMeta,
 ) -> Response {
     match resp.text().await {
         Ok(text) => match serde_json::from_str::<Value>(&text) {
             Ok(openai) => {
-                let (i, o) = usage::from_response(&openai, UpstreamFormat::OpenAiChat);
-                stats.record(&endpoint, false, i, o);
+                let tu = usage::from_response(&openai, UpstreamFormat::OpenAiChat);
+                stats.record(meta.into_record(Some(200), false, tu));
                 (StatusCode::OK, axum::Json(openai_response_to_claude(&openai))).into_response()
             }
             Err(_) => json_error(StatusCode::BAD_GATEWAY, "上游响应解析失败"),
@@ -534,13 +580,12 @@ async fn transform_buffered_response(
 /// 流式 OpenAI SSE → 边解析边转换为 Claude SSE 事件流回传；流结束记录真实 usage。
 fn stream_transform_response(
     resp: reqwest::Response,
-    model: String,
     stats: Arc<StatsAggregator>,
-    endpoint: String,
+    meta: RequestMeta,
 ) -> Response {
     let (tx, rx) = mpsc::channel::<Result<Bytes, std::io::Error>>(32);
     tokio::spawn(async move {
-        let mut converter = StreamConverter::new(model, 0);
+        let mut converter = StreamConverter::new(meta.model.clone().unwrap_or_default(), 0);
         let mut stream = resp.bytes_stream();
         let mut buf = String::new();
         while let Some(item) = stream.next().await {
@@ -575,7 +620,8 @@ fn stream_transform_response(
             let _ = tx.send(Ok(Bytes::from(ev))).await;
         }
         let (i, o) = converter.usage();
-        stats.record(&endpoint, false, i, o);
+        let tu = usage::TokenUsage { input: i, output: o, cache_creation: 0, cache_read: 0 };
+        stats.record(meta.into_record(Some(200), false, tu));
     });
 
     let body = Body::from_stream(ReceiverStream::new(rx));
