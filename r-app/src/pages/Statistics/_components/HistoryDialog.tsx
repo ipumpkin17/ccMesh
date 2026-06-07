@@ -69,7 +69,7 @@ export function HistoryDialog() {
           <HistoryIcon className="size-4" /> 历史记录
         </Button>
       </DialogTrigger>
-      <DialogContent className="max-w-3xl">
+      <DialogContent className="max-w-5xl">
         <DialogHeader>
           <DialogTitle>历史记录</DialogTitle>
         </DialogHeader>
@@ -80,10 +80,10 @@ export function HistoryDialog() {
           <p className="text-sm text-ink-mute">暂无历史记录</p>
         ) : (
           <div className="flex flex-col gap-3">
-            <div className="overflow-hidden rounded-lg border border-edge">
+            <div className="max-h-[60vh] overflow-auto rounded-lg border border-edge">
               <table className="w-full text-sm">
                 <thead>
-                  <tr className="border-b border-edge text-xs text-ink-secondary">
+                  <tr className="sticky top-0 border-b border-edge bg-background text-xs text-ink-secondary">
                     <th className="px-3 py-2 text-left font-medium">日期</th>
                     <th className="px-3 py-2 text-left font-medium">端点</th>
                     <th className="px-3 py-2 text-right font-medium">请求</th>

@@ -1,5 +1,6 @@
 import { StatCard } from "@/components/business";
 import { RequestMonitor } from "@/components/business/RequestMonitor";
+import { formatTokenCompact } from "@/lib/format";
 import { useStats } from "@/hooks/useStats";
 import { ServiceCard } from "./_components/ServiceCard";
 
@@ -27,7 +28,17 @@ export function Dashboard() {
       <div className="grid grid-cols-3 gap-4">
         <StatCard label="请求数（今日）" value={today?.requests ?? 0} />
         <StatCard label="失败数（今日）" value={today?.errors ?? 0} />
-        <StatCard label="Token（今日）" value={tokens.toLocaleString()} />
+        <StatCard
+          label="Token（今日）"
+          value={tokens.toLocaleString()}
+          hint={
+            tokens >= 1e4 ? (
+              <span className="text-xs text-ink-secondary">
+                {formatTokenCompact(tokens)}
+              </span>
+            ) : undefined
+          }
+        />
       </div>
 
       <RequestMonitor mode="live" pageSize={10} />
