@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { InfoIcon } from "lucide-react";
 
@@ -16,36 +16,10 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { RANGE_OPTIONS, rangeMs, startOfTodayMs, type RangeKey } from "@/lib/range";
 import { statsApi, type RequestLog } from "@/services/modules/stats";
 
 type Mode = "live" | "ranged";
-type RangeKey = "today" | "7d" | "30d" | "all";
-
-const RANGES: { key: RangeKey; label: string }[] = [
-  { key: "today", label: "今日" },
-  { key: "7d", label: "近 7 天" },
-  { key: "30d", label: "近 30 天" },
-  { key: "all", label: "全部" },
-];
-
-const DAY_MS = 86_400_000;
-
-function computeRange(key: RangeKey): { startMs?: number; endMs?: number } {
-  const now = Date.now();
-  switch (key) {
-    case "today": {
-      const d = new Date();
-      d.setHours(0, 0, 0, 0);
-      return { startMs: d.getTime(), endMs: now };
-    }
-    case "7d":
-      return { startMs: now - 7 * DAY_MS, endMs: now };
-    case "30d":
-      return { startMs: now - 30 * DAY_MS, endMs: now };
-    case "all":
-      return {};
-  }
-}
 
 interface Props {
   /** live：事件驱动实时刷新；ranged：时间段 + 分页查询。 */
@@ -65,7 +39,12 @@ export function RequestMonitor({ mode, endpointFilter, pageSize = 20, title }: P
   const qc = useQueryClient();
   const [page, setPage] = useState(1);
   const [rangeKey, setRangeKey] = useState<RangeKey>("today");
-  const range = mode === "ranged" ? computeRange(rangeKey) : {};
+  // 按天对齐的稳定锚点：同一天内多次渲染得到相同区间，避免 queryKey 逐帧漂移导致无限重取。
+  const todayStart = startOfTodayMs();
+  const range = useMemo(
+    () => (mode === "ranged" ? rangeMs(rangeKey, todayStart) : {}),
+    [mode, rangeKey, todayStart],
+  );
 
   const { data, isLoading } = useQuery({
     queryKey: [
@@ -124,7 +103,7 @@ export function RequestMonitor({ mode, endpointFilter, pageSize = 20, title }: P
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
-              {RANGES.map((r) => (
+              {RANGE_OPTIONS.map((r) => (
                 <SelectItem key={r.key} value={r.key}>
                   {r.label}
                 </SelectItem>
