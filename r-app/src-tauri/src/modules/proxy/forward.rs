@@ -94,6 +94,10 @@ struct RequestMeta {
     model: Option<String>,
     inbound_format: String,
     upstream_url: String,
+    /// 真实入站路由路径（客户端实际请求的 `uri.path()`）。
+    inbound_path: String,
+    /// 真实出站路由路径（实际转发上游的路径，转换时为 `/v1/chat/completions`）。
+    upstream_path: String,
     started_ms: i64,
 }
 
@@ -110,6 +114,8 @@ impl RequestMeta {
             model: self.model.clone(),
             inbound_format: self.inbound_format.clone(),
             upstream_url: self.upstream_url.clone(),
+            inbound_path: self.inbound_path.clone(),
+            upstream_path: self.upstream_path.clone(),
             status_code,
             is_error,
             usage: tu,
@@ -326,6 +332,8 @@ pub async fn handle_proxy(
                     model: model.clone(),
                     inbound_format: (if inbound_openai { "openai" } else { "claude" }).to_string(),
                     upstream_url: ep.api_url.clone(),
+                    inbound_path: path.clone(),
+                    upstream_path: upstream_path.to_string(),
                     started_ms,
                 };
                 if status == 200 {
@@ -378,6 +386,8 @@ pub async fn handle_proxy(
             model: model.clone(),
             inbound_format: (if inbound_openai { "openai" } else { "claude" }).to_string(),
             upstream_url: String::new(),
+            inbound_path: path.clone(),
+            upstream_path: String::new(),
             status_code: None,
             is_error: true,
             usage: usage::TokenUsage::default(),

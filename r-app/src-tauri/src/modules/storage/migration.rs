@@ -108,6 +108,10 @@ const MIGRATIONS: &[&str] = &[
         file_path TEXT PRIMARY KEY,
         mtime_ns  INTEGER NOT NULL
      );",
+    // v5：request_logs 记录真实入站/出站路由路径（监控"入站/出站"列展示用）。
+    // 旧行默认空串，前端按 inbound_format 协议推断兜底。
+    "ALTER TABLE request_logs ADD COLUMN inbound_path  TEXT NOT NULL DEFAULT '';
+     ALTER TABLE request_logs ADD COLUMN upstream_path TEXT NOT NULL DEFAULT '';",
 ];
 
 /// 幂等执行迁移：读取 `schema_version` 当前版本，仅应用尚未执行的脚本。
@@ -196,5 +200,18 @@ mod tests {
             )
             .unwrap();
         assert_eq!(has_table, 1);
+    }
+
+    #[test]
+    fn v5_adds_request_log_path_columns() {
+        let c = Connection::open_in_memory().unwrap();
+        run_migrations(&c).unwrap();
+        let cols: Vec<String> = {
+            let mut stmt = c.prepare("PRAGMA table_info(request_logs)").unwrap();
+            let rows = stmt.query_map([], |r| r.get::<_, String>(1)).unwrap();
+            rows.filter_map(Result::ok).collect()
+        };
+        assert!(cols.contains(&"inbound_path".to_string()));
+        assert!(cols.contains(&"upstream_path".to_string()));
     }
 }

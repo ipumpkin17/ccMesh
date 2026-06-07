@@ -70,6 +70,10 @@ pub struct RequestLog {
     pub endpoint_name: String,
     pub inbound_format: String,
     pub upstream_url: String,
+    /// 真实入站路由路径（如 `/v1/messages`、`/v1/chat/completions`）。旧行为空串。
+    pub inbound_path: String,
+    /// 真实出站路由路径（实际转发上游的路径，转换后为 `/v1/chat/completions`）。旧行为空串。
+    pub upstream_path: String,
     pub status_code: Option<i64>,
     pub is_error: bool,
     pub input_tokens: i64,

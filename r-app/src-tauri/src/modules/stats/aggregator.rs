@@ -34,6 +34,10 @@ pub struct RequestRecord {
     pub model: Option<String>,
     pub inbound_format: String,
     pub upstream_url: String,
+    /// 真实入站路由路径（`uri.path()`）。
+    pub inbound_path: String,
+    /// 真实出站路由路径（实际转发上游的路径）。失败兜底为空串。
+    pub upstream_path: String,
     pub status_code: Option<i64>,
     pub is_error: bool,
     pub usage: TokenUsage,
@@ -105,6 +109,8 @@ impl StatsAggregator {
             endpoint_name: rec.endpoint_name,
             inbound_format: rec.inbound_format,
             upstream_url: rec.upstream_url,
+            inbound_path: rec.inbound_path,
+            upstream_path: rec.upstream_path,
             status_code: rec.status_code,
             is_error: rec.is_error,
             input_tokens: rec.usage.input,

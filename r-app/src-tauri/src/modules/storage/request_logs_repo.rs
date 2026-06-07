@@ -12,10 +12,10 @@ pub fn insert_batch(conn: &mut Connection, logs: &[RequestLog], device_id: &str)
     {
         let mut stmt = tx.prepare(
             "INSERT INTO request_logs(
-                ts, endpoint_name, inbound_format, upstream_url, status_code, is_error,
-                input_tokens, output_tokens, cache_creation_tokens, cache_read_tokens,
-                model, duration_ms, device_id)
-             VALUES(?1,?2,?3,?4,?5,?6,?7,?8,?9,?10,?11,?12,?13)",
+                ts, endpoint_name, inbound_format, upstream_url, inbound_path, upstream_path,
+                status_code, is_error, input_tokens, output_tokens, cache_creation_tokens,
+                cache_read_tokens, model, duration_ms, device_id)
+             VALUES(?1,?2,?3,?4,?5,?6,?7,?8,?9,?10,?11,?12,?13,?14,?15)",
         )?;
         for l in logs {
             stmt.execute(params![
@@ -23,6 +23,8 @@ pub fn insert_batch(conn: &mut Connection, logs: &[RequestLog], device_id: &str)
                 l.endpoint_name,
                 l.inbound_format,
                 l.upstream_url,
+                l.inbound_path,
+                l.upstream_path,
                 l.status_code,
                 l.is_error as i64,
                 l.input_tokens,
@@ -54,6 +56,8 @@ fn row_to_log(r: &rusqlite::Row) -> rusqlite::Result<RequestLog> {
         cache_read_tokens: r.get(10)?,
         model: r.get(11)?,
         duration_ms: r.get(12)?,
+        inbound_path: r.get(13)?,
+        upstream_path: r.get(14)?,
     })
 }
 
@@ -94,7 +98,8 @@ pub fn query_page(
     page_args.push(SqlValue::Integer(offset));
     let sql = format!(
         "SELECT id, ts, endpoint_name, inbound_format, upstream_url, status_code, is_error,
-                input_tokens, output_tokens, cache_creation_tokens, cache_read_tokens, model, duration_ms
+                input_tokens, output_tokens, cache_creation_tokens, cache_read_tokens, model, duration_ms,
+                inbound_path, upstream_path
          FROM request_logs{where_sql}
          ORDER BY ts DESC, id DESC LIMIT ? OFFSET ?"
     );
@@ -131,6 +136,8 @@ mod tests {
             endpoint_name: endpoint.to_string(),
             inbound_format: "claude".to_string(),
             upstream_url: "https://x".to_string(),
+            inbound_path: "/v1/messages".to_string(),
+            upstream_path: "/v1/chat/completions".to_string(),
             status_code: Some(200),
             is_error,
             input_tokens: 10,
@@ -179,5 +186,21 @@ mod tests {
         let (items, total) = query_page(&c, None, None, None, 50, 0).unwrap();
         assert_eq!(total, 1);
         assert_eq!(items[0].ts, 500);
+    }
+
+    #[test]
+    fn query_round_trips_path_columns() {
+        let mut c = db();
+        // 正常行带路径；模拟旧行：路径留空串
+        let mut empty = log(200, "b", false);
+        empty.inbound_path = String::new();
+        empty.upstream_path = String::new();
+        insert_batch(&mut c, &[log(100, "a", false), empty], "dev").unwrap();
+        let (items, _) = query_page(&c, None, None, None, 50, 0).unwrap();
+        // ts 倒序：b(200) 在前，a(100) 在后
+        assert_eq!(items[0].inbound_path, "");
+        assert_eq!(items[0].upstream_path, "");
+        assert_eq!(items[1].inbound_path, "/v1/messages");
+        assert_eq!(items[1].upstream_path, "/v1/chat/completions");
     }
 }
