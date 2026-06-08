@@ -4,6 +4,7 @@ use tauri::{AppHandle, Emitter, State};
 use tauri_plugin_updater::UpdaterExt;
 
 use crate::error::{AppError, AppResult};
+use crate::modules::proxy::client::should_proxy_update;
 use crate::modules::storage::config_repo;
 use crate::state::AppState;
 
@@ -24,13 +25,41 @@ pub struct UpdateSettings {
     pub skipped_version: String,
 }
 
+/// 构建 updater：`proxyForUpdate` 且地址非空时经代理出网（无 scheme 按 http 处理；无效则告警直连）。
+fn build_updater(
+    app: &AppHandle,
+    state: &State<'_, AppState>,
+) -> AppResult<tauri_plugin_updater::Updater> {
+    let cfg = {
+        let conn = state.db_pool.get()?;
+        config_repo::get_config(&conn)?
+    };
+    let mut builder = app.updater_builder();
+    if should_proxy_update(cfg.proxy_for_update, &cfg.proxy_url) {
+        let raw = cfg.proxy_url.trim();
+        let normalized = if raw.contains("://") {
+            raw.to_string()
+        } else {
+            format!("http://{raw}")
+        };
+        match normalized.parse() {
+            Ok(u) => builder = builder.proxy(u),
+            Err(e) => tracing::warn!("更新代理地址无效，直连检查更新: {e}"),
+        }
+    }
+    builder
+        .build()
+        .map_err(|e| AppError::Unknown(format!("更新器不可用: {e}")))
+}
+
 /// 检查更新（endpoints/pubkey 未配置时返回错误，由前端容错处理）。
 #[tauri::command]
-pub async fn check_for_updates(app: AppHandle) -> AppResult<UpdateInfo> {
+pub async fn check_for_updates(
+    app: AppHandle,
+    state: State<'_, AppState>,
+) -> AppResult<UpdateInfo> {
     let current = app.package_info().version.to_string();
-    let updater = app
-        .updater()
-        .map_err(|e| AppError::Unknown(format!("更新器不可用: {e}")))?;
+    let updater = build_updater(&app, &state)?;
     match updater.check().await {
         Ok(Some(u)) => Ok(UpdateInfo {
             available: true,
@@ -50,10 +79,11 @@ pub async fn check_for_updates(app: AppHandle) -> AppResult<UpdateInfo> {
 
 /// 下载并安装更新；通过 `update-progress` 事件推送进度。
 #[tauri::command]
-pub async fn download_and_install(app: AppHandle) -> AppResult<()> {
-    let updater = app
-        .updater()
-        .map_err(|e| AppError::Unknown(format!("更新器不可用: {e}")))?;
+pub async fn download_and_install(
+    app: AppHandle,
+    state: State<'_, AppState>,
+) -> AppResult<()> {
+    let updater = build_updater(&app, &state)?;
     let update = updater
         .check()
         .await
