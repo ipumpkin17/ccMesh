@@ -11,7 +11,7 @@ import { proxyApi } from "@/services/modules/proxy";
 import { statsApi } from "@/services/modules/stats";
 import { useLayoutStore } from "@/stores";
 import { useProxyStore } from "@/stores/modules/proxy";
-import { SeaTide } from "./SeaTide";
+import { ProxyScene } from "./ProxyScene";
 
 /**
  * 仪表盘首卡（左 2/3 / 右 1/3 双卡片）：
@@ -105,23 +105,28 @@ export function ServiceCard() {
         </CardContent>
       </Card>
 
-      {/* 右 1/3：本地代理信息 + 开关 + 端口跳设置 + 水纹波效 */}
+      {/* 右 1/3：本地代理信息 + 开关 + 端口跳设置 + 日出/日落场景 */}
       <Card className="relative overflow-hidden md:col-span-1">
-        {running && <SeaTide />}
-        <CardContent className="relative z-10 flex h-full flex-col justify-between gap-3 px-5 py-4">
+        <ProxyScene running={running} />
+        {/* 文字可读性遮罩：顶/底加深，保留中部场景色彩 */}
+        <div
+          aria-hidden
+          className="pointer-events-none absolute inset-0 z-[5] bg-gradient-to-t from-black/40 via-black/10 to-black/25"
+        />
+        <CardContent className="relative z-10 flex h-full flex-col justify-between gap-3 px-5 py-4 text-white [text-shadow:0_1px_3px_rgba(0,0,0,0.5)]">
           <div className="flex flex-col gap-1.5">
             <span className="text-sm font-medium">本地代理</span>
             <button
               type="button"
               onClick={() => setActiveView("settings")}
-              className="self-start text-xs text-ink-secondary underline-offset-2 transition-colors hover:text-foreground hover:underline"
+              className="self-start text-xs text-white/85 underline-offset-2 transition-colors hover:text-white hover:underline"
               title="前往设置修改端口"
             >
               端口 <TabularText>{status?.port ?? "—"}</TabularText>
             </button>
           </div>
           <div className="flex items-center justify-between gap-2">
-            <span className="text-xs text-ink-secondary">
+            <span className="text-xs text-white/85">
               {running ? "运行中" : "已停止"}
             </span>
             <Switch
