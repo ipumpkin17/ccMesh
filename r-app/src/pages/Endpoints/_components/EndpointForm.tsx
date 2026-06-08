@@ -107,7 +107,7 @@ export function EndpointForm({ open, onOpenChange, editing }: Props) {
 
   const refresh = useMutation({
     mutationFn: () =>
-      endpointApi.fetchModels(form.apiUrl, form.apiKey, form.transformer),
+      endpointApi.fetchModels(form.apiUrl, form.apiKey, form.transformer, form.useProxy),
     onSuccess: (ids) => {
       const merged = Array.from(new Set([...form.models, ...ids]));
       update({ models: merged });

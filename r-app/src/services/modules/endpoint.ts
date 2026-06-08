@@ -52,6 +52,16 @@ export const endpointApi = {
   clone: (id: number) => request<Endpoint>("clone_endpoint", { id }),
   test: (id: number, model?: string) =>
     request<EndpointTestResult>("test_endpoint", { id, model }),
-  fetchModels: (apiUrl: string, apiKey: string, transformer: string) =>
-    request<string[]>("fetch_endpoint_models", { apiUrl, apiKey, transformer }),
+  fetchModels: (
+    apiUrl: string,
+    apiKey: string,
+    transformer: string,
+    useProxy?: boolean,
+  ) =>
+    request<string[]>("fetch_endpoint_models", {
+      apiUrl,
+      apiKey,
+      transformer,
+      useProxy,
+    }),
 };
