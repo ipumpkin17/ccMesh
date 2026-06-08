@@ -118,6 +118,7 @@ pub fn run() {
             commands::usage::get_usage_summary,
             commands::usage::get_usage_by_model,
             commands::usage::get_usage_by_day,
+            commands::usage::get_usage_by_day_model,
             commands::backup::export_config,
             commands::backup::import_config,
             commands::config::get_config,

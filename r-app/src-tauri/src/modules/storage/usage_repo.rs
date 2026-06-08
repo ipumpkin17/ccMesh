@@ -1,7 +1,7 @@
 use rusqlite::{params, params_from_iter, types::Value as SqlValue, Connection};
 
 use crate::error::AppResult;
-use crate::models::usage::{DailyUsage, ModelUsage, UsageRecord, UsageSummary};
+use crate::models::usage::{DailyUsage, DayModelUsage, ModelUsage, UsageRecord, UsageSummary};
 
 /// 读取文件上次同步的 mtime（纳秒）。无记录返回 0。
 pub fn synced_mtime(conn: &Connection, file_path: &str) -> AppResult<i64> {
@@ -164,6 +164,43 @@ pub fn by_day(
     Ok(out)
 }
 
+/// 按 (date, app_type, model) 三维聚合：date 倒序，组内按 token 合计降序。
+/// 供用量统计「日期合并表」使用。
+pub fn by_day_model(
+    conn: &Connection,
+    start: Option<&str>,
+    end: Option<&str>,
+    app_type: Option<&str>,
+) -> AppResult<Vec<DayModelUsage>> {
+    let (where_sql, args) = build_filter(start, end, app_type);
+    let sql = format!(
+        "SELECT date, app_type, model, SUM(requests), SUM(input_tokens), SUM(output_tokens),
+                SUM(cache_creation_tokens), SUM(cache_read_tokens)
+         FROM usage_records{where_sql}
+         GROUP BY date, app_type, model
+         ORDER BY date DESC,
+                  SUM(input_tokens + output_tokens + cache_creation_tokens + cache_read_tokens) DESC"
+    );
+    let mut stmt = conn.prepare(&sql)?;
+    let rows = stmt.query_map(params_from_iter(args.iter()), |r| {
+        Ok(DayModelUsage {
+            date: r.get(0)?,
+            app_type: r.get(1)?,
+            model: r.get(2)?,
+            requests: r.get::<_, Option<i64>>(3)?.unwrap_or(0),
+            input_tokens: r.get::<_, Option<i64>>(4)?.unwrap_or(0),
+            output_tokens: r.get::<_, Option<i64>>(5)?.unwrap_or(0),
+            cache_creation_tokens: r.get::<_, Option<i64>>(6)?.unwrap_or(0),
+            cache_read_tokens: r.get::<_, Option<i64>>(7)?.unwrap_or(0),
+        })
+    })?;
+    let mut out = Vec::new();
+    for r in rows {
+        out.push(r?);
+    }
+    Ok(out)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -223,6 +260,25 @@ mod tests {
         let days = by_day(&c, None, None, None).unwrap();
         assert_eq!(days.len(), 3); // (06-01,claude)(06-02,claude)(06-02,codex)
         assert_eq!(days[0].date, "2026-06-02"); // date 倒序
+    }
+
+    #[test]
+    fn by_day_model_groups_and_orders() {
+        let c = db();
+        // 同 (date,app,model) 两条 → 累加；不同模型分行；日期倒序、组内 token 降序
+        insert_record(&c, &rec("claude", "k1", "2026-06-08", "opus", 100, 200)).unwrap();
+        insert_record(&c, &rec("claude", "k2", "2026-06-08", "opus", 11, 22)).unwrap();
+        insert_record(&c, &rec("claude", "k3", "2026-06-08", "mimo", 5, 5)).unwrap();
+        insert_record(&c, &rec("claude", "k4", "2026-06-07", "opus", 1, 1)).unwrap();
+
+        let rows = by_day_model(&c, None, None, None).unwrap();
+        assert_eq!(rows.len(), 3);
+        assert_eq!(rows[0].date, "2026-06-08");
+        assert_eq!(rows[0].model, "opus"); // 组内 token 合计 333 > mimo 10
+        assert_eq!(rows[0].requests, 2); // k1+k2 累加
+        assert_eq!(rows[0].input_tokens, 111);
+        assert_eq!(rows[1].model, "mimo");
+        assert_eq!(rows[2].date, "2026-06-07"); // 日期倒序
     }
 
     #[test]

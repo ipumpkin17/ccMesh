@@ -1,7 +1,7 @@
 use tauri::State;
 
 use crate::error::{AppError, AppResult};
-use crate::models::usage::{DailyUsage, ModelUsage, UsageSummary, UsageSyncResult};
+use crate::models::usage::{DailyUsage, DayModelUsage, ModelUsage, UsageSummary, UsageSyncResult};
 use crate::modules::storage::usage_repo;
 use crate::modules::usage_local;
 use crate::state::AppState;
@@ -54,4 +54,16 @@ pub fn get_usage_by_day(
 ) -> AppResult<Vec<DailyUsage>> {
     let conn = state.db_pool.get()?;
     usage_repo::by_day(&conn, start.as_deref(), end.as_deref(), app_type.as_deref())
+}
+
+/// 按天 × 来源 × 模型聚合（多维合并表）。
+#[tauri::command]
+pub fn get_usage_by_day_model(
+    state: State<AppState>,
+    start: Option<String>,
+    end: Option<String>,
+    app_type: Option<String>,
+) -> AppResult<Vec<DayModelUsage>> {
+    let conn = state.db_pool.get()?;
+    usage_repo::by_day_model(&conn, start.as_deref(), end.as_deref(), app_type.as_deref())
 }

@@ -52,6 +52,20 @@ pub struct DailyUsage {
     pub cache_read_tokens: i64,
 }
 
+/// 按天 × 来源 × 模型聚合（多维合并表：前端按 date 行合并展示）。
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct DayModelUsage {
+    pub date: String,
+    pub app_type: String,
+    pub model: String,
+    pub requests: i64,
+    pub input_tokens: i64,
+    pub output_tokens: i64,
+    pub cache_creation_tokens: i64,
+    pub cache_read_tokens: i64,
+}
+
 /// 一次本机用量同步结果。
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
