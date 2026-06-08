@@ -39,3 +39,8 @@ WP7,监控端点路由展示,7.2,采集点透传真实入站/出站路径+事件
 WP7,监控端点路由展示,7.3,前端入站/出站改路径列(含旧行兜底),前端,7.1;7.2,1;2;4;5,完成,claude,2026-06-08,2026-06-08,优先真实路径;空按 inboundFormat 推断;upstreamUrl 作 title
 WP8,用量多维表,8.1,日期×来源×模型 聚合查询 by_day_model+命令+单测,后端,,,完成,claude,2026-06-08,2026-06-08,date倒序组内token降序;usage_repo/commands/lib 注册
 WP8,用量多维表,8.2,用量统计改多维日期合并表(rowSpan)替换两张一维表,前端,8.1,,完成,claude,2026-06-08,2026-06-08,UsagePanel DayModelTable;groupByDate 单测;保留汇总卡+筛选
+WP9,端点熔断,9.1,circuit_breaker.rs 三态机+许可协议+双触发+Registry/select_candidates+单测,后端,,2;3;4;5;7;8;14,待开始,claude,,,移植cc-switch;请求驱动惰性恢复;半开单许可
+WP9,端点熔断,9.2,rotation.rs 增 categorize 错误分类+单测,后端,,6;15,待开始,claude,,,Retryable/NonRetryable/ClientAbort 重试与熔断共用
+WP9,端点熔断,9.3,ProxyState增breakers+handle_proxy选路集成,后端,9.1;9.2,2;3;5;6;7;8;9;12,待开始,claude,,,is_available跳过/allow_request许可/record三路回传/全Open兜底/显式绕过/转换发事件
+WP9,端点熔断,9.4,get_endpoint_health命令+endpoint-health-changed事件+前端封装,后端+前端,9.3,10;11;12,待开始,claude,,,事件仅状态转换时发
+WP9,端点熔断,9.5,前端实时展示 端点列表健康灯+端点页熔断徽标+单测,前端,9.4,10;11;12,待开始,claude,,,事件驱动实时刷新
