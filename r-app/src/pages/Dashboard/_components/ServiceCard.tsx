@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useTheme } from "next-themes";
 import { toast } from "sonner";
 
@@ -8,7 +8,7 @@ import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
 import { Switch } from "@/components/ui/switch";
 import { cn } from "@/lib/utils";
-import { healthApi } from "@/services/modules/health";
+import { circuitDot, healthApi } from "@/services/modules/health";
 import { proxyApi } from "@/services/modules/proxy";
 import { statsApi } from "@/services/modules/stats";
 import { useLayoutStore } from "@/stores";
@@ -26,12 +26,28 @@ export function ServiceCard() {
   const setActiveView = useLayoutStore((s) => s.setActiveView);
   const { resolvedTheme } = useTheme();
   const dark = resolvedTheme === "dark";
+  const qc = useQueryClient();
   // 最近一条请求明细对应的端点（与实时监控同源，第一时间反映轮换/故障转移）。
   const [liveEndpoint, setLiveEndpoint] = useState<string | null>(null);
   const { data: health } = useQuery({
     queryKey: ["health"],
     queryFn: healthApi.getHealth,
   });
+  // 端点实时健康/熔断态；熔断状态转换事件到达即刷新。
+  const { data: epHealth } = useQuery({
+    queryKey: ["endpoint-health"],
+    queryFn: healthApi.getEndpointHealth,
+  });
+  useEffect(() => {
+    let un: (() => void) | undefined;
+    healthApi
+      .onHealthChanged(() => qc.invalidateQueries({ queryKey: ["endpoint-health"] }))
+      .then((u) => {
+        un = u;
+      });
+    return () => un?.();
+  }, [qc]);
+  const healthByName = new Map((epHealth ?? []).map((h) => [h.name, h]));
 
   useEffect(() => {
     let unlisten: (() => void) | undefined;
@@ -86,15 +102,25 @@ export function ServiceCard() {
               <ul className="flex flex-wrap gap-2">
                 {endpoints.map((e) => {
                   const active = e.name === current;
+                  const h = healthByName.get(e.name);
+                  const broken = h && h.circuit !== "closed";
+                  const dot = broken
+                    ? circuitDot(h.circuit)
+                    : active && running
+                      ? "info"
+                      : "success";
+                  const title = broken
+                    ? `${h.circuit === "open" ? "熔断中" : "恢复中"}${
+                        h.lastError ? ` · ${h.lastError}` : ""
+                      }`
+                    : undefined;
                   return (
                     <li
                       key={e.name}
+                      title={title}
                       className="flex items-center gap-1.5 rounded-md px-2 py-1 text-sm"
                     >
-                      <StatusDot
-                        status={active && running ? "info" : "success"}
-                        pulse={active && running}
-                      />
+                      <StatusDot status={dot} pulse={active && running} />
                       {active ? (
                         <Badge variant="info">{e.name}</Badge>
                       ) : (

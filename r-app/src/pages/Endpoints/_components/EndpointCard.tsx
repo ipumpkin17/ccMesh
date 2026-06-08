@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   ActivityIcon,
   CopyIcon,
@@ -24,6 +24,7 @@ import {
 } from "@/components/ui/popover";
 import { Switch } from "@/components/ui/switch";
 import { endpointApi, type Endpoint } from "@/services/modules/endpoint";
+import { healthApi } from "@/services/modules/health";
 import type { EndpointView } from "@/stores";
 import { TestBadge } from "./TestBadge";
 
@@ -49,6 +50,21 @@ export function EndpointCard({
   const qc = useQueryClient();
   const invalidate = () => qc.invalidateQueries({ queryKey: ["endpoints"] });
   const [testOpen, setTestOpen] = useState(false);
+  // 共享 ["endpoint-health"] 查询（多卡片去重）；展示运行期熔断态。
+  const { data: epHealth } = useQuery({
+    queryKey: ["endpoint-health"],
+    queryFn: healthApi.getEndpointHealth,
+  });
+  const health = epHealth?.find((h) => h.name === endpoint.name);
+  const circuitBadge =
+    health && health.circuit !== "closed" ? (
+      <Badge
+        variant={health.circuit === "open" ? "danger" : "warning"}
+        title={health.lastError ?? undefined}
+      >
+        {health.circuit === "open" ? "熔断中" : "恢复中"}
+      </Badge>
+    ) : null;
 
   const toggle = useMutation({
     mutationFn: (v: boolean) => endpointApi.update(endpoint.id, { enabled: v }),
@@ -209,7 +225,10 @@ export function EndpointCard({
           </div>
           {meta}
           <div className="mt-auto flex items-center justify-between gap-2 border-t border-edge-subtle pt-2.5">
-            {availability}
+            <div className="flex items-center gap-1.5">
+              {availability}
+              {circuitBadge}
+            </div>
             {enableSwitch}
           </div>
           <div className="flex justify-end">{actions}</div>
@@ -227,6 +246,7 @@ export function EndpointCard({
             <span className="truncate font-medium">{endpoint.name}</span>
             <Badge variant="muted">{endpoint.transformer}</Badge>
             {availability}
+            {circuitBadge}
           </div>
           {meta}
         </div>
