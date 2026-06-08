@@ -78,6 +78,8 @@ pub struct ProxyState {
     pub active: ActiveRequests,
     pub stats: Arc<StatsAggregator>,
     pub current_endpoint: Mutex<Option<String>>,
+    /// 全局「启用代理」开关（start_proxy 时读配置；端点 use_proxy 未开时按此决定是否走代理）。
+    pub proxy_enabled: bool,
     /// 每端点熔断器（请求驱动，运行期内存态）。
     pub breakers: BreakerRegistry,
 }
@@ -465,9 +467,19 @@ async fn send_upstream(
     let rmethod =
         reqwest::Method::from_bytes(method.as_str().as_bytes()).unwrap_or(reqwest::Method::POST);
 
-    // 端点级代理：use_proxy 且存在代理 client 时走代理，否则直连
-    let client = if ep.use_proxy {
-        st.proxy_client.as_ref().unwrap_or(&st.client)
+    // 是否走代理：端点 use_proxy 或全局 proxy_enabled。want 但无可用代理 client 时 warn 后回落直连（不静默）。
+    let want_proxy = ep.use_proxy || st.proxy_enabled;
+    let client = if want_proxy {
+        match st.proxy_client.as_ref() {
+            Some(c) => c,
+            None => {
+                tracing::warn!(
+                    endpoint = %ep.name,
+                    "已请求经代理出网，但无可用代理 client（代理地址为空/无效），回落直连"
+                );
+                &st.client
+            }
+        }
     } else {
         &st.client
     };

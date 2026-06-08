@@ -123,6 +123,7 @@ pub async fn start_proxy(
         active: ActiveRequests::default(),
         stats,
         current_endpoint: Mutex::new(None),
+        proxy_enabled: cfg.proxy_enabled,
         breakers: BreakerRegistry::new(CircuitBreakerConfig::default()),
     });
 
