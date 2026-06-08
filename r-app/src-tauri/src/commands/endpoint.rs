@@ -6,6 +6,7 @@ use tauri::State;
 
 use crate::error::{AppError, AppResult};
 use crate::models::endpoint::{CreateEndpointRequest, Endpoint, UpdateEndpointRequest};
+use crate::modules::proxy::client::{build_client, should_use_proxy};
 use crate::modules::storage::{config_repo, endpoint_repo};
 use crate::modules::transform::transformer::UpstreamFormat;
 use crate::state::AppState;
@@ -121,22 +122,14 @@ pub async fn test_endpoint(
             .ok_or_else(|| AppError::NotFound(format!("端点 #{id} 不存在")))?
     };
 
-    // 测试 client 遵循端点代理配置：use_proxy 且配置了全局代理则走代理，否则直连（显式禁用系统代理）
-    let proxy_url = {
+    // 测试 client 遵循代理决策：端点 use_proxy 或全局 proxyEnabled（且地址非空）则经代理，否则直连。
+    let (proxy_enabled, proxy_url) = {
         let conn = state.db_pool.get()?;
-        config_repo::get_value(&conn, "proxyUrl")?.unwrap_or_default()
+        let cfg = config_repo::get_config(&conn)?;
+        (cfg.proxy_enabled, cfg.proxy_url)
     };
-    let mut builder = reqwest::Client::builder().timeout(Duration::from_secs(30));
-    builder = match proxy_url.trim() {
-        p if ep.use_proxy && !p.is_empty() => match reqwest::Proxy::all(p) {
-            Ok(proxy) => builder.proxy(proxy),
-            Err(_) => builder.no_proxy(),
-        },
-        _ => builder.no_proxy(),
-    };
-    let client = builder
-        .build()
-        .map_err(|e| AppError::Proxy(format!("构建测试客户端失败: {e}")))?;
+    let want = should_use_proxy(ep.use_proxy, proxy_enabled, &proxy_url);
+    let client = build_client(want, &proxy_url, Duration::from_secs(30))?;
 
     let base = ep.api_url.trim_end_matches('/');
     let format = UpstreamFormat::from_transformer_name(&ep.transformer);
@@ -206,6 +199,53 @@ pub async fn test_endpoint(
         let conn = state.db_pool.get()?;
         endpoint_repo::set_test_status(&conn, id, status)?;
     }
+
+    Ok(TestResult {
+        success,
+        status: status.to_string(),
+        latency_ms,
+        message,
+    })
+}
+
+/// 代理连通性检测目标：轻量 204 连通性 URL（经代理 GET，验证代理能出网）。
+const PROXY_TEST_URL: &str = "https://www.gstatic.com/generate_204";
+
+/// 测试代理连通性：严格经给定代理地址访问连通性 URL（地址无效直接报错，不回落直连以免误判）。
+#[tauri::command]
+pub async fn test_proxy(url: String) -> AppResult<TestResult> {
+    let url = url.trim();
+    if url.is_empty() {
+        return Ok(TestResult {
+            success: false,
+            status: "unavailable".to_string(),
+            latency_ms: 0,
+            message: "未填写代理地址".to_string(),
+        });
+    }
+    let proxy = reqwest::Proxy::all(url)
+        .map_err(|e| AppError::Proxy(format!("代理地址无效: {e}")))?;
+    let client = reqwest::Client::builder()
+        .timeout(Duration::from_secs(15))
+        .proxy(proxy)
+        .build()
+        .map_err(|e| AppError::Proxy(format!("构建代理客户端失败: {e}")))?;
+
+    let start = Instant::now();
+    let result = client.get(PROXY_TEST_URL).send().await;
+    let latency_ms = start.elapsed().as_millis() as u64;
+
+    let (success, status, message) = match result {
+        Ok(resp) => {
+            let code = resp.status().as_u16();
+            if code < 400 {
+                (true, "available", format!("代理可用（HTTP {code}）"))
+            } else {
+                (false, "unavailable", format!("代理返回 HTTP {code}"))
+            }
+        }
+        Err(e) => (false, "unavailable", format!("经代理请求失败: {e}")),
+    };
 
     Ok(TestResult {
         success,

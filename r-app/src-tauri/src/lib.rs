@@ -132,6 +132,7 @@ pub fn run() {
             commands::endpoint::reorder_endpoints,
             commands::endpoint::clone_endpoint,
             commands::endpoint::test_endpoint,
+            commands::endpoint::test_proxy,
             commands::models::get_models,
             commands::models::fetch_endpoint_models,
             commands::tokens::count_tokens,
