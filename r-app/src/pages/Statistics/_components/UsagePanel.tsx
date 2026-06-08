@@ -122,11 +122,13 @@ export function UsagePanel() {
         <StatCard
           label="输入 Token"
           value={fmt(s?.totalInputTokens ?? 0)}
+          hintBelow
           hint={<TokenHint value={s?.totalInputTokens ?? 0} />}
         />
         <StatCard
           label="输出 Token"
           value={fmt(s?.totalOutputTokens ?? 0)}
+          hintBelow
           hint={<TokenHint value={s?.totalOutputTokens ?? 0} />}
         />
         <StatCard
@@ -134,6 +136,7 @@ export function UsagePanel() {
           value={fmt(
             (s?.totalCacheCreationTokens ?? 0) + (s?.totalCacheReadTokens ?? 0),
           )}
+          hintBelow
           hint={
             <TokenHint
               value={

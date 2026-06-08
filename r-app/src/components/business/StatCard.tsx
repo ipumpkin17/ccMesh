@@ -8,15 +8,23 @@ interface Props {
   label: string;
   value: number | string;
   hint?: ReactNode;
+  /** true 时辅助提示在数值下方（垂直堆叠）；默认在右侧（水平）。 */
+  hintBelow?: boolean;
 }
 
 /** 跨页面业务卡片：标签 + 大号数值 + 可选提示（Statistics / Dashboard 共用）。 */
-export function StatCard({ label, value, hint }: Props) {
+export function StatCard({ label, value, hint, hintBelow = false }: Props) {
   return (
     <Card>
       <CardContent className="flex flex-col gap-1.5 px-5 py-4">
         <span className="text-xs text-ink-secondary">{label}</span>
-        <div className="flex items-center justify-between gap-2">
+        <div
+          className={
+            hintBelow
+              ? "flex flex-col gap-0.5"
+              : "flex items-center justify-between gap-2"
+          }
+        >
           <TabularText className="text-2xl text-foreground">{value}</TabularText>
           {hint}
         </div>
