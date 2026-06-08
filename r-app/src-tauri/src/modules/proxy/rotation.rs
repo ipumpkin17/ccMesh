@@ -56,6 +56,29 @@ pub fn should_retry_status(status: u16) -> bool {
     !matches!(status, 200 | 400 | 401)
 }
 
+/// 一次尝试结果对熔断器的归类。
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum Outcome {
+    /// 可重试故障（5xx/429/网络错误等）：计入熔断失败。
+    Retryable,
+    /// 客户端错误（4xx 业务错误）：不计入熔断（中性），仅释放半开许可。
+    NonRetryable,
+}
+
+/// 客户端错误状态码（请求本身的问题，不应污染端点熔断）。
+fn is_client_error(status: u16) -> bool {
+    matches!(status, 400 | 401 | 403 | 405 | 406 | 413 | 414 | 415 | 422)
+}
+
+/// 按状态码归类熔断结果（200 视为成功由调用方单独处理；此处用于非 200 路径）。
+pub fn categorize_status(status: u16) -> Outcome {
+    if is_client_error(status) {
+        Outcome::NonRetryable
+    } else {
+        Outcome::Retryable
+    }
+}
+
 /// 是否瞬时网络错误（重试「同一」端点 + 300ms 延迟）。
 pub fn is_transient_network_error(msg: &str) -> bool {
     let m = msg.to_lowercase();
@@ -116,5 +139,18 @@ mod tests {
         assert!(is_transient_network_error("connection reset by peer"));
         assert!(is_transient_network_error("request timed out"));
         assert!(!is_transient_network_error("400 Bad Request"));
+    }
+
+    #[test]
+    fn categorize_status_separates_client_errors() {
+        // 客户端错误 → 不污染熔断
+        assert_eq!(categorize_status(400), Outcome::NonRetryable);
+        assert_eq!(categorize_status(401), Outcome::NonRetryable);
+        assert_eq!(categorize_status(422), Outcome::NonRetryable);
+        // 服务端/限流/网关错误 → 计入熔断
+        assert_eq!(categorize_status(429), Outcome::Retryable);
+        assert_eq!(categorize_status(500), Outcome::Retryable);
+        assert_eq!(categorize_status(502), Outcome::Retryable);
+        assert_eq!(categorize_status(503), Outcome::Retryable);
     }
 }
