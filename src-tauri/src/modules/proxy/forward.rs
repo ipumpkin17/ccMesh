@@ -110,6 +110,8 @@ struct RequestMeta {
     /// 真实出站路由路径（实际转发上游的路径，转换时为 `/v1/chat/completions`）。
     upstream_path: String,
     started_ms: i64,
+    /// 首字节延迟（毫秒）：响应头到达时置入；流式响应处理器会在首个内容分片到达时覆盖为更精确的首字。
+    first_byte_ms: Option<i64>,
 }
 
 impl RequestMeta {
@@ -131,6 +133,7 @@ impl RequestMeta {
             is_error,
             usage: tu,
             duration_ms: Some(chrono::Utc::now().timestamp_millis() - self.started_ms),
+            first_byte_ms: self.first_byte_ms,
         }
     }
 }
@@ -264,6 +267,13 @@ pub async fn handle_proxy(
         return json_error(StatusCode::BAD_REQUEST, &msg);
     }
     let use_specific = resolution.use_specific();
+    // 模型可用性过滤：非显式端点时，仅在「声明了该请求模型」的端点间轮换/熔断（故障隔离）；
+    // 无任一端点声明该模型则回退全量（向后兼容）。显式指定端点遵从用户意图，不过滤。
+    let enabled: Vec<Endpoint> = if use_specific {
+        enabled
+    } else {
+        resolver::filter_by_model(&enabled, model.as_deref())
+    };
     // 熔断选路：非显式端点时过滤掉未到期的 Open 端点（全 Open 则兜底放行完整列表）。
     // 显式指定端点绕过熔断（用户意图优先），但结果仍计入熔断。
     let (enabled, gate): (Vec<Endpoint>, bool) = if use_specific {
@@ -382,6 +392,8 @@ pub async fn handle_proxy(
                     inbound_path: path.clone(),
                     upstream_path: upstream_path.to_string(),
                     started_ms,
+                    // 响应头到达即首字节（缓冲响应用此值；流式处理器会在首个内容分片到达时覆盖）。
+                    first_byte_ms: Some(chrono::Utc::now().timestamp_millis() - started_ms),
                 };
                 if status == 200 {
                     // 成功：闭合熔断（半开恢复时回传许可）；转换则通知前端
@@ -491,6 +503,7 @@ pub async fn handle_proxy(
             is_error: true,
             usage: usage::TokenUsage::default(),
             duration_ms: Some(chrono::Utc::now().timestamp_millis() - started_ms),
+            first_byte_ms: None,
         });
     }
     json_error(
@@ -653,13 +666,20 @@ fn relay_stream_response(
     let out = copy_response_headers(&resp);
     let (tx, rx) = mpsc::channel::<Result<Bytes, std::io::Error>>(32);
     tokio::spawn(async move {
+        let mut meta = meta;
         let mut acc = usage::UsageAccumulator::new(format);
         let mut stream = resp.bytes_stream();
+        let mut first = true;
         while let Some(item) = stream.next().await {
             let chunk = match item {
                 Ok(c) => c,
                 Err(_) => break,
             };
+            if first {
+                // 首个内容分片到达 → 更精确的首字延迟，覆盖响应头时刻。
+                meta.first_byte_ms = Some(chrono::Utc::now().timestamp_millis() - meta.started_ms);
+                first = false;
+            }
             acc.feed(&chunk);
             if tx.send(Ok(chunk)).await.is_err() {
                 break;
@@ -706,14 +726,20 @@ fn stream_transform_response(
 ) -> Response {
     let (tx, rx) = mpsc::channel::<Result<Bytes, std::io::Error>>(32);
     tokio::spawn(async move {
+        let mut meta = meta;
         let mut converter = StreamConverter::new(meta.model.clone().unwrap_or_default(), 0);
         let mut stream = resp.bytes_stream();
         let mut buf = String::new();
+        let mut first = true;
         while let Some(item) = stream.next().await {
             let chunk = match item {
                 Ok(c) => c,
                 Err(_) => break,
             };
+            if first {
+                meta.first_byte_ms = Some(chrono::Utc::now().timestamp_millis() - meta.started_ms);
+                first = false;
+            }
             buf.push_str(&String::from_utf8_lossy(&chunk));
             while let Some(nl) = buf.find('\n') {
                 let line: String = buf[..nl].to_string();

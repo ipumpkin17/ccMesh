@@ -90,10 +90,29 @@ fn by_name(name: &str, model_override: Option<String>, enabled: &[Endpoint]) -> 
     }
 }
 
+/// 按请求模型过滤候选端点（轮换/熔断前）：
+/// 若有端点在 `models` 清单中声明了该模型，则只保留这些端点（故障隔离：不含该模型的端点不参与轮换/熔断）；
+/// 若无任一端点声明（或未带 model / 端点均未配置 models），回退完整列表以保向后兼容。大小写不敏感。
+pub fn filter_by_model(enabled: &[Endpoint], model: Option<&str>) -> Vec<Endpoint> {
+    let m = match model {
+        Some(m) if !m.trim().is_empty() => m.trim(),
+        _ => return enabled.to_vec(),
+    };
+    let with_model: Vec<Endpoint> = enabled
+        .iter()
+        .filter(|e| e.models.iter().any(|mm| mm.trim().eq_ignore_ascii_case(m)))
+        .cloned()
+        .collect();
+    if with_model.is_empty() {
+        enabled.to_vec()
+    } else {
+        with_model
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
-
     fn ep(name: &str) -> Endpoint {
         Endpoint {
             id: 1,
@@ -193,5 +212,46 @@ mod tests {
         assert!(r.endpoint.is_none());
         assert!(r.not_found.is_none());
         assert!(!r.use_specific());
+    }
+
+    fn ep_with_models(name: &str, models: &[&str]) -> Endpoint {
+        Endpoint {
+            models: models.iter().map(|s| s.to_string()).collect(),
+            ..ep(name)
+        }
+    }
+
+    #[test]
+    fn filter_by_model_keeps_only_declaring_endpoints() {
+        let eps = vec![
+            ep_with_models("max", &["claude-opus-4-8", "claude-sonnet-4"]),
+            ep_with_models("max2", &["claude-opus-4-8"]),
+            ep_with_models("cc", &["mimo-v2.5-pro"]),
+        ];
+        let got = filter_by_model(&eps, Some("claude-opus-4-8"));
+        let names: Vec<&str> = got.iter().map(|e| e.name.as_str()).collect();
+        assert_eq!(names, vec!["max", "max2"]); // cc 被排除，熔断不受影响
+    }
+
+    #[test]
+    fn filter_by_model_is_case_insensitive() {
+        let eps = vec![ep_with_models("max", &["Claude-Opus-4-8"])];
+        let got = filter_by_model(&eps, Some("claude-opus-4-8"));
+        assert_eq!(got.len(), 1);
+    }
+
+    #[test]
+    fn filter_by_model_falls_back_when_no_endpoint_declares_it() {
+        let eps = vec![ep_with_models("cc", &["mimo-v2.5-pro"]), ep("bare")];
+        // 无端点声明该模型 → 回退全量（向后兼容）
+        let got = filter_by_model(&eps, Some("unknown-model"));
+        assert_eq!(got.len(), 2);
+    }
+
+    #[test]
+    fn filter_by_model_falls_back_when_model_absent() {
+        let eps = vec![ep_with_models("max", &["claude-opus-4-8"]), ep("bare")];
+        assert_eq!(filter_by_model(&eps, None).len(), 2);
+        assert_eq!(filter_by_model(&eps, Some("  ")).len(), 2);
     }
 }
