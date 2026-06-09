@@ -82,6 +82,8 @@ pub struct RequestLog {
     pub cache_read_tokens: i64,
     pub model: Option<String>,
     pub duration_ms: Option<i64>,
+    /// 首字节延迟（毫秒）：流式为首个内容分片到达耗时，缓冲为响应头到达耗时。旧行/无数据为 None。
+    pub first_byte_ms: Option<i64>,
 }
 
 /// 请求明细分页结果。

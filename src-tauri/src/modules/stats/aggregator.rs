@@ -43,6 +43,7 @@ pub struct RequestRecord {
     pub is_error: bool,
     pub usage: TokenUsage,
     pub duration_ms: Option<i64>,
+    pub first_byte_ms: Option<i64>,
 }
 
 /// 统计聚合器：内存累加 + 2 秒防抖批量落库 + 零延迟事件推送。
@@ -125,6 +126,7 @@ impl StatsAggregator {
             cache_read_tokens: rec.usage.cache_read,
             model: rec.model,
             duration_ms: rec.duration_ms,
+            first_byte_ms: rec.first_byte_ms,
         };
         {
             let mut pl = self.pending_logs.lock().unwrap();

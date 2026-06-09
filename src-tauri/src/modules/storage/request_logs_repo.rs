@@ -14,8 +14,8 @@ pub fn insert_batch(conn: &mut Connection, logs: &[RequestLog], device_id: &str)
             "INSERT INTO request_logs(
                 ts, endpoint_name, inbound_format, upstream_url, inbound_path, upstream_path,
                 status_code, is_error, input_tokens, output_tokens, cache_creation_tokens,
-                cache_read_tokens, model, duration_ms, device_id)
-             VALUES(?1,?2,?3,?4,?5,?6,?7,?8,?9,?10,?11,?12,?13,?14,?15)",
+                cache_read_tokens, model, duration_ms, first_byte_ms, device_id)
+             VALUES(?1,?2,?3,?4,?5,?6,?7,?8,?9,?10,?11,?12,?13,?14,?15,?16)",
         )?;
         for l in logs {
             stmt.execute(params![
@@ -33,6 +33,7 @@ pub fn insert_batch(conn: &mut Connection, logs: &[RequestLog], device_id: &str)
                 l.cache_read_tokens,
                 l.model,
                 l.duration_ms,
+                l.first_byte_ms,
                 device_id,
             ])?;
         }
@@ -58,6 +59,7 @@ fn row_to_log(r: &rusqlite::Row) -> rusqlite::Result<RequestLog> {
         duration_ms: r.get(12)?,
         inbound_path: r.get(13)?,
         upstream_path: r.get(14)?,
+        first_byte_ms: r.get(15)?,
     })
 }
 
@@ -99,7 +101,7 @@ pub fn query_page(
     let sql = format!(
         "SELECT id, ts, endpoint_name, inbound_format, upstream_url, status_code, is_error,
                 input_tokens, output_tokens, cache_creation_tokens, cache_read_tokens, model, duration_ms,
-                inbound_path, upstream_path
+                inbound_path, upstream_path, first_byte_ms
          FROM request_logs{where_sql}
          ORDER BY ts DESC, id DESC LIMIT ? OFFSET ?"
     );
@@ -146,6 +148,7 @@ mod tests {
             cache_read_tokens: 2,
             model: Some("m".to_string()),
             duration_ms: Some(123),
+            first_byte_ms: Some(45),
         }
     }
 
@@ -172,6 +175,7 @@ mod tests {
         assert_eq!(page2[0].ts, 100);
         assert!(page1[1].is_error);
         assert_eq!(page1[0].cache_read_tokens, 2);
+        assert_eq!(page1[0].first_byte_ms, Some(45));
     }
 
     #[test]
