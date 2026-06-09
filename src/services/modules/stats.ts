@@ -67,6 +67,8 @@ export interface RequestLog {
   cacheReadTokens: number;
   model: string | null;
   durationMs: number | null;
+  /** 首字节延迟（毫秒）：流式为首个内容分片到达耗时，缓冲为响应头到达耗时。旧行/无数据为 null。 */
+  firstByteMs: number | null;
 }
 
 export interface RequestLogPage {

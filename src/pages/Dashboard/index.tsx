@@ -31,6 +31,7 @@ export function Dashboard() {
           label="Token（今日）"
           value={tokens.toLocaleString()}
           hint={<TokenHint value={tokens} />}
+          hintBelow
         />
       </div>
 

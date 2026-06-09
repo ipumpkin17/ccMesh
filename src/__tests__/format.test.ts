@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { formatTokenCompact } from "@/lib/format";
+import { formatDuration, formatTokenCompact, formatTokenK } from "@/lib/format";
 
 describe("formatTokenCompact", () => {
   it("不足一万：原样千分位，不加单位与约等号", () => {
@@ -32,5 +32,39 @@ describe("formatTokenCompact", () => {
   it("负数取绝对值折算并保留负号", () => {
     expect(formatTokenCompact(-20000)).toBe("-≈2.00万");
     expect(formatTokenCompact(-500)).toBe("-500");
+  });
+});
+
+describe("formatTokenK", () => {
+  it("不足 1000 显示原始整数", () => {
+    expect(formatTokenK(0)).toBe("0");
+    expect(formatTokenK(94)).toBe("94");
+    expect(formatTokenK(999)).toBe("999");
+  });
+
+  it("达到 1000 取整千 k", () => {
+    expect(formatTokenK(1000)).toBe("1k");
+    expect(formatTokenK(1025)).toBe("1k");
+    expect(formatTokenK(2000)).toBe("2k");
+    expect(formatTokenK(102291)).toBe("102k");
+    expect(formatTokenK(110000)).toBe("110k");
+  });
+
+  it("负数保留符号，非有限值为 0", () => {
+    expect(formatTokenK(-2000)).toBe("-2k");
+    expect(formatTokenK(Number.NaN)).toBe("0");
+  });
+});
+
+describe("formatDuration", () => {
+  it("毫秒折算为秒（两位小数）", () => {
+    expect(formatDuration(6458)).toBe("6.46s");
+    expect(formatDuration(2150)).toBe("2.15s");
+    expect(formatDuration(120)).toBe("0.12s");
+    expect(formatDuration(0)).toBe("0.00s");
+  });
+
+  it("非有限值按 0.00s", () => {
+    expect(formatDuration(Number.NaN)).toBe("0.00s");
   });
 });

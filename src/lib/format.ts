@@ -15,3 +15,23 @@ export function formatTokenCompact(n: number): string {
   if (abs >= 1e4) return `${sign}≈${(abs / 1e4).toFixed(2)}万`;
   return n.toLocaleString();
 }
+
+/**
+ * Token 数量紧凑展示（千位 k 单位）：
+ * - |n| ≥ 1000：取整千 → `1k`、`102k`、`110k`
+ * - 否则：原始整数
+ * 用于悬停明细等空间紧凑处。负数保留符号。
+ */
+export function formatTokenK(n: number): string {
+  if (!Number.isFinite(n)) return "0";
+  const sign = n < 0 ? "-" : "";
+  const abs = Math.abs(n);
+  if (abs >= 1000) return `${sign}${Math.round(abs / 1000)}k`;
+  return String(Math.round(n));
+}
+
+/** 耗时统一按秒展示（两位小数）：`6458ms → 6.46s`。非有限值按 `0.00s`。 */
+export function formatDuration(ms: number): string {
+  if (!Number.isFinite(ms)) return "0.00s";
+  return `${(ms / 1000).toFixed(2)}s`;
+}

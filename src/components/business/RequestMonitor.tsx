@@ -17,6 +17,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { RANGE_OPTIONS, rangeMs, startOfTodayMs, type RangeKey } from "@/lib/range";
+import { formatDuration, formatTokenK } from "@/lib/format";
 import { statsApi, type RequestLog } from "@/services/modules/stats";
 
 type Mode = "live" | "ranged";
@@ -146,6 +147,8 @@ export function RequestLogTable({ items }: { items: RequestLog[] }) {
             <th className="px-3 py-2 text-left font-medium">入站</th>
             <th className="px-3 py-2 text-left font-medium">出站</th>
             <th className="px-3 py-2 text-center font-medium">状态</th>
+            <th className="px-3 py-2 text-right font-medium">用时</th>
+            <th className="px-3 py-2 text-right font-medium">首字</th>
             <th className="px-3 py-2 text-right font-medium">Token</th>
           </tr>
         </thead>
@@ -229,6 +232,14 @@ function RequestRow({ log }: { log: RequestLog }) {
           <TabularText className="text-xs">{log.statusCode ?? "ERR"}</TabularText>
         </span>
       </td>
+      <td className="px-3 py-2 text-right text-xs text-ink-secondary">
+        <TabularText>{log.durationMs != null ? formatDuration(log.durationMs) : "—"}</TabularText>
+      </td>
+      <td className="px-3 py-2 text-right text-xs text-ink-secondary">
+        <TabularText>
+          {log.firstByteMs != null ? formatDuration(log.firstByteMs) : "—"}
+        </TabularText>
+      </td>
       <td className="px-3 py-2 text-right">
         <HoverCard openDelay={100} closeDelay={50}>
           <HoverCardTrigger asChild>
@@ -266,17 +277,27 @@ function TokenDetail({ log, total }: { log: RequestLog; total: number }) {
       {rows.map(([k, v]) => (
         <div key={k} className="flex items-center justify-between gap-4">
           <span className="text-ink-secondary">{k}</span>
-          <TabularText>{v}</TabularText>
+          <span title={v.toLocaleString()}>
+            <TabularText>{formatTokenK(v)}</TabularText>
+          </span>
         </div>
       ))}
       <div className="mt-1 flex items-center justify-between gap-4 border-t border-edge-subtle pt-1.5 font-medium">
         <span>合计</span>
-        <TabularText>{total}</TabularText>
+        <span title={total.toLocaleString()}>
+          <TabularText>{formatTokenK(total)}</TabularText>
+        </span>
       </div>
+      {log.firstByteMs != null && (
+        <div className="flex items-center justify-between gap-4 text-ink-secondary">
+          <span>首字</span>
+          <TabularText>{formatDuration(log.firstByteMs)}</TabularText>
+        </div>
+      )}
       {log.durationMs != null && (
         <div className="flex items-center justify-between gap-4 text-ink-secondary">
           <span>耗时</span>
-          <TabularText>{log.durationMs}ms</TabularText>
+          <TabularText>{formatDuration(log.durationMs)}</TabularText>
         </div>
       )}
     </div>

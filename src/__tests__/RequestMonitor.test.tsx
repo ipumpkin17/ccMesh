@@ -20,6 +20,7 @@ const log: RequestLog = {
   cacheReadTokens: 3,
   model: "claude-3",
   durationMs: 120,
+  firstByteMs: 80,
 };
 
 describe("RequestLogTable", () => {
