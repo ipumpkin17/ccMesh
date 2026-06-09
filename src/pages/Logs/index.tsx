@@ -88,7 +88,19 @@ export function Logs() {
       })
       .join("\n");
     try {
-      await navigator.clipboard.writeText(text);
+      if (navigator.clipboard?.writeText) {
+        await navigator.clipboard.writeText(text);
+      } else {
+        // webkit2gtk 等无 navigator.clipboard 时的降级方案
+        const ta = document.createElement("textarea");
+        ta.value = text;
+        ta.style.position = "fixed";
+        ta.style.opacity = "0";
+        document.body.appendChild(ta);
+        ta.select();
+        document.execCommand("copy");
+        document.body.removeChild(ta);
+      }
       toast.success(`已复制 ${filtered.length} 行`);
     } catch {
       toast.error("复制失败");
