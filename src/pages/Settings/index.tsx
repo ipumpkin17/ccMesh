@@ -68,8 +68,13 @@ export function Settings() {
     <div className="mx-auto flex max-w-2xl flex-col gap-6">
       <h1 className="text-2xl font-light tracking-tight">设置</h1>
 
-      <section className="flex flex-col divide-y divide-edge-subtle rounded-lg border border-edge">
-        <Row label="代理端口">
+      <section className="flex flex-col gap-2">
+        <div>
+          <h2 className="text-sm font-medium text-ink-secondary">常规</h2>
+          <p className="text-xs text-ink-mute">端口、外观与窗口行为</p>
+        </div>
+        <div className="flex flex-col divide-y divide-edge-subtle rounded-lg border border-edge">
+          <Row label="代理端口">
           <Input
             className="w-32"
             defaultValue={String(cfg.port)}
@@ -176,6 +181,7 @@ export function Settings() {
             </SelectContent>
           </Select>
         </Row>
+        </div>
       </section>
 
       <section className="flex flex-col gap-2">
@@ -229,24 +235,37 @@ export function Settings() {
       </section>
 
       <section className="flex flex-col gap-2">
-        <h2 className="text-sm font-medium text-ink-secondary">系统 / 高级</h2>
+        <div>
+          <h2 className="text-sm font-medium text-ink-secondary">系统 / 高级</h2>
+          <p className="text-xs text-ink-mute">伪装上游 User-Agent（留空则透传客户端 UA）</p>
+        </div>
         <div className="flex flex-col divide-y divide-edge-subtle rounded-lg border border-edge">
-          <Row label="OpenAI 端点 UA（例 codex_cli_rs/0.77.0 (Windows 10.0.26100; x86_64)）">
+          <div className="flex flex-col gap-1.5 px-5 py-3">
+            <div className="flex items-baseline justify-between gap-3">
+              <span className="text-sm">OpenAI 端点 UA</span>
+              <span className="truncate font-mono text-xs text-ink-mute">
+                例 codex_cli_rs/0.77.0 (Windows 10.0.26100; x86_64)
+              </span>
+            </div>
             <Input
-              className="w-64"
               placeholder="留空透传客户端 UA"
               defaultValue={cfg.openaiUa}
               onBlur={(e) => save({ openaiUa: e.target.value })}
             />
-          </Row>
-          <Row label="Claude 端点 UA（例 claude-cli/2.1.2 (external, cli)）">
+          </div>
+          <div className="flex flex-col gap-1.5 px-5 py-3">
+            <div className="flex items-baseline justify-between gap-3">
+              <span className="text-sm">Claude 端点 UA</span>
+              <span className="truncate font-mono text-xs text-ink-mute">
+                例 claude-cli/2.1.2 (external, cli)
+              </span>
+            </div>
             <Input
-              className="w-64"
               placeholder="留空透传客户端 UA"
               defaultValue={cfg.claudeCliUa}
               onBlur={(e) => save({ claudeCliUa: e.target.value })}
             />
-          </Row>
+          </div>
         </div>
       </section>
 
