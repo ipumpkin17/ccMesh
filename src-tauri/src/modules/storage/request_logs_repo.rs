@@ -152,7 +152,16 @@ mod tests {
     #[test]
     fn insert_and_query_paginates_desc() {
         let mut c = db();
-        insert_batch(&mut c, &[log(100, "a", false), log(200, "b", true), log(300, "a", false)], "dev").unwrap();
+        insert_batch(
+            &mut c,
+            &[
+                log(100, "a", false),
+                log(200, "b", true),
+                log(300, "a", false),
+            ],
+            "dev",
+        )
+        .unwrap();
         let (page1, total) = query_page(&c, None, None, None, 2, 0).unwrap();
         assert_eq!(total, 3);
         assert_eq!(page1.len(), 2);
@@ -168,7 +177,16 @@ mod tests {
     #[test]
     fn query_filters_by_time_and_endpoint() {
         let mut c = db();
-        insert_batch(&mut c, &[log(100, "a", false), log(200, "b", false), log(300, "a", false)], "dev").unwrap();
+        insert_batch(
+            &mut c,
+            &[
+                log(100, "a", false),
+                log(200, "b", false),
+                log(300, "a", false),
+            ],
+            "dev",
+        )
+        .unwrap();
         let (items, total) = query_page(&c, Some(150), Some(350), None, 50, 0).unwrap();
         assert_eq!(total, 2);
         assert_eq!(items.len(), 2);

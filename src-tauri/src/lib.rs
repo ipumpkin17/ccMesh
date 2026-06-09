@@ -36,7 +36,8 @@ pub fn run() {
             // 日志级别（从配置恢复）+ 实时推送接线
             {
                 let conn = pool.get()?;
-                if let Ok(Some(level)) = modules::storage::config_repo::get_value(&conn, "logLevel") {
+                if let Ok(Some(level)) = modules::storage::config_repo::get_value(&conn, "logLevel")
+                {
                     modules::logs::set_level(&level);
                 }
             }
@@ -78,9 +79,12 @@ pub fn run() {
                                 .get()
                                 .ok()
                                 .and_then(|c| {
-                                    modules::storage::config_repo::get_value(&c, "closeWindowBehavior")
-                                        .ok()
-                                        .flatten()
+                                    modules::storage::config_repo::get_value(
+                                        &c,
+                                        "closeWindowBehavior",
+                                    )
+                                    .ok()
+                                    .flatten()
                                 })
                                 .unwrap_or_else(|| "ask".to_string())
                         };

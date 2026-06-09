@@ -49,7 +49,8 @@ pub async fn webdav_backup(state: State<'_, AppState>) -> AppResult<String> {
     let filename = format!("ccmesh_{}.db", chrono::Local::now().format("%Y%m%d_%H%M%S"));
     let client = WebDavClient::connect(&cfg)?;
     client.put(&filename, bytes).await?;
-    let meta = json!({ "backupTime": Utc::now().to_rfc3339(), "version": env!("CARGO_PKG_VERSION") });
+    let meta =
+        json!({ "backupTime": Utc::now().to_rfc3339(), "version": env!("CARGO_PKG_VERSION") });
     let _ = client
         .put(
             &format!("{filename}.meta.json"),

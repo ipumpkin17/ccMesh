@@ -73,7 +73,11 @@ impl WebDavClient {
 
     /// 列出 `.db` 备份（按修改时间倒序）。目录不存在时返回空列表。
     pub async fn list_backups(&self) -> AppResult<Vec<BackupFile>> {
-        let entries = match self.client.list(&format!("/{BASE_DIR}"), Depth::Number(1)).await {
+        let entries = match self
+            .client
+            .list(&format!("/{BASE_DIR}"), Depth::Number(1))
+            .await
+        {
             Ok(e) => e,
             Err(_) => return Ok(vec![]),
         };

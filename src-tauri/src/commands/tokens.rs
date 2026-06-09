@@ -14,7 +14,10 @@ pub struct TokenCount {
 #[tauri::command]
 pub fn count_tokens(request: Value) -> AppResult<TokenCount> {
     let system = request.get("system");
-    let messages = request.get("messages").cloned().unwrap_or_else(|| json!([]));
+    let messages = request
+        .get("messages")
+        .cloned()
+        .unwrap_or_else(|| json!([]));
     Ok(TokenCount {
         input_tokens: estimate_input_tokens(system, &messages),
     })

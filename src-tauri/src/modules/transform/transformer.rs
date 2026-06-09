@@ -45,8 +45,6 @@ impl Transformer for IdentityTransformer {
 pub fn get_transformer(format: UpstreamFormat) -> Box<dyn Transformer> {
     match format {
         UpstreamFormat::Claude => Box::new(IdentityTransformer),
-        UpstreamFormat::OpenAiChat => {
-            Box::new(super::claude_openai::ClaudeOpenAiTransformer)
-        }
+        UpstreamFormat::OpenAiChat => Box::new(super::claude_openai::ClaudeOpenAiTransformer),
     }
 }

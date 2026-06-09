@@ -16,12 +16,18 @@ pub fn today() -> String {
 
 pub fn today_range() -> DateRange {
     let t = Local::now().date_naive();
-    DateRange { start: fmt(t), end: fmt(t) }
+    DateRange {
+        start: fmt(t),
+        end: fmt(t),
+    }
 }
 
 pub fn yesterday_range() -> DateRange {
     let y = Local::now().date_naive() - Duration::days(1);
-    DateRange { start: fmt(y), end: fmt(y) }
+    DateRange {
+        start: fmt(y),
+        end: fmt(y),
+    }
 }
 
 /// 本周（周一为起点）至今。
@@ -29,14 +35,20 @@ pub fn this_week_range() -> DateRange {
     let today = Local::now().date_naive();
     let weekday = today.weekday().num_days_from_monday() as i64; // 周一=0
     let start = today - Duration::days(weekday);
-    DateRange { start: fmt(start), end: fmt(today) }
+    DateRange {
+        start: fmt(start),
+        end: fmt(today),
+    }
 }
 
 /// 本月 1 号至今。
 pub fn this_month_range() -> DateRange {
     let today = Local::now().date_naive();
     let start = NaiveDate::from_ymd_opt(today.year(), today.month(), 1).unwrap_or(today);
-    DateRange { start: fmt(start), end: fmt(today) }
+    DateRange {
+        start: fmt(start),
+        end: fmt(today),
+    }
 }
 
 /// 趋势百分比：clamp 到 [-100,100]；previous==0 时 current>0 记为 100，否则 0。

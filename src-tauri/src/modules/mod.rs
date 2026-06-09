@@ -1,3 +1,4 @@
+pub mod backup;
 pub mod logs;
 pub mod models_cache;
 pub mod proxy;
@@ -9,4 +10,3 @@ pub mod tray;
 pub mod usage;
 pub mod usage_local;
 pub mod webdav;
-pub mod backup;

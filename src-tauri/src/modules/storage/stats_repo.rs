@@ -79,7 +79,11 @@ fn row_to_daily(r: &rusqlite::Row) -> rusqlite::Result<DailyStat> {
 }
 
 /// 跨全时间分页历史明细（按端点×日聚合行，date 倒序）。返回 (当前页, 分组总数)。
-pub fn history_page(conn: &Connection, limit: i64, offset: i64) -> AppResult<(Vec<DailyStat>, i64)> {
+pub fn history_page(
+    conn: &Connection,
+    limit: i64,
+    offset: i64,
+) -> AppResult<(Vec<DailyStat>, i64)> {
     let total: i64 = conn.query_row(
         "SELECT COUNT(*) FROM (SELECT 1 FROM daily_stats GROUP BY endpoint_name, date)",
         [],
@@ -156,4 +160,3 @@ mod tests {
         assert_eq!(history_page(&c, 50, 0).unwrap().1, 1);
     }
 }
-

@@ -41,8 +41,8 @@ pub struct AppConfig {
     pub language: String,  // zh/en
     pub theme: String,     // system/light/dark
     pub theme_auto: bool,
-    pub auto_light_start: String, // "HH:MM"
-    pub auto_dark_start: String,  // "HH:MM"
+    pub auto_light_start: String,      // "HH:MM"
+    pub auto_dark_start: String,       // "HH:MM"
     pub close_window_behavior: String, // quit/minimize/ask
     pub models_cache_ttl: i64,         // 分钟
     /// 全局代理地址（空=直连）；端点 use_proxy 为真时经此代理出网。

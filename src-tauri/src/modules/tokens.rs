@@ -16,7 +16,11 @@ pub fn estimate_text(text: &str) -> i64 {
         .iter()
         .filter(|&&c| ('\u{4E00}'..='\u{9FFF}').contains(&c))
         .count() as f64;
-    let ratio = if sample_len > 0.0 { cjk / sample_len } else { 0.0 };
+    let ratio = if sample_len > 0.0 {
+        cjk / sample_len
+    } else {
+        0.0
+    };
     let chars_per_token = 4.0 - 2.5 * ratio;
     let count = text.chars().count() as f64;
     ((count / chars_per_token) as i64).max(1)

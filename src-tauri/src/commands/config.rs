@@ -51,8 +51,7 @@ pub async fn set_config(
                     .and_then(|v| v.parse().ok())
                     .unwrap_or(3000u16)
             };
-            let new_handle =
-                start_server(state.db_pool.clone(), port, state.stats.clone()).await?;
+            let new_handle = start_server(state.db_pool.clone(), port, state.stats.clone()).await?;
             *state.proxy.lock().unwrap() = Some(new_handle);
         }
     }

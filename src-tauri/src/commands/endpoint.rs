@@ -19,10 +19,7 @@ pub fn list_endpoints(state: State<AppState>) -> AppResult<Vec<Endpoint>> {
 }
 
 #[tauri::command]
-pub fn create_endpoint(
-    state: State<AppState>,
-    req: CreateEndpointRequest,
-) -> AppResult<Endpoint> {
+pub fn create_endpoint(state: State<AppState>, req: CreateEndpointRequest) -> AppResult<Endpoint> {
     let conn = state.db_pool.get()?;
     endpoint_repo::create(&conn, &req)
 }
@@ -223,8 +220,8 @@ pub async fn test_proxy(url: String) -> AppResult<TestResult> {
             message: "未填写代理地址".to_string(),
         });
     }
-    let proxy = reqwest::Proxy::all(url)
-        .map_err(|e| AppError::Proxy(format!("代理地址无效: {e}")))?;
+    let proxy =
+        reqwest::Proxy::all(url).map_err(|e| AppError::Proxy(format!("代理地址无效: {e}")))?;
     let client = reqwest::Client::builder()
         .timeout(Duration::from_secs(15))
         .proxy(proxy)

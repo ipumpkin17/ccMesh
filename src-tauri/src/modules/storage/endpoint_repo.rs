@@ -45,16 +45,12 @@ pub fn list_enabled(conn: &Connection) -> AppResult<Vec<Endpoint>> {
 
 pub fn get_by_id(conn: &Connection, id: i64) -> AppResult<Option<Endpoint>> {
     let sql = format!("SELECT {COLS} FROM endpoints WHERE id = ?1");
-    Ok(conn
-        .query_row(&sql, [id], row_to_endpoint)
-        .optional()?)
+    Ok(conn.query_row(&sql, [id], row_to_endpoint).optional()?)
 }
 
 pub fn get_by_name(conn: &Connection, name: &str) -> AppResult<Option<Endpoint>> {
     let sql = format!("SELECT {COLS} FROM endpoints WHERE name = ?1");
-    Ok(conn
-        .query_row(&sql, [name], row_to_endpoint)
-        .optional()?)
+    Ok(conn.query_row(&sql, [name], row_to_endpoint).optional()?)
 }
 
 fn require(conn: &Connection, id: i64) -> AppResult<Endpoint> {
@@ -69,13 +65,17 @@ pub fn create(conn: &Connection, req: &CreateEndpointRequest) -> AppResult<Endpo
         return Err(AppError::InvalidArgument("API URL 不能为空".into()));
     }
     if get_by_name(conn, &req.name)?.is_some() {
-        return Err(AppError::InvalidArgument(format!("端点名称已存在: {}", req.name)));
+        return Err(AppError::InvalidArgument(format!(
+            "端点名称已存在: {}",
+            req.name
+        )));
     }
 
-    let next_order: i64 =
-        conn.query_row("SELECT COALESCE(MAX(sort_order), -1) + 1 FROM endpoints", [], |r| {
-            r.get(0)
-        })?;
+    let next_order: i64 = conn.query_row(
+        "SELECT COALESCE(MAX(sort_order), -1) + 1 FROM endpoints",
+        [],
+        |r| r.get(0),
+    )?;
 
     conn.execute(
         "INSERT INTO endpoints
@@ -265,11 +265,17 @@ mod tests {
         r.models = vec!["gpt-5".into(), "deepseek-r1".into()];
         r.use_proxy = true;
         let created = create(&c, &r).unwrap();
-        assert_eq!(created.models, vec!["gpt-5".to_string(), "deepseek-r1".to_string()]);
+        assert_eq!(
+            created.models,
+            vec!["gpt-5".to_string(), "deepseek-r1".to_string()]
+        );
         assert!(created.use_proxy);
 
         let got = get_by_id(&c, created.id).unwrap().unwrap();
-        assert_eq!(got.models, vec!["gpt-5".to_string(), "deepseek-r1".to_string()]);
+        assert_eq!(
+            got.models,
+            vec!["gpt-5".to_string(), "deepseek-r1".to_string()]
+        );
         assert!(got.use_proxy);
 
         update(
@@ -287,4 +293,3 @@ mod tests {
         assert!(!got2.use_proxy);
     }
 }
-

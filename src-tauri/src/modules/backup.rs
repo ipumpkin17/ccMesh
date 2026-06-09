@@ -222,8 +222,11 @@ mod tests {
             params![id],
         )
         .unwrap();
-        conn.execute("INSERT INTO app_config(key,value) VALUES('theme','dark')", [])
-            .unwrap();
+        conn.execute(
+            "INSERT INTO app_config(key,value) VALUES('theme','dark')",
+            [],
+        )
+        .unwrap();
         conn.execute(
             "INSERT INTO app_config(key,value) VALUES('webdav_password','secret')",
             [],
@@ -270,7 +273,9 @@ mod tests {
         let s3 = import_config_bundle(&mut dst, &bundle, true).unwrap();
         assert_eq!(s3.endpoints_updated, 1);
         let cred_count: i64 = dst
-            .query_row("SELECT COUNT(*) FROM endpoint_credentials", [], |r| r.get(0))
+            .query_row("SELECT COUNT(*) FROM endpoint_credentials", [], |r| {
+                r.get(0)
+            })
             .unwrap();
         assert_eq!(cred_count, 1);
     }

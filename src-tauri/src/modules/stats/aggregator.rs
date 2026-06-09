@@ -202,7 +202,10 @@ impl StatsAggregator {
         let trend = TrendCompare {
             requests_pct: periods::calculate_trend(today.requests, yesterday.requests),
             input_tokens_pct: periods::calculate_trend(today.input_tokens, yesterday.input_tokens),
-            output_tokens_pct: periods::calculate_trend(today.output_tokens, yesterday.output_tokens),
+            output_tokens_pct: periods::calculate_trend(
+                today.output_tokens,
+                yesterday.output_tokens,
+            ),
         };
         Ok(StatsOverview {
             today,

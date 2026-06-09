@@ -133,10 +133,7 @@ pub fn run_migrations(conn: &Connection) -> AppResult<()> {
         let version = (idx + 1) as i64;
         if version > current {
             conn.execute_batch(script)?;
-            conn.execute(
-                "INSERT INTO schema_version(version) VALUES (?1)",
-                [version],
-            )?;
+            conn.execute("INSERT INTO schema_version(version) VALUES (?1)", [version])?;
             tracing::info!(version, "已应用数据库迁移");
         }
     }

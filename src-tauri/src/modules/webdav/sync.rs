@@ -133,11 +133,17 @@ mod tests {
         // 备份副本：theme 保留，device_id 被剔除
         let bk = Connection::open(&bk_path).unwrap();
         let theme: Option<String> = bk
-            .query_row("SELECT value FROM app_config WHERE key='theme'", [], |r| r.get(0))
+            .query_row("SELECT value FROM app_config WHERE key='theme'", [], |r| {
+                r.get(0)
+            })
             .ok();
         assert_eq!(theme.as_deref(), Some("dark"));
         let dev: Option<String> = bk
-            .query_row("SELECT value FROM app_config WHERE key='device_id'", [], |r| r.get(0))
+            .query_row(
+                "SELECT value FROM app_config WHERE key='device_id'",
+                [],
+                |r| r.get(0),
+            )
             .ok();
         assert!(dev.is_none());
         drop(bk);
@@ -148,15 +154,25 @@ mod tests {
         merge_from_backup(&mut tgt, &bk_path, true, "LOCAL").unwrap();
 
         let dev: String = tgt
-            .query_row("SELECT device_id FROM daily_stats WHERE endpoint_name='ep'", [], |r| r.get(0))
+            .query_row(
+                "SELECT device_id FROM daily_stats WHERE endpoint_name='ep'",
+                [],
+                |r| r.get(0),
+            )
             .unwrap();
         assert_eq!(dev, "LOCAL");
         let reqs: i64 = tgt
-            .query_row("SELECT requests FROM daily_stats WHERE endpoint_name='ep'", [], |r| r.get(0))
+            .query_row(
+                "SELECT requests FROM daily_stats WHERE endpoint_name='ep'",
+                [],
+                |r| r.get(0),
+            )
             .unwrap();
         assert_eq!(reqs, 5);
         let theme: String = tgt
-            .query_row("SELECT value FROM app_config WHERE key='theme'", [], |r| r.get(0))
+            .query_row("SELECT value FROM app_config WHERE key='theme'", [], |r| {
+                r.get(0)
+            })
             .unwrap();
         assert_eq!(theme, "dark");
 

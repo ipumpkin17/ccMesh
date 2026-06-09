@@ -79,10 +79,7 @@ pub async fn check_for_updates(
 
 /// 下载并安装更新；通过 `update-progress` 事件推送进度。
 #[tauri::command]
-pub async fn download_and_install(
-    app: AppHandle,
-    state: State<'_, AppState>,
-) -> AppResult<()> {
+pub async fn download_and_install(app: AppHandle, state: State<'_, AppState>) -> AppResult<()> {
     let updater = build_updater(&app, &state)?;
     let update = updater
         .check()

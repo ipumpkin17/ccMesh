@@ -115,20 +115,33 @@ mod tests {
     }
 
     fn map(pairs: &[(&str, &str)]) -> HashMap<String, String> {
-        pairs.iter().map(|(k, v)| (k.to_string(), v.to_string())).collect()
+        pairs
+            .iter()
+            .map(|(k, v)| (k.to_string(), v.to_string()))
+            .collect()
     }
 
     #[test]
     fn resolves_by_header() {
         let eps = vec![ep("alpha"), ep("beta")];
-        let r = resolve_endpoint(&map(&[("x-ccmomo-endpoint", "beta")]), None, &HashMap::new(), &eps);
+        let r = resolve_endpoint(
+            &map(&[("x-ccmomo-endpoint", "beta")]),
+            None,
+            &HashMap::new(),
+            &eps,
+        );
         assert_eq!(r.endpoint.unwrap().name, "beta");
     }
 
     #[test]
     fn resolves_by_model_with_override() {
         let eps = vec![ep("alpha")];
-        let r = resolve_endpoint(&HashMap::new(), Some("@alpha/gpt-4o"), &HashMap::new(), &eps);
+        let r = resolve_endpoint(
+            &HashMap::new(),
+            Some("@alpha/gpt-4o"),
+            &HashMap::new(),
+            &eps,
+        );
         assert_eq!(r.endpoint.unwrap().name, "alpha");
         assert_eq!(r.model_override.as_deref(), Some("gpt-4o"));
     }
@@ -151,14 +164,24 @@ mod tests {
     #[test]
     fn header_takes_priority_over_model() {
         let eps = vec![ep("alpha"), ep("beta")];
-        let r = resolve_endpoint(&map(&[("x-ccmomo-endpoint", "alpha")]), Some("@beta/m"), &HashMap::new(), &eps);
+        let r = resolve_endpoint(
+            &map(&[("x-ccmomo-endpoint", "alpha")]),
+            Some("@beta/m"),
+            &HashMap::new(),
+            &eps,
+        );
         assert_eq!(r.endpoint.unwrap().name, "alpha");
     }
 
     #[test]
     fn unknown_name_yields_not_found_and_no_rotation_endpoint() {
         let eps = vec![ep("alpha")];
-        let r = resolve_endpoint(&map(&[("x-ccmomo-endpoint", "ghost")]), None, &HashMap::new(), &eps);
+        let r = resolve_endpoint(
+            &map(&[("x-ccmomo-endpoint", "ghost")]),
+            None,
+            &HashMap::new(),
+            &eps,
+        );
         assert!(r.endpoint.is_none());
         assert!(r.not_found.is_some());
     }
