@@ -55,7 +55,7 @@
   "plugins": {
     "updater": {
       "endpoints": [
-        "https://github.com/OWNER/REPO/releases/latest/download/latest.json"
+        "https://github.com/VkRainB/ccMesh/releases/latest/download/latest.json"
       ],
       "pubkey": "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IEE1NUMzNUQyNTc2MjE2N0UKUldSK0ZtSlgwalZjcFkzZXlQNWJja3ZWT216Tm5sOXBoNENuNHIyN3l6KzFURVBEZ21Vc01KbGgK"
     }
