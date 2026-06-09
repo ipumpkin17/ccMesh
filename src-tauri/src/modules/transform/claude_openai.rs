@@ -1,6 +1,7 @@
 use serde_json::{json, Value};
 
 use crate::error::AppResult;
+use crate::modules::transform::json_canonical::canonical_json_string;
 use crate::modules::transform::transformer::Transformer;
 use crate::modules::transform::types::{
     extract_system_text, extract_tool_result_content, map_finish_reason,
@@ -121,7 +122,7 @@ fn convert_claude_message_to_openai(msg: &Value, out: &mut Vec<Value>) {
                             continue;
                         }
                         let input = b.get("input").cloned().unwrap_or(json!({}));
-                        let args = serde_json::to_string(&input).unwrap_or_else(|_| "{}".into());
+                        let args = canonical_json_string(&input);
                         tool_calls.push(json!({
                             "id": id,
                             "type": "function",
@@ -130,9 +131,8 @@ fn convert_claude_message_to_openai(msg: &Value, out: &mut Vec<Value>) {
                     }
                     "tool_result" => {
                         let tid = b.get("tool_use_id").and_then(|v| v.as_str()).unwrap_or("");
-                        let c = extract_tool_result_content(
-                            b.get("content").unwrap_or(&Value::Null),
-                        );
+                        let c =
+                            extract_tool_result_content(b.get("content").unwrap_or(&Value::Null));
                         tool_results.push(json!({
                             "role": "tool",
                             "tool_call_id": tid,
@@ -190,10 +190,7 @@ pub fn openai_response_to_claude(resp: &Value) -> Value {
     if let Some(ch) = choice {
         let msg = ch.get("message");
 
-        if let Some(text) = msg
-            .and_then(|m| m.get("content"))
-            .and_then(|c| c.as_str())
-        {
+        if let Some(text) = msg.and_then(|m| m.get("content")).and_then(|c| c.as_str()) {
             if !text.is_empty() {
                 content.extend(split_think_tagged_text(text));
             }
@@ -228,14 +225,10 @@ pub fn openai_response_to_claude(resp: &Value) -> Value {
     }
 
     let usage = resp.get("usage");
-    let input_tokens = usage
-        .and_then(|u| u.get("prompt_tokens"))
-        .and_then(|v| v.as_i64())
-        .unwrap_or(0);
-    let output_tokens = usage
-        .and_then(|u| u.get("completion_tokens"))
-        .and_then(|v| v.as_i64())
-        .unwrap_or(0);
+    let input_tokens = first_usage_field(usage, &["prompt_tokens", "input_tokens"]);
+    let output_tokens = first_usage_field(usage, &["completion_tokens", "output_tokens"]);
+    let cache_creation_tokens = usage_field(usage, "cache_creation_input_tokens");
+    let cache_read_tokens = cache_read_usage_tokens(usage);
 
     json!({
         "id": resp.get("id").cloned().unwrap_or(json!("")),
@@ -245,8 +238,47 @@ pub fn openai_response_to_claude(resp: &Value) -> Value {
         "content": content,
         "stop_reason": stop_reason,
         "stop_sequence": Value::Null,
-        "usage": { "input_tokens": input_tokens, "output_tokens": output_tokens }
+        "usage": {
+            "input_tokens": input_tokens,
+            "output_tokens": output_tokens,
+            "cache_creation_input_tokens": cache_creation_tokens,
+            "cache_read_input_tokens": cache_read_tokens
+        }
     })
+}
+
+fn usage_field(usage: Option<&Value>, key: &str) -> i64 {
+    usage
+        .and_then(|u| u.get(key))
+        .and_then(|v| v.as_i64())
+        .unwrap_or(0)
+}
+
+fn nested_usage_field(usage: Option<&Value>, path: &[&str]) -> i64 {
+    let mut value = usage;
+    for key in path {
+        value = value.and_then(|v| v.get(*key));
+    }
+    value.and_then(|v| v.as_i64()).unwrap_or(0)
+}
+
+fn first_usage_field(usage: Option<&Value>, keys: &[&str]) -> i64 {
+    keys.iter()
+        .map(|key| usage_field(usage, key))
+        .find(|v| *v > 0)
+        .unwrap_or(0)
+}
+
+fn cache_read_usage_tokens(usage: Option<&Value>) -> i64 {
+    [
+        usage_field(usage, "cache_read_input_tokens"),
+        nested_usage_field(usage, &["input_tokens_details", "cached_tokens"]),
+        nested_usage_field(usage, &["prompt_tokens_details", "cached_tokens"]),
+        usage_field(usage, "cached_tokens"),
+    ]
+    .into_iter()
+    .find(|v| *v > 0)
+    .unwrap_or(0)
 }
 
 /// 将含 `<think>...</think>` 标签的文本拆分为 text / thinking 内容块。
@@ -325,7 +357,40 @@ mod tests {
         assert_eq!(m["content"], json!("calling"));
         assert_eq!(m["tool_calls"][0]["id"], json!("t1"));
         assert_eq!(m["tool_calls"][0]["function"]["name"], json!("get_weather"));
-        assert_eq!(m["tool_calls"][0]["function"]["arguments"], json!("{\"city\":\"SF\"}"));
+        assert_eq!(
+            m["tool_calls"][0]["function"]["arguments"],
+            json!("{\"city\":\"SF\"}")
+        );
+    }
+
+    #[test]
+    fn request_tool_use_empty_input_serializes_as_empty_object() {
+        let claude = json!({
+            "messages": [{
+                "role": "assistant",
+                "content": [{ "type": "tool_use", "id": "t1", "name": "noop", "input": {} }]
+            }]
+        });
+        let out = claude_request_to_openai(&claude, None);
+        assert_eq!(
+            out["messages"][0]["tool_calls"][0]["function"]["arguments"],
+            json!("{}")
+        );
+    }
+
+    #[test]
+    fn request_tool_use_arguments_keys_canonicalized() {
+        let claude = json!({
+            "messages": [{
+                "role": "assistant",
+                "content": [{ "type": "tool_use", "id": "t1", "name": "f", "input": { "b": 2, "a": 1 } }]
+            }]
+        });
+        let out = claude_request_to_openai(&claude, None);
+        assert_eq!(
+            out["messages"][0]["tool_calls"][0]["function"]["arguments"],
+            json!("{\"a\":1,\"b\":2}")
+        );
     }
 
     #[test]
@@ -347,7 +412,11 @@ mod tests {
         let resp = json!({
             "id": "x1", "model": "gpt-4o",
             "choices": [{ "message": { "content": "hello" }, "finish_reason": "stop" }],
-            "usage": { "prompt_tokens": 10, "completion_tokens": 5 }
+            "usage": {
+                "prompt_tokens": 10,
+                "completion_tokens": 5,
+                "prompt_tokens_details": { "cached_tokens": 7 }
+            }
         });
         let out = openai_response_to_claude(&resp);
         assert_eq!(out["type"], json!("message"));
@@ -356,6 +425,8 @@ mod tests {
         assert_eq!(out["stop_reason"], json!("end_turn"));
         assert_eq!(out["usage"]["input_tokens"], json!(10));
         assert_eq!(out["usage"]["output_tokens"], json!(5));
+        assert_eq!(out["usage"]["cache_creation_input_tokens"], json!(0));
+        assert_eq!(out["usage"]["cache_read_input_tokens"], json!(7));
     }
 
     #[test]
@@ -389,13 +460,19 @@ mod tests {
         let blocks = split_think_tagged_text("a<think>reason</think>b");
         assert_eq!(blocks.len(), 3);
         assert_eq!(blocks[0], json!({ "type": "text", "text": "a" }));
-        assert_eq!(blocks[1], json!({ "type": "thinking", "thinking": "reason" }));
+        assert_eq!(
+            blocks[1],
+            json!({ "type": "thinking", "thinking": "reason" })
+        );
         assert_eq!(blocks[2], json!({ "type": "text", "text": "b" }));
     }
 
     #[test]
     fn tool_choice_mappings() {
-        assert_eq!(convert_tool_choice(Some(&json!({ "type": "any" }))), json!("required"));
+        assert_eq!(
+            convert_tool_choice(Some(&json!({ "type": "any" }))),
+            json!("required")
+        );
         assert_eq!(
             convert_tool_choice(Some(&json!({ "type": "tool", "name": "f" }))),
             json!({ "type": "function", "function": { "name": "f" } })

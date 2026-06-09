@@ -1,6 +1,6 @@
 use serde_json::{json, Value};
 
-use crate::modules::transform::types::{build_claude_event, map_finish_reason, StreamContext};
+use crate::modules::transform::types::{build_claude_event, map_finish_reason, StreamContext, ToolBlock};
 
 /// 有状态的流式转换器：逐个消费 OpenAI Chat 流 chunk，产出 Claude SSE 事件文本。
 ///
@@ -24,9 +24,14 @@ impl StreamConverter {
         }
     }
 
-    /// 当前累积的 (input_tokens, output_tokens)，供流结束后统计记录真实用量。
-    pub fn usage(&self) -> (i64, i64) {
-        (self.ctx.input_tokens, self.ctx.output_tokens)
+    /// 当前累积的真实 token 用量，供流结束后统计记录。
+    pub fn usage(&self) -> (i64, i64, i64, i64) {
+        (
+            self.ctx.input_tokens,
+            self.ctx.output_tokens,
+            self.ctx.cache_creation_tokens,
+            self.ctx.cache_read_tokens,
+        )
     }
 
     fn message_start(&mut self, id: &Value, events: &mut Vec<String>) {
@@ -46,7 +51,12 @@ impl StreamConverter {
                     "model": self.ctx.model_name,
                     "stop_reason": Value::Null,
                     "stop_sequence": Value::Null,
-                    "usage": { "input_tokens": self.ctx.input_tokens, "output_tokens": 0 }
+                    "usage": {
+                        "input_tokens": self.ctx.input_tokens,
+                        "output_tokens": 0,
+                        "cache_creation_input_tokens": self.ctx.cache_creation_tokens,
+                        "cache_read_input_tokens": self.ctx.cache_read_tokens
+                    }
                 }
             }),
         ));
@@ -106,56 +116,86 @@ impl StreamConverter {
         );
     }
     fn close_text(&mut self, events: &mut Vec<String>) {
-        self.close_block_if(|c| c.text_block_started, |c| c.text_block_started = false, events);
+        self.close_block_if(
+            |c| c.text_block_started,
+            |c| c.text_block_started = false,
+            events,
+        );
     }
-    fn close_tool(&mut self, events: &mut Vec<String>) {
-        self.close_block_if(|c| c.tool_block_started, |c| c.tool_block_started = false, events);
+    /// 关闭所有仍开启的工具块（按 Anthropic 块索引升序），并清空映射。
+    fn close_all_tool_blocks(&mut self, events: &mut Vec<String>) {
+        if self.ctx.tool_blocks.is_empty() {
+            return;
+        }
+        let mut indices: Vec<i64> = self
+            .ctx
+            .tool_blocks
+            .values()
+            .map(|b| b.anthropic_index)
+            .collect();
+        indices.sort_unstable();
+        for idx in indices {
+            events.push(build_claude_event(
+                "content_block_stop",
+                &json!({ "type": "content_block_stop", "index": idx }),
+            ));
+        }
+        self.ctx.tool_blocks.clear();
     }
 
     fn close_open_blocks(&mut self, events: &mut Vec<String>) {
         self.close_text(events);
         self.close_thinking(events);
-        self.close_tool(events);
+        self.close_all_tool_blocks(events);
     }
 
     fn handle_tool_call(&mut self, tc: &Value, events: &mut Vec<String>) {
+        // OpenAI 流以 tool_calls[].index 区分多个（并行）工具调用；缺省视为 0。
+        let openai_index = tc.get("index").and_then(|v| v.as_i64()).unwrap_or(0);
         let id = tc.get("id").and_then(|v| v.as_str()).unwrap_or("");
         let func = tc.get("function");
-        if !id.is_empty() {
+
+        // 首次见到该 index 且带 id → 开启新工具块（工具块排在文本/思考块之后）。
+        if !id.is_empty() && !self.ctx.tool_blocks.contains_key(&openai_index) {
             self.close_text(events);
             self.close_thinking(events);
-            self.close_tool(events);
             let name = func
                 .and_then(|f| f.get("name"))
                 .and_then(|v| v.as_str())
                 .unwrap_or("");
-            self.ctx.current_tool_id = id.to_string();
-            self.ctx.current_tool_name = name.to_string();
-            self.ctx.tool_arguments.clear();
-            self.ctx.tool_block_started = true;
+            let anthropic_index = self.ctx.block_index;
+            self.ctx.block_index += 1;
+            self.ctx
+                .tool_blocks
+                .insert(openai_index, ToolBlock { anthropic_index });
+            self.ctx.any_tool_started = true;
             events.push(build_claude_event(
                 "content_block_start",
                 &json!({
                     "type": "content_block_start",
-                    "index": self.ctx.block_index,
+                    "index": anthropic_index,
                     "content_block": { "type": "tool_use", "id": id, "name": name, "input": {} }
                 }),
             ));
         }
+
+        // 参数片段 → 按 index 路由到对应工具块的 input_json_delta。
         if let Some(args) = func
             .and_then(|f| f.get("arguments"))
             .and_then(|v| v.as_str())
         {
-            if !args.is_empty() && self.ctx.tool_block_started {
-                self.ctx.tool_arguments.push_str(args);
-                events.push(build_claude_event(
-                    "content_block_delta",
-                    &json!({
-                        "type": "content_block_delta",
-                        "index": self.ctx.block_index,
-                        "delta": { "type": "input_json_delta", "partial_json": args }
-                    }),
-                ));
+            if !args.is_empty() {
+                if let Some(block) = self.ctx.tool_blocks.get(&openai_index) {
+                    let anthropic_index = block.anthropic_index;
+                    events.push(build_claude_event(
+                        "content_block_delta",
+                        &json!({
+                            "type": "content_block_delta",
+                            "index": anthropic_index,
+                            "delta": { "type": "input_json_delta", "partial_json": args }
+                        }),
+                    ));
+                }
             }
         }
     }
@@ -168,11 +208,28 @@ impl StreamConverter {
 
         if let Some(usage) = chunk.get("usage") {
             if !usage.is_null() {
-                if let Some(it) = usage.get("prompt_tokens").and_then(|v| v.as_i64()) {
+                if let Some(it) = usage
+                    .get("prompt_tokens")
+                    .or_else(|| usage.get("input_tokens"))
+                    .and_then(|v| v.as_i64())
+                {
                     self.ctx.input_tokens = it;
                 }
-                if let Some(ot) = usage.get("completion_tokens").and_then(|v| v.as_i64()) {
+                if let Some(ot) = usage
+                    .get("completion_tokens")
+                    .or_else(|| usage.get("output_tokens"))
+                    .and_then(|v| v.as_i64())
+                {
                     self.ctx.output_tokens = ot;
+                }
+                if let Some(cc) = usage
+                    .get("cache_creation_input_tokens")
+                    .and_then(|v| v.as_i64())
+                {
+                    self.ctx.cache_creation_tokens = cc;
+                }
+                if let Some(cr) = cache_read_tokens(usage) {
+                    self.ctx.cache_read_tokens = cr;
                 }
             }
         }
@@ -202,7 +259,10 @@ impl StreamConverter {
                 }
             }
 
-            if let Some(text) = delta.and_then(|d| d.get("content")).and_then(|v| v.as_str()) {
+            if let Some(text) = delta
+                .and_then(|d| d.get("content"))
+                .and_then(|v| v.as_str())
+            {
                 if !text.is_empty() {
                     self.close_thinking(&mut events);
                     self.ensure_text_block(&mut events);
@@ -228,7 +288,7 @@ impl StreamConverter {
 
             if let Some(fr) = ch.get("finish_reason").and_then(|v| v.as_str()) {
                 self.stop_reason =
-                    map_finish_reason(Some(fr), self.ctx.tool_block_started).to_string();
+                    map_finish_reason(Some(fr), self.ctx.any_tool_started).to_string();
                 self.close_open_blocks(&mut events);
                 self.saw_finish = true;
             }
@@ -262,6 +322,16 @@ impl StreamConverter {
         let _ = self.saw_finish;
         events
     }
+}
+
+fn cache_read_tokens(usage: &Value) -> Option<i64> {
+    usage
+        .get("cache_read_input_tokens")
+        .or_else(|| usage.pointer("/input_tokens_details/cached_tokens"))
+        .or_else(|| usage.pointer("/prompt_tokens_details/cached_tokens"))
+        .or_else(|| usage.get("cached_tokens"))
+        .and_then(|v| v.as_i64())
+        .filter(|v| *v > 0)
 }
 
 #[cfg(test)]
@@ -317,11 +387,58 @@ mod tests {
     }
 
     #[test]
+    fn two_tools_by_index_do_not_mix() {
+        let mut c = StreamConverter::new("m".into(), 0);
+        let e0 = join(c.process_chunk(&json!({
+            "id": "x", "choices": [{ "delta": { "tool_calls": [
+                { "index": 0, "id": "call_a", "function": { "name": "fa", "arguments": "{\"x\":1}" } }
+            ]}}]
+        })));
+        let e1 = join(c.process_chunk(&json!({
+            "choices": [{ "delta": { "tool_calls": [
+                { "index": 1, "id": "call_b", "function": { "name": "fb", "arguments": "{\"y\":2}" } }
+            ]}}]
+        })));
+        // 两个工具各自成块，id/name 不串味
+        assert!(e0.contains("\"id\":\"call_a\"") && e0.contains("\"name\":\"fa\""));
+        assert!(!e0.contains("call_b"));
+        assert!(e1.contains("\"id\":\"call_b\"") && e1.contains("\"name\":\"fb\""));
+        assert!(!e1.contains("call_a"));
+        // tool0 → Anthropic block 0，tool1 → block 1
+        assert!(e0.contains("\"content_block_start\"") && e0.contains("\"index\":0"));
+        assert!(e1.contains("\"content_block_start\"") && e1.contains("\"index\":1"));
+
+        // 交错的后续参数片段按 index 路由回 tool0（block 0）
+        let e2 = join(c.process_chunk(&json!({
+            "choices": [{ "delta": { "tool_calls": [
+                { "index": 0, "function": { "arguments": ",\"z\":3" } }
+            ]}}]
+        })));
+        assert!(e2.contains("\"input_json_delta\"") && e2.contains("\"index\":0"));
+        assert!(e2.contains("\"partial_json\":\",\\\"z\\\":3\""));
+
+        let fin = join(c.process_chunk(&json!({
+            "choices": [{ "delta": {}, "finish_reason": "tool_calls" }]
+        })));
+        assert!(fin.contains("event: content_block_stop"));
+        let done = join(c.finish());
+        assert!(done.contains("\"stop_reason\":\"tool_use\""));
+    }
+
+    #[test]
     fn usage_chunk_updates_output_tokens() {
         let mut c = StreamConverter::new("m".into(), 3);
         c.process_chunk(&json!({ "id": "x", "choices": [{ "delta": { "content": "y" } }] }));
-        c.process_chunk(&json!({ "choices": [], "usage": { "prompt_tokens": 3, "completion_tokens": 7 } }));
+        c.process_chunk(&json!({
+            "choices": [],
+            "usage": {
+                "prompt_tokens": 3,
+                "completion_tokens": 7,
+                "prompt_tokens_details": { "cached_tokens": 2 }
+            }
+        }));
         let done = join(c.finish());
         assert!(done.contains("\"output_tokens\":7"));
+        assert_eq!(c.usage(), (3, 7, 0, 2));
     }
 }
