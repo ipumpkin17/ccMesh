@@ -30,19 +30,6 @@ pub struct StreamContext {
     pub cache_read_tokens: i64,
 }
 
-/// 提取 system 文本：字符串原样；数组取各块 `.text` 以换行连接。
-pub fn extract_system_text(system: &Value) -> String {
-    match system {
-        Value::String(s) => s.clone(),
-        Value::Array(arr) => arr
-            .iter()
-            .filter_map(|b| b.get("text").and_then(|t| t.as_str()))
-            .collect::<Vec<_>>()
-            .join("\n"),
-        _ => String::new(),
-    }
-}
-
 /// 提取 tool_result content：字符串原样；数组取 `.text` 以换行连接。
 pub fn extract_tool_result_content(content: &Value) -> String {
     match content {

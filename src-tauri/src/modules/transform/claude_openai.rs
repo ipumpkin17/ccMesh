@@ -3,9 +3,7 @@ use serde_json::{json, Value};
 use crate::error::AppResult;
 use crate::modules::transform::json_canonical::canonical_json_string;
 use crate::modules::transform::transformer::Transformer;
-use crate::modules::transform::types::{
-    extract_system_text, extract_tool_result_content, map_finish_reason,
-};
+use crate::modules::transform::types::{extract_tool_result_content, map_finish_reason};
 
 /// Claude↔OpenAI Chat 转换器（请求 / 非流式响应；流式见 [`super::streaming`] —— P2-5 接入）。
 pub struct ClaudeOpenAiTransformer;
@@ -56,9 +54,8 @@ pub fn claude_request_to_openai(claude: &Value, endpoint_model: Option<&str>) ->
     // messages（system 前置）
     let mut messages: Vec<Value> = Vec::new();
     if let Some(sys) = claude.get("system") {
-        let s = extract_system_text(sys);
-        if !s.is_empty() {
-            messages.push(json!({ "role": "system", "content": s }));
+        if let Some(sys_msg) = claude_system_to_openai(sys) {
+            messages.push(sys_msg);
         }
     }
     if let Some(arr) = claude.get("messages").and_then(|v| v.as_array()) {
@@ -76,14 +73,19 @@ pub fn claude_request_to_openai(claude: &Value, endpoint_model: Option<&str>) ->
             if name.is_empty() {
                 continue;
             }
-            otools.push(json!({
+            let mut tool = json!({
                 "type": "function",
                 "function": {
                     "name": name,
                     "description": t.get("description").cloned().unwrap_or(json!("")),
                     "parameters": t.get("input_schema").cloned().unwrap_or(json!({ "type": "object" })),
                 }
-            }));
+            });
+            // 保留 tool 上的 cache_control（显式缓存断点）
+            if let Some(cc) = t.get("cache_control") {
+                tool["cache_control"] = cc.clone();
+            }
+            otools.push(tool);
         }
         if !otools.is_empty() {
             out.insert("tools".into(), json!(otools));
@@ -104,7 +106,7 @@ fn convert_claude_message_to_openai(msg: &Value, out: &mut Vec<Value>) {
             out.push(json!({ "role": role, "content": s }));
         }
         Some(Value::Array(blocks)) => {
-            let mut text = String::new();
+            let mut content_parts: Vec<Value> = Vec::new();
             let mut tool_calls: Vec<Value> = Vec::new();
             let mut tool_results: Vec<Value> = Vec::new();
 
@@ -112,7 +114,16 @@ fn convert_claude_message_to_openai(msg: &Value, out: &mut Vec<Value>) {
                 match b.get("type").and_then(|v| v.as_str()).unwrap_or("") {
                     "text" => {
                         if let Some(t) = b.get("text").and_then(|v| v.as_str()) {
-                            text.push_str(t);
+                            if !t.is_empty() {
+                                let mut part = serde_json::Map::new();
+                                part.insert("type".into(), json!("text"));
+                                part.insert("text".into(), json!(t));
+                                // 保留文本块的 cache_control（part 级显式缓存断点）
+                                if let Some(cc) = b.get("cache_control") {
+                                    part.insert("cache_control".into(), cc.clone());
+                                }
+                                content_parts.push(Value::Object(part));
+                            }
                         }
                     }
                     "tool_use" => {
@@ -143,13 +154,26 @@ fn convert_claude_message_to_openai(msg: &Value, out: &mut Vec<Value>) {
                 }
             }
 
-            let has_text = !text.is_empty();
+            let has_parts = !content_parts.is_empty();
             let has_calls = !tool_calls.is_empty();
-            if has_text || has_calls {
+            if has_parts || has_calls {
                 let mut m = serde_json::Map::new();
                 m.insert("role".into(), json!(role));
-                if has_text || !has_calls {
-                    m.insert("content".into(), json!(text));
+                if has_parts {
+                    // 任一文本块带 cache_control → content 用数组逐块保留；否则退化为拼接字符串（向后兼容）
+                    let any_cc = content_parts
+                        .iter()
+                        .any(|p| p.get("cache_control").is_some());
+                    if any_cc {
+                        m.insert("content".into(), json!(content_parts));
+                    } else {
+                        let text: String = content_parts
+                            .iter()
+                            .filter_map(|p| p.get("text").and_then(|t| t.as_str()))
+                            .collect::<Vec<_>>()
+                            .join("");
+                        m.insert("content".into(), json!(text));
+                    }
                 }
                 if has_calls {
                     m.insert("tool_calls".into(), json!(tool_calls));
@@ -159,6 +183,57 @@ fn convert_claude_message_to_openai(msg: &Value, out: &mut Vec<Value>) {
             out.extend(tool_results);
         }
         _ => {}
+    }
+}
+
+/// Claude `system` → OpenAI system 消息，保留 cache_control（消息级）。
+/// 数组按 cc-switch 规则合并各块文本；cache_control 仅在各块一致时保留，冲突或混合（有的有有的无）则丢弃。
+fn claude_system_to_openai(system: &Value) -> Option<Value> {
+    match system {
+        Value::String(s) => {
+            if s.is_empty() {
+                return None;
+            }
+            Some(json!({ "role": "system", "content": s }))
+        }
+        Value::Array(arr) => {
+            let mut texts: Vec<String> = Vec::new();
+            let mut inherited: Option<Value> = None;
+            let mut conflict = false;
+            let mut saw_cc = false;
+            let mut saw_missing = false;
+            for b in arr {
+                if let Some(t) = b.get("text").and_then(|v| v.as_str()) {
+                    if !t.is_empty() {
+                        texts.push(t.to_string());
+                    }
+                }
+                match b.get("cache_control") {
+                    Some(cc) => {
+                        saw_cc = true;
+                        match &inherited {
+                            None => inherited = Some(cc.clone()),
+                            Some(existing) if existing == cc => {}
+                            Some(_) => conflict = true,
+                        }
+                    }
+                    None => saw_missing = true,
+                }
+            }
+            if texts.is_empty() {
+                return None;
+            }
+            let mut m = serde_json::Map::new();
+            m.insert("role".into(), json!("system"));
+            m.insert("content".into(), json!(texts.join("\n")));
+            if !(conflict || (saw_cc && saw_missing)) {
+                if let Some(cc) = inherited {
+                    m.insert("cache_control".into(), cc);
+                }
+            }
+            Some(Value::Object(m))
+        }
+        _ => None,
     }
 }
 
@@ -465,6 +540,80 @@ mod tests {
             json!({ "type": "thinking", "thinking": "reason" })
         );
         assert_eq!(blocks[2], json!({ "type": "text", "text": "b" }));
+    }
+
+    #[test]
+    fn system_string_has_no_cache_control() {
+        let claude = json!({ "system": "be brief", "messages": [] });
+        let out = claude_request_to_openai(&claude, None);
+        assert_eq!(out["messages"][0]["role"], json!("system"));
+        assert_eq!(out["messages"][0]["content"], json!("be brief"));
+        assert!(out["messages"][0].get("cache_control").is_none());
+    }
+
+    #[test]
+    fn system_array_single_block_preserves_cache_control() {
+        let claude = json!({
+            "system": [{ "type": "text", "text": "S", "cache_control": { "type": "ephemeral" } }],
+            "messages": []
+        });
+        let out = claude_request_to_openai(&claude, None);
+        assert_eq!(out["messages"][0]["content"], json!("S"));
+        assert_eq!(out["messages"][0]["cache_control"]["type"], json!("ephemeral"));
+    }
+
+    #[test]
+    fn system_array_mixed_drops_cache_control() {
+        let claude = json!({
+            "system": [
+                { "type": "text", "text": "A" },
+                { "type": "text", "text": "B", "cache_control": { "type": "ephemeral" } }
+            ],
+            "messages": []
+        });
+        let out = claude_request_to_openai(&claude, None);
+        assert_eq!(out["messages"][0]["content"], json!("A\nB"));
+        assert!(out["messages"][0].get("cache_control").is_none());
+    }
+
+    #[test]
+    fn message_text_with_cache_control_becomes_array() {
+        let claude = json!({
+            "messages": [{
+                "role": "user",
+                "content": [{ "type": "text", "text": "hi", "cache_control": { "type": "ephemeral" } }]
+            }]
+        });
+        let out = claude_request_to_openai(&claude, None);
+        let content = &out["messages"][0]["content"];
+        assert!(content.is_array());
+        assert_eq!(content[0]["type"], json!("text"));
+        assert_eq!(content[0]["text"], json!("hi"));
+        assert_eq!(content[0]["cache_control"]["type"], json!("ephemeral"));
+    }
+
+    #[test]
+    fn message_text_without_cache_control_stays_string() {
+        let claude = json!({
+            "messages": [{ "role": "user", "content": [{ "type": "text", "text": "hello" }] }]
+        });
+        let out = claude_request_to_openai(&claude, None);
+        assert_eq!(out["messages"][0]["content"], json!("hello"));
+    }
+
+    #[test]
+    fn tool_cache_control_preserved() {
+        let claude = json!({
+            "messages": [],
+            "tools": [{
+                "name": "get_weather",
+                "input_schema": { "type": "object" },
+                "cache_control": { "type": "ephemeral" }
+            }]
+        });
+        let out = claude_request_to_openai(&claude, None);
+        assert_eq!(out["tools"][0]["function"]["name"], json!("get_weather"));
+        assert_eq!(out["tools"][0]["cache_control"]["type"], json!("ephemeral"));
     }
 
     #[test]
