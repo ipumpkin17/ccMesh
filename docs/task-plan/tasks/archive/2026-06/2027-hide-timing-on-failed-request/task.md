@@ -1,7 +1,7 @@
 ---
 id: 2027-hide-timing-on-failed-request
 title: 失败请求隐藏首字/用时避免歧义
-status: in_progress
+status: done
 priority: P3
 layer: 前端
 deps: 
@@ -10,7 +10,7 @@ owner: claude
 branch: 
 base_branch: main
 created: 2026-06-10
-completed: 
+completed: 2026-06-10
 parent: 
 children: 
 note: 
