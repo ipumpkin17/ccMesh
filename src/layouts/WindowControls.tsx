@@ -3,6 +3,7 @@ import { MinusIcon, SquareIcon, CopyIcon, XIcon } from "lucide-react";
 import { getCurrentWindow } from "@tauri-apps/api/window";
 
 import { cn } from "@/lib/utils";
+import { IS_MAC } from "@/lib/platform";
 
 const appWindow = getCurrentWindow();
 
@@ -21,6 +22,9 @@ export function WindowControls() {
       });
     return () => unlisten?.();
   }, []);
+
+  // macOS 使用系统原生红绿灯，不渲染自绘按钮
+  if (IS_MAC) return null;
 
   const btn =
     "inline-flex h-8 w-11 items-center justify-center text-ink-secondary transition-colors hover:bg-surface-hover hover:text-ink-primary cursor-pointer";
