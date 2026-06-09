@@ -310,7 +310,13 @@ impl StreamConverter {
                 &json!({
                     "type": "message_delta",
                     "delta": { "stop_reason": self.stop_reason, "stop_sequence": Value::Null },
-                    "usage": { "output_tokens": self.ctx.output_tokens }
+                    // 流末才拿到上游完整 usage（message_start 时还没到），在此回传 input/cache 给客户端
+                    "usage": {
+                        "input_tokens": self.ctx.input_tokens,
+                        "output_tokens": self.ctx.output_tokens,
+                        "cache_creation_input_tokens": self.ctx.cache_creation_tokens,
+                        "cache_read_input_tokens": self.ctx.cache_read_tokens
+                    }
                 }),
             ));
             events.push(build_claude_event(
@@ -440,5 +446,25 @@ mod tests {
         let done = join(c.finish());
         assert!(done.contains("\"output_tokens\":7"));
         assert_eq!(c.usage(), (3, 7, 0, 2));
+    }
+
+    #[test]
+    fn message_delta_carries_input_and_cache_read() {
+        let mut c = StreamConverter::new("m".into(), 0);
+        c.process_chunk(&json!({ "id": "x", "choices": [{ "delta": { "content": "hi" } }] }));
+        // OpenAI 末尾 usage-only chunk（带缓存命中）
+        c.process_chunk(&json!({
+            "choices": [],
+            "usage": {
+                "prompt_tokens": 100,
+                "completion_tokens": 50,
+                "prompt_tokens_details": { "cached_tokens": 30 }
+            }
+        }));
+        let done = join(c.finish());
+        assert!(done.contains("event: message_delta"));
+        assert!(done.contains("\"input_tokens\":100"));
+        assert!(done.contains("\"output_tokens\":50"));
+        assert!(done.contains("\"cache_read_input_tokens\":30"));
     }
 }
