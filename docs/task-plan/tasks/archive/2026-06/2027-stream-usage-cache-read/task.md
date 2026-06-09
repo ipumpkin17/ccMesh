@@ -1,7 +1,7 @@
 ---
 id: 2027-stream-usage-cache-read
 title: 流式 message_delta 回传完整 usage（含 cache_read）
-status: in_progress
+status: done
 priority: P1
 layer: transform
 deps: 
@@ -10,7 +10,7 @@ owner: claude
 branch: 
 base_branch: main
 created: 2026-06-10
-completed: 
+completed: 2026-06-10
 parent: 
 children: 
 note: 
