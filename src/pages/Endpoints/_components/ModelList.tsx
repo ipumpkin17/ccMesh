@@ -1,14 +1,15 @@
 import { Badge } from "@/components/ui/badge";
 import { useEndpoints } from "@/hooks/useEndpoints";
+import { advertisedModels } from "@/services/modules/endpoint";
 
-/** 按端点分组展示其配置态模型（锁定 model 优先，否则聚合清单 models）。 */
+/** 按端点分组展示其对外可用模型（出站模型 + 映射入站名）。 */
 export function ModelList() {
   const { data: endpoints } = useEndpoints();
   const groups = (endpoints ?? [])
     .filter((e) => e.enabled)
     .map((e) => ({
       name: e.name,
-      models: e.model ? [e.model] : e.models ?? [],
+      models: advertisedModels(e),
     }))
     .filter((g) => g.models.length > 0);
 
