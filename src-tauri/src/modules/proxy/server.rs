@@ -173,14 +173,10 @@ async fn models_route(State(st): State<Arc<ProxyState>>, headers: HeaderMap) -> 
             Ok(endpoints) => endpoints
                 .iter()
                 .flat_map(|ep| {
-                    if !ep.model.is_empty() {
-                        vec![(ep.model.clone(), ep.name.clone())]
-                    } else {
-                        ep.models
-                            .iter()
-                            .map(|m| (m.clone(), ep.name.clone()))
-                            .collect()
-                    }
+                    crate::modules::proxy::resolver::advertised_models(ep)
+                        .into_iter()
+                        .map(|m| (m, ep.name.clone()))
+                        .collect::<Vec<_>>()
                 })
                 .collect(),
             Err(_) => Vec::new(),

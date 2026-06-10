@@ -90,9 +90,54 @@ fn by_name(name: &str, model_override: Option<String>, enabled: &[Endpoint]) -> 
     }
 }
 
+/// 端点对外公布/可路由匹配的模型集合：基础可用模型（锁定 `model` 优先，否则 `models` 清单）
+/// 并入所有映射的入站名（`model_mappings[].from`）。大小写不敏感去重、保留首次出现的原样写法。
+pub fn advertised_models(ep: &Endpoint) -> Vec<String> {
+    let base: Vec<String> = if !ep.model.trim().is_empty() {
+        vec![ep.model.clone()]
+    } else {
+        ep.models.clone()
+    };
+    let mut out: Vec<String> = Vec::new();
+    let mut seen: Vec<String> = Vec::new();
+    for m in base
+        .into_iter()
+        .chain(ep.model_mappings.iter().map(|mm| mm.from.clone()))
+    {
+        let key = m.trim().to_ascii_lowercase();
+        if key.is_empty() || seen.contains(&key) {
+            continue;
+        }
+        seen.push(key);
+        out.push(m);
+    }
+    out
+}
+
+/// 解析转发上游应使用的出站模型：① 入站名命中映射 → 映射出站名；② 否则锁定 `model` 非空 → 锁定模型；
+/// ③ 否则 `None`（透传客户端原始 model）。大小写不敏感匹配入站名。
+pub fn resolve_outbound(ep: &Endpoint, inbound: Option<&str>) -> Option<String> {
+    if let Some(m) = inbound {
+        let m = m.trim();
+        if !m.is_empty() {
+            if let Some(map) = ep
+                .model_mappings
+                .iter()
+                .find(|mm| mm.from.trim().eq_ignore_ascii_case(m) && !mm.to.trim().is_empty())
+            {
+                return Some(map.to.clone());
+            }
+        }
+    }
+    if !ep.model.trim().is_empty() {
+        return Some(ep.model.clone());
+    }
+    None
+}
+
 /// 按请求模型过滤候选端点（轮换/熔断前）：
-/// 若有端点在 `models` 清单中声明了该模型，则只保留这些端点（故障隔离：不含该模型的端点不参与轮换/熔断）；
-/// 若无任一端点声明（或未带 model / 端点均未配置 models），回退完整列表以保向后兼容。大小写不敏感。
+/// 若有端点的「公布模型集合（含映射入站名）」包含该模型，则只保留这些端点（故障隔离：不含该模型的端点不参与轮换/熔断）；
+/// 若无任一端点声明（或未带 model），回退完整列表以保向后兼容。大小写不敏感。
 pub fn filter_by_model(enabled: &[Endpoint], model: Option<&str>) -> Vec<Endpoint> {
     let m = match model {
         Some(m) if !m.trim().is_empty() => m.trim(),
@@ -100,7 +145,11 @@ pub fn filter_by_model(enabled: &[Endpoint], model: Option<&str>) -> Vec<Endpoin
     };
     let with_model: Vec<Endpoint> = enabled
         .iter()
-        .filter(|e| e.models.iter().any(|mm| mm.trim().eq_ignore_ascii_case(m)))
+        .filter(|e| {
+            advertised_models(e)
+                .iter()
+                .any(|mm| mm.trim().eq_ignore_ascii_case(m))
+        })
         .cloned()
         .collect();
     if with_model.is_empty() {
@@ -125,6 +174,7 @@ mod tests {
             transformer: "claude".into(),
             model: "".into(),
             models: Vec::new(),
+            model_mappings: Vec::new(),
             remark: "".into(),
             sort_order: 0,
             test_status: "unknown".into(),
@@ -253,5 +303,74 @@ mod tests {
         let eps = vec![ep_with_models("max", &["claude-opus-4-8"]), ep("bare")];
         assert_eq!(filter_by_model(&eps, None).len(), 2);
         assert_eq!(filter_by_model(&eps, Some("  ")).len(), 2);
+    }
+
+    fn ep_mapped(name: &str, models: &[&str], mappings: &[(&str, &str)]) -> Endpoint {
+        Endpoint {
+            model_mappings: mappings
+                .iter()
+                .map(|(f, t)| crate::models::endpoint::ModelMapping {
+                    from: f.to_string(),
+                    to: t.to_string(),
+                })
+                .collect(),
+            ..ep_with_models(name, models)
+        }
+    }
+
+    #[test]
+    fn advertised_models_unions_models_and_mapping_inbound_dedup_ci() {
+        let e = ep_mapped(
+            "max",
+            &["claude-opus-4-8", "Claude-Opus-4-8"],
+            &[("gpt-5", "claude-opus-4-8"), ("GPT-5", "claude-opus-4-8")],
+        );
+        let adv = advertised_models(&e);
+        // 大小写去重：claude-opus-4-8 与 gpt-5 各保留一次
+        assert_eq!(adv.len(), 2);
+        assert!(adv.iter().any(|m| m.eq_ignore_ascii_case("claude-opus-4-8")));
+        assert!(adv.iter().any(|m| m.eq_ignore_ascii_case("gpt-5")));
+    }
+
+    #[test]
+    fn advertised_models_locked_model_takes_base() {
+        let e = Endpoint {
+            model: "locked-x".into(),
+            ..ep_mapped("ep", &["ignored"], &[("alias", "locked-x")])
+        };
+        let adv = advertised_models(&e);
+        assert!(adv.iter().any(|m| m == "locked-x"));
+        assert!(adv.iter().any(|m| m == "alias"));
+        assert!(!adv.iter().any(|m| m == "ignored")); // models 被锁定 model 取代
+    }
+
+    #[test]
+    fn filter_by_model_matches_mapping_inbound_name() {
+        let eps = vec![
+            ep_mapped("max", &["claude-opus-4-8"], &[("gpt-5", "claude-opus-4-8")]),
+            ep_with_models("cc", &["mimo-v2.5-pro"]),
+        ];
+        // 请求入站映射名 gpt-5 → 只命中声明该映射的 max
+        let got = filter_by_model(&eps, Some("gpt-5"));
+        assert_eq!(got.len(), 1);
+        assert_eq!(got[0].name, "max");
+    }
+
+    #[test]
+    fn resolve_outbound_mapping_then_locked_then_passthrough() {
+        let mapped = ep_mapped("e", &["claude-opus-4-8"], &[("gpt-5", "claude-opus-4-8")]);
+        // 命中映射
+        assert_eq!(
+            resolve_outbound(&mapped, Some("GPT-5")).as_deref(),
+            Some("claude-opus-4-8")
+        );
+        // 未命中映射且无锁定 → 透传（None）
+        assert_eq!(resolve_outbound(&mapped, Some("claude-opus-4-8")), None);
+        // 锁定 model 优先于透传
+        let locked = Endpoint { model: "lk".into(), ..ep("e2") };
+        assert_eq!(resolve_outbound(&locked, Some("anything")).as_deref(), Some("lk"));
+        // 映射优先于锁定
+        let both = Endpoint { model: "lk".into(), ..ep_mapped("e3", &[], &[("a", "mapped-to")]) };
+        assert_eq!(resolve_outbound(&both, Some("a")).as_deref(), Some("mapped-to"));
     }
 }

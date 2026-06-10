@@ -321,26 +321,28 @@ pub async fn handle_proxy(
         };
 
         let format = UpstreamFormat::from_transformer_name(&ep.transformer);
+        // 出站模型解析：入站名命中映射 → 出站名；否则锁定 model；否则透传（空串）。
+        let outbound_model = resolver::resolve_outbound(&ep, model.as_deref()).unwrap_or_default();
         // 仅「Claude 入站 + OpenAI 端点」需要请求/响应格式转换；其余（含 OpenAI 入站透传、Claude 直通）不转换。
         let needs_transform = !inbound_openai && matches!(format, UpstreamFormat::OpenAiChat);
         let attempt_body: Bytes = if needs_transform {
-            // Claude → OpenAI（transform_request 内部按 ep.model 覆盖，空则透传客户端 model）
+            // Claude → OpenAI（transform_request 内部按出站模型覆盖，空则透传客户端 model）
             match &body_json {
                 Some(cj) => get_transformer(format)
-                    .transform_request(cj, Some(&ep.model))
+                    .transform_request(cj, Some(&outbound_model))
                     .ok()
                     .and_then(|v| serde_json::to_vec(&v).ok())
                     .map(Bytes::from)
                     .unwrap_or_else(|| body.clone()),
                 None => body.clone(),
             }
-        } else if !ep.model.is_empty() {
-            // 直通场景的 model 锁定：覆盖请求体 model 后重新序列化
+        } else if !outbound_model.is_empty() {
+            // 直通场景：映射/锁定的出站模型覆盖请求体 model 后重新序列化
             match &body_json {
                 Some(cj) => {
                     let mut v = cj.clone();
                     if let Some(o) = v.as_object_mut() {
-                        o.insert("model".to_string(), Value::String(ep.model.clone()));
+                        o.insert("model".to_string(), Value::String(outbound_model.clone()));
                     }
                     serde_json::to_vec(&v)
                         .map(Bytes::from)
