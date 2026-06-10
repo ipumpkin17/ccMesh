@@ -1,5 +1,11 @@
 import { request } from "../request";
 
+/** 单条模型映射：入站模型名 from → 出站（上游真实）模型名 to。 */
+export interface ModelMapping {
+  from: string;
+  to: string;
+}
+
 export interface Endpoint {
   id: number;
   name: string;
@@ -11,6 +17,7 @@ export interface Endpoint {
   transformer: string;
   model: string;
   models: string[];
+  modelMappings: ModelMapping[];
   remark: string;
   sortOrder: number;
   testStatus: string;
@@ -28,10 +35,36 @@ export interface CreateEndpointRequest {
   transformer?: string;
   model?: string;
   models?: string[];
+  modelMappings?: ModelMapping[];
   remark?: string;
 }
 
 export type UpdateEndpointRequest = Partial<CreateEndpointRequest>;
+
+/** 出站（真实）模型：锁定 model 优先，否则 models 清单。用于测试连通性 / 映射出站下拉。 */
+export function outboundModels(
+  ep: Pick<Endpoint, "model" | "models">,
+): string[] {
+  return ep.model ? [ep.model] : ep.models ?? [];
+}
+
+/** 对外公布的可用模型：出站模型并入映射入站名，大小写去重（保留首次出现）。 */
+export function advertisedModels(
+  ep: Pick<Endpoint, "model" | "models" | "modelMappings">,
+): string[] {
+  const out: string[] = [];
+  const seen = new Set<string>();
+  for (const m of [
+    ...outboundModels(ep),
+    ...(ep.modelMappings ?? []).map((x) => x.from),
+  ]) {
+    const key = m.trim().toLowerCase();
+    if (!key || seen.has(key)) continue;
+    seen.add(key);
+    out.push(m);
+  }
+  return out;
+}
 
 export interface EndpointTestResult {
   success: boolean;

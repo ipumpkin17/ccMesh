@@ -6,6 +6,7 @@ import {
   GripVerticalIcon,
   PencilIcon,
   Trash2Icon,
+  WaypointsIcon,
 } from "lucide-react";
 import { toast } from "sonner";
 
@@ -23,9 +24,15 @@ import {
   PopoverTrigger,
 } from "@/components/ui/popover";
 import { Switch } from "@/components/ui/switch";
-import { endpointApi, type Endpoint } from "@/services/modules/endpoint";
+import {
+  advertisedModels,
+  endpointApi,
+  outboundModels,
+  type Endpoint,
+} from "@/services/modules/endpoint";
 import { healthApi } from "@/services/modules/health";
 import type { EndpointView } from "@/stores";
+import { ModelMappingDialog } from "./ModelMappingDialog";
 import { TestBadge } from "./TestBadge";
 
 const errMsg = (e: unknown) => (e instanceof Error ? e.message : String(e));
@@ -50,6 +57,7 @@ export function EndpointCard({
   const qc = useQueryClient();
   const invalidate = () => qc.invalidateQueries({ queryKey: ["endpoints"] });
   const [testOpen, setTestOpen] = useState(false);
+  const [mapOpen, setMapOpen] = useState(false);
   // 共享 ["endpoint-health"] 查询（多卡片去重）；展示运行期熔断态。
   const { data: epHealth } = useQuery({
     queryKey: ["endpoint-health"],
@@ -119,12 +127,14 @@ export function EndpointCard({
     />
   );
 
-  // 该端点对外展示/可测试的模型：锁定 model 优先，否则聚合清单 models
-  const shownModels = endpoint.model ? [endpoint.model] : endpoint.models ?? [];
+  // 测试连通性用出站(真实)模型：test 直连上游、不经网关，入站映射名上游不认。
+  const testModels = outboundModels(endpoint);
+  // 可用性展示用公布集合：出站模型并入映射入站名。
+  const displayModels = advertisedModels(endpoint);
 
   // 测试连通性需指定模型：≥2 个模型时弹 Popover 选择，否则直接测（0/1 模型走回落）
   const testButton =
-    shownModels.length >= 2 ? (
+    testModels.length >= 2 ? (
       <Popover open={testOpen} onOpenChange={setTestOpen}>
         <PopoverTrigger asChild>
           <Button
@@ -139,7 +149,7 @@ export function EndpointCard({
         <PopoverContent align="end" className="w-56 p-2">
           <p className="mb-1.5 px-1 text-xs text-ink-mute">选择测试模型</p>
           <div className="flex max-h-60 flex-col gap-0.5 overflow-auto">
-            {shownModels.map((m) => (
+            {testModels.map((m) => (
               <button
                 key={m}
                 type="button"
@@ -160,7 +170,7 @@ export function EndpointCard({
         size="icon"
         variant="ghost"
         aria-label="测试连通性"
-        onClick={() => test.mutate(shownModels[0])}
+        onClick={() => test.mutate(testModels[0])}
         disabled={test.isPending}
       >
         <ActivityIcon className="size-4" />
@@ -170,6 +180,14 @@ export function EndpointCard({
   const actions = (
     <div className="flex gap-0.5">
       {testButton}
+      <Button
+        size="icon"
+        variant="ghost"
+        aria-label="模型映射"
+        onClick={() => setMapOpen(true)}
+      >
+        <WaypointsIcon className="size-4" />
+      </Button>
       <Button size="icon" variant="ghost" aria-label="克隆" onClick={() => clone.mutate()}>
         <CopyIcon className="size-4" />
       </Button>
@@ -179,6 +197,7 @@ export function EndpointCard({
       <Button size="icon" variant="ghost" aria-label="删除" onClick={() => del.mutate()}>
         <Trash2Icon className="size-4" />
       </Button>
+      <ModelMappingDialog open={mapOpen} onOpenChange={setMapOpen} endpoint={endpoint} />
     </div>
   );
 
@@ -198,12 +217,12 @@ export function EndpointCard({
         </span>
       </HoverCardTrigger>
       <HoverCardContent side="top" className="max-h-60 w-56 overflow-auto">
-        {shownModels.length === 0 ? (
+        {displayModels.length === 0 ? (
           <span className="text-sm text-ink-mute">无已配置模型</span>
         ) : (
           <div className="flex flex-col gap-0.5">
-            <span className="mb-1 text-xs text-ink-secondary">模型（{shownModels.length}）</span>
-            {shownModels.map((m) => (
+            <span className="mb-1 text-xs text-ink-secondary">模型（{displayModels.length}）</span>
+            {displayModels.map((m) => (
               <span key={m} className="font-mono text-xs">
                 {m}
               </span>
