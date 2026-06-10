@@ -112,6 +112,8 @@ struct RequestMeta {
     started_ms: i64,
     /// 首字节延迟（毫秒）：响应头到达时置入；流式响应处理器会在首个内容分片到达时覆盖为更精确的首字。
     first_byte_ms: Option<i64>,
+    /// 实际(出站)模型：映射/锁定改写后与入站不同才有值，透传为 None。
+    actual_model: Option<String>,
 }
 
 impl RequestMeta {
@@ -134,6 +136,7 @@ impl RequestMeta {
             usage: tu,
             duration_ms: Some(chrono::Utc::now().timestamp_millis() - self.started_ms),
             first_byte_ms: self.first_byte_ms,
+            actual_model: self.actual_model.clone(),
         }
     }
 }
@@ -386,6 +389,15 @@ pub async fn handle_proxy(
             }
             Some(Ok(resp)) => {
                 let status = resp.status().as_u16();
+                // 实际(出站)模型：改写后的 outbound_model 非空且与入站不同（ci）才记录，供前端展示"实际模型"。
+                let requested = model.as_deref().unwrap_or("");
+                let actual_model = if !outbound_model.is_empty()
+                    && !outbound_model.eq_ignore_ascii_case(requested)
+                {
+                    Some(outbound_model.clone())
+                } else {
+                    None
+                };
                 let meta = RequestMeta {
                     endpoint: ep.name.clone(),
                     model: model.clone(),
@@ -396,6 +408,7 @@ pub async fn handle_proxy(
                     started_ms,
                     // 响应头到达即首字节（缓冲响应用此值；流式处理器会在首个内容分片到达时覆盖）。
                     first_byte_ms: Some(chrono::Utc::now().timestamp_millis() - started_ms),
+                    actual_model,
                 };
                 if status == 200 {
                     // 成功：闭合熔断（半开恢复时回传许可）；转换则通知前端
@@ -506,6 +519,7 @@ pub async fn handle_proxy(
             usage: usage::TokenUsage::default(),
             duration_ms: Some(chrono::Utc::now().timestamp_millis() - started_ms),
             first_byte_ms: None,
+            actual_model: None,
         });
     }
     json_error(
