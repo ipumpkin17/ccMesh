@@ -14,8 +14,8 @@ pub fn insert_batch(conn: &mut Connection, logs: &[RequestLog], device_id: &str)
             "INSERT INTO request_logs(
                 ts, endpoint_name, inbound_format, upstream_url, inbound_path, upstream_path,
                 status_code, is_error, input_tokens, output_tokens, cache_creation_tokens,
-                cache_read_tokens, model, duration_ms, first_byte_ms, device_id)
-             VALUES(?1,?2,?3,?4,?5,?6,?7,?8,?9,?10,?11,?12,?13,?14,?15,?16)",
+                cache_read_tokens, model, duration_ms, first_byte_ms, actual_model, device_id)
+             VALUES(?1,?2,?3,?4,?5,?6,?7,?8,?9,?10,?11,?12,?13,?14,?15,?16,?17)",
         )?;
         for l in logs {
             stmt.execute(params![
@@ -34,6 +34,7 @@ pub fn insert_batch(conn: &mut Connection, logs: &[RequestLog], device_id: &str)
                 l.model,
                 l.duration_ms,
                 l.first_byte_ms,
+                l.actual_model,
                 device_id,
             ])?;
         }
@@ -60,6 +61,7 @@ fn row_to_log(r: &rusqlite::Row) -> rusqlite::Result<RequestLog> {
         inbound_path: r.get(13)?,
         upstream_path: r.get(14)?,
         first_byte_ms: r.get(15)?,
+        actual_model: r.get(16)?,
     })
 }
 
@@ -101,7 +103,7 @@ pub fn query_page(
     let sql = format!(
         "SELECT id, ts, endpoint_name, inbound_format, upstream_url, status_code, is_error,
                 input_tokens, output_tokens, cache_creation_tokens, cache_read_tokens, model, duration_ms,
-                inbound_path, upstream_path, first_byte_ms
+                inbound_path, upstream_path, first_byte_ms, actual_model
          FROM request_logs{where_sql}
          ORDER BY ts DESC, id DESC LIMIT ? OFFSET ?"
     );
@@ -149,6 +151,7 @@ mod tests {
             model: Some("m".to_string()),
             duration_ms: Some(123),
             first_byte_ms: Some(45),
+            actual_model: None,
         }
     }
 
@@ -176,6 +179,19 @@ mod tests {
         assert!(page1[1].is_error);
         assert_eq!(page1[0].cache_read_tokens, 2);
         assert_eq!(page1[0].first_byte_ms, Some(45));
+        assert_eq!(page1[0].actual_model, None);
+    }
+
+    #[test]
+    fn actual_model_roundtrips() {
+        let mut c = db();
+        let mut mapped = log(100, "a", false);
+        mapped.actual_model = Some("gpt-5.5".to_string());
+        insert_batch(&mut c, &[mapped, log(200, "b", false)], "dev").unwrap();
+        let (items, _) = query_page(&c, None, None, None, 50, 0).unwrap();
+        // ts 倒序：b(200) actual_model None；a(100) Some
+        assert_eq!(items[0].actual_model, None);
+        assert_eq!(items[1].actual_model.as_deref(), Some("gpt-5.5"));
     }
 
     #[test]

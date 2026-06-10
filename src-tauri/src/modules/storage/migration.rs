@@ -117,6 +117,8 @@ const MIGRATIONS: &[&str] = &[
     "ALTER TABLE request_logs ADD COLUMN first_byte_ms INTEGER;",
     // v7：端点入站→出站模型映射（JSON 数组 [{from,to}]）。旧行默认空数组。
     "ALTER TABLE endpoints ADD COLUMN model_mappings TEXT NOT NULL DEFAULT '[]';",
+    // v8：request_logs 记录实际(出站)模型。仅当映射/锁定改写后与请求模型不同才有值，旧行/透传为 NULL。
+    "ALTER TABLE request_logs ADD COLUMN actual_model TEXT;",
 ];
 
 /// 幂等执行迁移：读取 `schema_version` 当前版本，仅应用尚未执行的脚本。
@@ -239,5 +241,17 @@ mod tests {
             rows.filter_map(Result::ok).collect()
         };
         assert!(cols.contains(&"model_mappings".to_string()));
+    }
+
+    #[test]
+    fn v8_adds_actual_model_column() {
+        let c = Connection::open_in_memory().unwrap();
+        run_migrations(&c).unwrap();
+        let cols: Vec<String> = {
+            let mut stmt = c.prepare("PRAGMA table_info(request_logs)").unwrap();
+            let rows = stmt.query_map([], |r| r.get::<_, String>(1)).unwrap();
+            rows.filter_map(Result::ok).collect()
+        };
+        assert!(cols.contains(&"actual_model".to_string()));
     }
 }

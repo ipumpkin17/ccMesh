@@ -84,6 +84,8 @@ pub struct RequestLog {
     pub duration_ms: Option<i64>,
     /// 首字节延迟（毫秒）：流式为首个内容分片到达耗时，缓冲为响应头到达耗时。旧行/无数据为 None。
     pub first_byte_ms: Option<i64>,
+    /// 实际(出站)模型：映射/锁定改写后实际转发上游的模型。仅当与请求模型不同才有值，透传/旧行为 None。
+    pub actual_model: Option<String>,
 }
 
 /// 请求明细分页结果。
