@@ -1,4 +1,6 @@
 import type { UnlistenFn } from "@tauri-apps/api/event";
+import { getVersion } from "@tauri-apps/api/app";
+import { openUrl } from "@tauri-apps/plugin-opener";
 
 import { Events, request, subscribe } from "../request";
 
@@ -18,6 +20,16 @@ export interface UpdateSettings {
 export interface DownloadProgress {
   downloaded: number;
   total: number | null;
+}
+
+export const GITHUB_RELEASES_URL = "https://github.com/VkRainB/ccMesh/releases";
+
+export async function openReleases() {
+  await openUrl(GITHUB_RELEASES_URL);
+}
+
+export async function getAppVersion(): Promise<string> {
+  return getVersion();
 }
 
 export const updateApi = {
