@@ -32,7 +32,7 @@ pub async fn fetch_model_ids(
     let base = api_url.trim_end_matches('/');
     let url = format!("{base}/v1/models");
     let req = match UpstreamFormat::from_transformer_name(transformer) {
-        UpstreamFormat::OpenAiChat => client
+        UpstreamFormat::OpenAiChat | UpstreamFormat::OpenAiResponses => client
             .get(&url)
             .header("user-agent", crate::utils::ua::codex_probe_ua())
             .header("originator", crate::utils::ua::CODEX_ORIGINATOR)

@@ -29,6 +29,13 @@ pub fn from_response(body: &Value, format: UpstreamFormat) -> TokenUsage {
             cache_creation: field(usage, "cache_creation_input_tokens"),
             cache_read: cache_read_tokens(usage),
         },
+        // Responses：usage.input_tokens / output_tokens / input_tokens_details.cached_tokens。
+        UpstreamFormat::OpenAiResponses => TokenUsage {
+            input: first_field(usage, &["input_tokens", "prompt_tokens"]),
+            output: first_field(usage, &["output_tokens", "completion_tokens"]),
+            cache_creation: field(usage, "cache_creation_input_tokens"),
+            cache_read: cache_read_tokens(usage),
+        },
     }
 }
 
@@ -179,6 +186,27 @@ impl UsageAccumulator {
                             .and_then(|v| v.as_i64())
                         {
                             self.cache_creation = c;
+                        }
+                        let cache_read = cache_read_tokens(Some(u));
+                        if cache_read > 0 {
+                            self.cache_read = cache_read;
+                        }
+                    }
+                }
+            }
+            // Responses SSE：usage 在 response.completed/incomplete 事件的 `response.usage`（或顶层 `usage`）。
+            UpstreamFormat::OpenAiResponses => {
+                let u = j
+                    .get("response")
+                    .and_then(|r| r.get("usage"))
+                    .or_else(|| j.get("usage"));
+                if let Some(u) = u {
+                    if !u.is_null() {
+                        if let Some(i) = u.get("input_tokens").and_then(|v| v.as_i64()) {
+                            self.input = i;
+                        }
+                        if let Some(o) = u.get("output_tokens").and_then(|v| v.as_i64()) {
+                            self.output = o;
                         }
                         let cache_read = cache_read_tokens(Some(u));
                         if cache_read > 0 {

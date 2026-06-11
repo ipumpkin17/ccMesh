@@ -20,6 +20,9 @@ use crate::modules::proxy::rotation::{self, Rotation};
 use crate::modules::stats::aggregator::{RequestRecord, StatsAggregator};
 use crate::modules::storage::{db::DbPool, endpoint_repo};
 use crate::modules::transform::claude_openai::openai_response_to_claude;
+use crate::modules::transform::responses_chat::{
+    chat_response_to_responses, responses_request_to_chat, ResponsesStreamConverter,
+};
 use crate::modules::transform::streaming::StreamConverter;
 use crate::modules::transform::thinking_rectifier::{
     rectify_anthropic_request, should_rectify_thinking_signature, RectifierConfig,
@@ -241,10 +244,11 @@ pub async fn handle_proxy(
         return json_error(StatusCode::SERVICE_UNAVAILABLE, "没有启用的端点");
     }
 
-    // 入站格式识别（问题6 最小版）：/v1/chat/completions = OpenAI 入站。
-    // OpenAI 入站只透传到 OpenAI 端点，故候选过滤为 transformer=openai；为空则 400。
+    // 入站格式识别：/v1/chat/completions = OpenAI Chat 入站；/v1/responses = Responses 入站（codex）。
     let inbound_openai = path.contains("/chat/completions");
+    let inbound_responses = path.contains("/responses");
     let enabled: Vec<Endpoint> = if inbound_openai {
+        // OpenAI Chat 入站只透传到 OpenAI 端点，故候选过滤为 transformer=openai；为空则 400。
         let filtered: Vec<Endpoint> = enabled
             .into_iter()
             .filter(|e| {
@@ -258,6 +262,24 @@ pub async fn handle_proxy(
             return json_error(
                 StatusCode::BAD_REQUEST,
                 "OpenAI 入站(/v1/chat/completions)无可用的 OpenAI 端点",
+            );
+        }
+        filtered
+    } else if inbound_responses {
+        // Responses 入站：codex 端点透传、openai 端点转 Chat。候选 = codex + openai，为空则 400。
+        let filtered: Vec<Endpoint> = enabled
+            .into_iter()
+            .filter(|e| {
+                matches!(
+                    UpstreamFormat::from_transformer_name(&e.transformer),
+                    UpstreamFormat::OpenAiResponses | UpstreamFormat::OpenAiChat
+                )
+            })
+            .collect();
+        if filtered.is_empty() {
+            return json_error(
+                StatusCode::BAD_REQUEST,
+                "Responses 入站(/v1/responses)无可用的 codex/openai 端点",
             );
         }
         filtered
@@ -326,8 +348,11 @@ pub async fn handle_proxy(
         let format = UpstreamFormat::from_transformer_name(&ep.transformer);
         // 出站模型解析：入站名命中映射 → 出站名；否则锁定 model；否则透传（空串）。
         let outbound_model = resolver::resolve_outbound(&ep, model.as_deref()).unwrap_or_default();
-        // 仅「Claude 入站 + OpenAI 端点」需要请求/响应格式转换；其余（含 OpenAI 入站透传、Claude 直通）不转换。
-        let needs_transform = !inbound_openai && matches!(format, UpstreamFormat::OpenAiChat);
+        // 转换场景（互斥）：Claude 入站+OpenAI 端点 → Claude↔Chat；Responses 入站+OpenAI 端点 → Responses↔Chat；
+        // Responses 入站+codex 端点 → 透传（仅改 model）；其余（OpenAI 入站透传、Claude 直通）不转换。
+        let needs_transform =
+            !inbound_openai && !inbound_responses && matches!(format, UpstreamFormat::OpenAiChat);
+        let responses_to_chat = inbound_responses && matches!(format, UpstreamFormat::OpenAiChat);
         let attempt_body: Bytes = if needs_transform {
             // Claude → OpenAI（transform_request 内部按出站模型覆盖，空则透传客户端 model）
             match &body_json {
@@ -337,6 +362,16 @@ pub async fn handle_proxy(
                     .and_then(|v| serde_json::to_vec(&v).ok())
                     .map(Bytes::from)
                     .unwrap_or_else(|| body.clone()),
+                None => body.clone(),
+            }
+        } else if responses_to_chat {
+            // Responses → Chat（responses_request_to_chat 内部按出站模型覆盖，空则透传客户端 model）
+            match &body_json {
+                Some(cj) => {
+                    serde_json::to_vec(&responses_request_to_chat(cj, Some(&outbound_model)))
+                        .map(Bytes::from)
+                        .unwrap_or_else(|_| body.clone())
+                }
                 None => body.clone(),
             }
         } else if !outbound_model.is_empty() {
@@ -364,7 +399,7 @@ pub async fn handle_proxy(
         } else {
             body.clone()
         };
-        let upstream_path = if needs_transform {
+        let upstream_path = if needs_transform || responses_to_chat {
             "/v1/chat/completions"
         } else {
             path.as_str()
@@ -401,7 +436,14 @@ pub async fn handle_proxy(
                 let meta = RequestMeta {
                     endpoint: ep.name.clone(),
                     model: model.clone(),
-                    inbound_format: (if inbound_openai { "openai" } else { "claude" }).to_string(),
+                    inbound_format: (if inbound_openai {
+                        "openai"
+                    } else if inbound_responses {
+                        "responses"
+                    } else {
+                        "claude"
+                    })
+                    .to_string(),
                     upstream_url: ep.api_url.clone(),
                     inbound_path: path.clone(),
                     upstream_path: upstream_path.to_string(),
@@ -417,6 +459,14 @@ pub async fn handle_proxy(
                     }
                     // 真实 token 由各响应处理函数解析上游 usage 后记录
                     let stats = st.stats.clone();
+                    if responses_to_chat {
+                        // Responses 入站 + OpenAI 端点：上游 Chat 响应转回 Responses。
+                        return if client_wants_stream {
+                            stream_responses_from_chat(resp, stats, meta)
+                        } else {
+                            buffered_responses_from_chat(resp, stats, meta).await
+                        };
+                    }
                     return match (needs_transform, client_wants_stream) {
                         (true, true) => stream_transform_response(resp, stats, meta),
                         (true, false) => transform_buffered_response(resp, stats, meta).await,
@@ -562,7 +612,7 @@ async fn send_upstream(
     // 伪装 UA：按上游格式取配置；非空则覆盖客户端 UA，为空则纯透传（客户端 UA 随下方头部复制原样转发）
     let ua_format = UpstreamFormat::from_transformer_name(&ep.transformer);
     let ua_override = match ua_format {
-        UpstreamFormat::OpenAiChat => st.openai_ua.trim(),
+        UpstreamFormat::OpenAiChat | UpstreamFormat::OpenAiResponses => st.openai_ua.trim(),
         UpstreamFormat::Claude => st.claude_cli_ua.trim(),
     };
     let override_ua = !ua_override.is_empty();
@@ -744,6 +794,98 @@ fn stream_transform_response(
     tokio::spawn(async move {
         let mut meta = meta;
         let mut converter = StreamConverter::new(meta.model.clone().unwrap_or_default(), 0);
+        let mut stream = resp.bytes_stream();
+        let mut buf = String::new();
+        let mut first = true;
+        while let Some(item) = stream.next().await {
+            let chunk = match item {
+                Ok(c) => c,
+                Err(_) => break,
+            };
+            if first {
+                meta.first_byte_ms = Some(chrono::Utc::now().timestamp_millis() - meta.started_ms);
+                first = false;
+            }
+            buf.push_str(&String::from_utf8_lossy(&chunk));
+            while let Some(nl) = buf.find('\n') {
+                let line: String = buf[..nl].to_string();
+                buf.drain(..=nl);
+                let line = line.trim();
+                let Some(data) = line.strip_prefix("data:") else {
+                    continue;
+                };
+                let data = data.trim();
+                if data == "[DONE]" {
+                    for ev in converter.finish() {
+                        let _ = tx.send(Ok(Bytes::from(ev))).await;
+                    }
+                } else if !data.is_empty() {
+                    if let Ok(j) = serde_json::from_str::<Value>(data) {
+                        for ev in converter.process_chunk(&j) {
+                            let _ = tx.send(Ok(Bytes::from(ev))).await;
+                        }
+                    }
+                }
+            }
+        }
+        // 上游未发 [DONE] 时兜底收尾（finish 幂等）
+        for ev in converter.finish() {
+            let _ = tx.send(Ok(Bytes::from(ev))).await;
+        }
+        let (input, output, cache_creation, cache_read) = converter.usage();
+        let tu = usage::TokenUsage {
+            input,
+            output,
+            cache_creation,
+            cache_read,
+        };
+        stats.record(meta.into_record(Some(200), false, tu));
+    });
+
+    let body = Body::from_stream(ReceiverStream::new(rx));
+    let mut response = Response::new(body);
+    response.headers_mut().insert(
+        axum::http::header::CONTENT_TYPE,
+        HeaderValue::from_static("text/event-stream"),
+    );
+    response
+}
+
+/// 非流式 Chat 响应 → 缓冲后转换为 Responses JSON 回传；记录真实 usage（codex 端点的 openai 上游路径）。
+async fn buffered_responses_from_chat(
+    resp: reqwest::Response,
+    stats: Arc<StatsAggregator>,
+    meta: RequestMeta,
+) -> Response {
+    match resp.text().await {
+        Ok(text) => match serde_json::from_str::<Value>(&text) {
+            Ok(chat) => {
+                let model = meta.model.clone().unwrap_or_default();
+                let tu = usage::from_response(&chat, UpstreamFormat::OpenAiChat);
+                stats.record(meta.into_record(Some(200), false, tu));
+                (
+                    StatusCode::OK,
+                    axum::Json(chat_response_to_responses(&chat, &model)),
+                )
+                    .into_response()
+            }
+            Err(_) => json_error(StatusCode::BAD_GATEWAY, "上游响应解析失败"),
+        },
+        Err(e) => json_error(StatusCode::BAD_GATEWAY, &format!("读取上游响应失败: {e}")),
+    }
+}
+
+/// 流式 Chat SSE → 边解析边转换为 Responses SSE 事件流回传；流结束记录真实 usage。
+fn stream_responses_from_chat(
+    resp: reqwest::Response,
+    stats: Arc<StatsAggregator>,
+    meta: RequestMeta,
+) -> Response {
+    let (tx, rx) = mpsc::channel::<Result<Bytes, std::io::Error>>(32);
+    tokio::spawn(async move {
+        let mut meta = meta;
+        let mut converter =
+            ResponsesStreamConverter::new(meta.model.clone().unwrap_or_default(), 0);
         let mut stream = resp.bytes_stream();
         let mut buf = String::new();
         let mut first = true;

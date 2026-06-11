@@ -134,6 +134,7 @@ pub async fn test_endpoint(
     // 优先用调用方指定的模型（前端选择），否则端点锁定 model，再否则按格式回落默认
     let fallback = match format {
         UpstreamFormat::OpenAiChat => "gpt-4o-mini",
+        UpstreamFormat::OpenAiResponses => "gpt-5-codex",
         UpstreamFormat::Claude => "claude-3-5-sonnet-latest",
     };
     let model_str = model.filter(|s| !s.trim().is_empty()).unwrap_or_else(|| {
@@ -156,6 +157,19 @@ pub async fn test_endpoint(
                 .json(&json!({
                     "model": model, "max_tokens": 16,
                     "messages": [{ "role": "user", "content": "ping" }]
+                }));
+            (url, b)
+        }
+        UpstreamFormat::OpenAiResponses => {
+            let url = format!("{base}/v1/responses");
+            let b = client
+                .post(&url)
+                .header("user-agent", ua::codex_probe_ua())
+                .header("originator", ua::CODEX_ORIGINATOR)
+                .header("authorization", format!("Bearer {}", ep.api_key))
+                .json(&json!({
+                    "model": model, "max_output_tokens": 16,
+                    "input": "ping"
                 }));
             (url, b)
         }
