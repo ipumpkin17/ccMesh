@@ -11,8 +11,13 @@ use tauri::{Emitter, Manager};
 pub fn run() {
     // 控制台 fmt 层（RUST_LOG 可覆盖）+ 捕获层（动态级别 + log-line 事件推送）
     use tracing_subscriber::prelude::*;
-    let console_filter = tracing_subscriber::EnvFilter::try_from_default_env()
-        .unwrap_or_else(|_| tracing_subscriber::EnvFilter::new("info"));
+    // 默认 info，并压制第三方框架噪音：tao/wry 等经 `log` crate 桥接 → log=warn；HTTP 栈降到 warn。
+    // 设 RUST_LOG 可覆盖（例：RUST_LOG=ccmesh=debug,log=warn 只看本项目 debug）。
+    let console_filter = tracing_subscriber::EnvFilter::try_from_default_env().unwrap_or_else(|_| {
+        tracing_subscriber::EnvFilter::new(
+            "info,log=warn,hyper=warn,reqwest=warn,h2=warn,rustls=warn,tao=warn,wry=warn",
+        )
+    });
     tracing_subscriber::registry()
         .with(tracing_subscriber::fmt::layer().with_filter(console_filter))
         .with(modules::logs::CaptureLayer)

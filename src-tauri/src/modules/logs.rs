@@ -61,6 +61,19 @@ pub fn level_from_str(s: &str) -> u8 {
     }
 }
 
+/// 第三方框架日志 target（GUI / HTTP 栈 / 异步运行时）。这些库的 debug/info/trace 属噪音，
+/// 仅在 WARN 及以上才捕获。tao/wry 等经 `log` crate 桥接，target 统一为 `"log"`。
+/// 本项目自身日志 target 为模块路径（如 `ccmesh::modules::...`），不在此列、不受影响。
+fn is_noisy_target(target: &str) -> bool {
+    target == "log"
+        || [
+            "tao", "wry", "webview2", "tauri", "hyper", "h2", "reqwest", "rustls", "tokio",
+            "tower", "mio", "want", "tungstenite", "soketto",
+        ]
+        .iter()
+        .any(|p| target.starts_with(p))
+}
+
 /// 动态设置捕获/推送级别（不影响控制台 fmt 层）。
 pub fn set_level(s: &str) {
     LEVEL.store(level_from_str(s), Ordering::Relaxed);
@@ -111,6 +124,10 @@ impl<S: Subscriber> Layer<S> for CaptureLayer {
     fn on_event(&self, event: &Event<'_>, _ctx: Context<'_, S>) {
         let level = event.metadata().level();
         if level_num(level) < LEVEL.load(Ordering::Relaxed) {
+            return;
+        }
+        // 框架噪音降噪：第三方库（GUI/HTTP/运行时）仅 WARN 及以上才捕获，屏蔽其 debug/info/trace。
+        if level_num(level) < 3 && is_noisy_target(event.metadata().target()) {
             return;
         }
         let mut visitor = LogVisitor::default();
