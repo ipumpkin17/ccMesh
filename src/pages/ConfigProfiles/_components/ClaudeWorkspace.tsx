@@ -39,6 +39,7 @@ import {
   type ClaudeOperationFields,
 } from "@/services/modules/tool_config";
 import { ChannelList } from "./ChannelList";
+import { ModelCombobox } from "./ModelCombobox";
 
 const JsonEditor = lazy(() => import("@/components/common/JsonEditor"));
 
@@ -303,10 +304,11 @@ export function ClaudeWorkspace() {
                   return (
                     <div key={row.key} className="flex items-center gap-2">
                       <span className="w-16 shrink-0 text-sm text-ink-secondary">{row.role}</span>
-                      <Input
-                        list="claude-adv-models"
+                      <ModelCombobox
+                        className="flex-1"
                         value={b}
-                        onChange={(e) => setModel(row.key, e.target.value, is1m)}
+                        onChange={(v) => setModel(row.key, v, is1m)}
+                        options={advertised}
                         placeholder="模型显示名"
                       />
                       <label className="flex shrink-0 items-center gap-1 text-xs text-ink-mute">
@@ -323,20 +325,14 @@ export function ClaudeWorkspace() {
 
               <div className="flex flex-col gap-1.5">
                 <Label htmlFor="cl-default">默认兜底模型（ANTHROPIC_MODEL，可留空）</Label>
-                <Input
+                <ModelCombobox
                   id="cl-default"
-                  list="claude-adv-models"
                   value={fields.defaultModel}
-                  onChange={(e) => updateFields({ defaultModel: e.target.value })}
+                  onChange={(v) => updateFields({ defaultModel: v })}
+                  options={advertised}
                   placeholder="通常可留空"
                 />
               </div>
-
-              <datalist id="claude-adv-models">
-                {advertised.map((m) => (
-                  <option key={m} value={m} />
-                ))}
-              </datalist>
 
               <div className="flex flex-col gap-2">
                 <Label>配置开关</Label>

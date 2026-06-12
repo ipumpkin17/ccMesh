@@ -28,6 +28,7 @@ import {
   type CodexSnapshot,
 } from "@/services/modules/tool_config";
 import { ChannelList } from "./ChannelList";
+import { ModelCombobox } from "./ModelCombobox";
 
 const JsonEditor = lazy(() => import("@/components/common/JsonEditor"));
 
@@ -338,31 +339,25 @@ export function CodexWorkspace() {
 
               <div className="flex flex-col gap-1.5">
                 <Label htmlFor="cx-model">默认模型（model）</Label>
-                <Input
+                <ModelCombobox
                   id="cx-model"
-                  list="codex-adv-models"
                   value={fields.model}
-                  onChange={(e) => setFields((f) => ({ ...f, model: e.target.value }))}
+                  onChange={(v) => setFields((f) => ({ ...f, model: v }))}
+                  options={advertised}
                   placeholder="gpt-5.5"
                 />
               </div>
 
               <div className="flex flex-col gap-1.5">
                 <Label htmlFor="cx-review">审核模型（review_model）</Label>
-                <Input
+                <ModelCombobox
                   id="cx-review"
-                  list="codex-adv-models"
                   value={fields.reviewModel}
-                  onChange={(e) => setFields((f) => ({ ...f, reviewModel: e.target.value }))}
+                  onChange={(v) => setFields((f) => ({ ...f, reviewModel: v }))}
+                  options={advertised}
                   placeholder="gpt-5.5"
                 />
               </div>
-
-              <datalist id="codex-adv-models">
-                {advertised.map((m) => (
-                  <option key={m} value={m} />
-                ))}
-              </datalist>
 
               <div className="flex flex-col gap-2">
                 <Label>配置开关</Label>
