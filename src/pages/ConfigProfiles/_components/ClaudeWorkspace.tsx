@@ -1,6 +1,6 @@
 import { lazy, Suspense, useEffect, useMemo, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { EyeIcon, EyeOffIcon, FileCogIcon } from "lucide-react";
+import { EyeIcon, EyeOffIcon, FileCogIcon, RefreshCwIcon } from "lucide-react";
 import { useTheme } from "next-themes";
 import { toast } from "sonner";
 
@@ -16,6 +16,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { cn } from "@/lib/utils";
 import { useEndpoints } from "@/hooks/useEndpoints";
 import { useToolConfigChannels } from "@/hooks/useToolConfigChannels";
 import {
@@ -31,7 +32,7 @@ import {
   withOneM,
   type ClaudeToggles,
 } from "@/lib/toolConfig";
-import { advertisedModels } from "@/services/modules/endpoint";
+import { advertisedModels, endpointApi } from "@/services/modules/endpoint";
 import { configApi } from "@/services/modules/config";
 import {
   toolConfigApi,
@@ -94,6 +95,7 @@ export function ClaudeWorkspace() {
   const [base, setBase] = useState<unknown>({});
   const [fields, setFields] = useState<ClaudeOperationFields>(EMPTY);
   const [toggles, setToggles] = useState<ClaudeToggles>(DEFAULT_CLAUDE_TOGGLES);
+  const [fetchedModels, setFetchedModels] = useState<string[]>([]);
   const [rightText, setRightText] = useState("");
   const [rightEditable, setRightEditable] = useState(false);
   const [showKey, setShowKey] = useState(false);
@@ -134,6 +136,7 @@ export function ClaudeWorkspace() {
     setName("");
     setFields(EMPTY);
     setToggles(DEFAULT_CLAUDE_TOGGLES);
+    setFetchedModels([]);
     setOpText("");
     setRightText("");
     setRightEditable(false);
@@ -150,6 +153,7 @@ export function ClaudeWorkspace() {
       setFields(f);
       syncOp(f);
       setToggles(parseClaudeToggles(snapshot));
+      setFetchedModels([]);
       setRightEditable(false);
       setLoaded(true);
     } catch (e) {
@@ -168,6 +172,7 @@ export function ClaudeWorkspace() {
       setFields(f);
       syncOp(f);
       setToggles(parseClaudeToggles(ch.snapshot));
+      setFetchedModels([]);
       setRightEditable(false);
       setLoaded(true);
     } catch (e) {
@@ -210,6 +215,18 @@ export function ClaudeWorkspace() {
       setPendingDelete(null);
     },
   });
+
+  const fetchModels = useMutation({
+    mutationFn: () => endpointApi.fetchModels(fields.baseUrl, fields.apiKey, "claude"),
+    onSuccess: (ids) => {
+      setFetchedModels(ids);
+      toast.success(`拉取到 ${ids.length} 个模型`);
+    },
+    onError: (e) => toast.error(errMsg(e)),
+  });
+
+  /** 端点模式用 ccMesh 对外模型；自定义模式用从该地址拉取的模型。 */
+  const modelOptions = subTab === "custom" ? fetchedModels : advertised;
 
   const setModel = (key: "sonnetModel" | "opusModel" | "haikuModel", b: string, is1m: boolean) =>
     updateFields({ [key]: withOneM(b, is1m) } as Partial<ClaudeOperationFields>);
@@ -312,7 +329,23 @@ export function ClaudeWorkspace() {
               </div>
 
               <div className="flex flex-col gap-2">
-                <Label>模型映射（显示名只影响 /model 菜单；1M 为上下文能力声明）</Label>
+                <div className="flex items-center justify-between gap-2">
+                  <Label>模型映射（显示名只影响 /model 菜单；1M 为上下文能力声明）</Label>
+                  {subTab === "custom" && (
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="xs"
+                      disabled={fetchModels.isPending || !fields.baseUrl}
+                      onClick={() => fetchModels.mutate()}
+                    >
+                      <RefreshCwIcon
+                        className={cn("size-3", fetchModels.isPending && "animate-spin")}
+                      />
+                      拉取模型
+                    </Button>
+                  )}
+                </div>
                 {MODEL_ROWS.map((row) => {
                   const { base: b, is1m } = splitOneM(fields[row.key]);
                   return (
@@ -322,7 +355,7 @@ export function ClaudeWorkspace() {
                         className="flex-1"
                         value={b}
                         onChange={(v) => setModel(row.key, v, is1m)}
-                        options={advertised}
+                        options={modelOptions}
                         placeholder="模型显示名"
                       />
                       <label className="flex shrink-0 items-center gap-1 text-xs text-ink-mute">
@@ -343,7 +376,7 @@ export function ClaudeWorkspace() {
                   id="cl-default"
                   value={fields.defaultModel}
                   onChange={(v) => updateFields({ defaultModel: v })}
-                  options={advertised}
+                  options={modelOptions}
                   placeholder="通常可留空"
                 />
               </div>

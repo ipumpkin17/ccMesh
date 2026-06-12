@@ -1,6 +1,6 @@
 import { lazy, Suspense, useEffect, useMemo, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { EyeIcon, EyeOffIcon, FileCogIcon } from "lucide-react";
+import { EyeIcon, EyeOffIcon, FileCogIcon, RefreshCwIcon } from "lucide-react";
 import { useTheme } from "next-themes";
 import { toast } from "sonner";
 
@@ -16,10 +16,11 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { cn } from "@/lib/utils";
 import { useEndpoints } from "@/hooks/useEndpoints";
 import { useToolConfigChannels } from "@/hooks/useToolConfigChannels";
 import { gatewayBaseUrl } from "@/lib/toolConfig";
-import { advertisedModels } from "@/services/modules/endpoint";
+import { advertisedModels, endpointApi } from "@/services/modules/endpoint";
 import { configApi } from "@/services/modules/config";
 import {
   toolConfigApi,
@@ -93,6 +94,7 @@ export function CodexWorkspace() {
   const [rightText, setRightText] = useState("");
   const [rightEditable, setRightEditable] = useState(false);
   const [goalMode, setGoalMode] = useState(false);
+  const [fetchedModels, setFetchedModels] = useState<string[]>([]);
   const [showKey, setShowKey] = useState(false);
   const [pendingDelete, setPendingDelete] = useState<ChannelMeta | null>(null);
 
@@ -154,6 +156,7 @@ export function CodexWorkspace() {
     setName("");
     setFields(EMPTY);
     setGoalMode(false);
+    setFetchedModels([]);
     setAuthText("{}");
     setRightText("");
     setRightEditable(false);
@@ -177,6 +180,7 @@ export function CodexWorkspace() {
       setFields({ ...f, baseUrl: gateway });
       setAuthText(JSON.stringify(baseSnap.auth ?? {}, null, 2));
       setGoalMode(readGoals(baseSnap.config));
+      setFetchedModels([]);
       setRightEditable(false);
       setLoaded(true);
     } catch (e) {
@@ -196,6 +200,7 @@ export function CodexWorkspace() {
       setFields(f);
       setAuthText(JSON.stringify(snap.auth ?? {}, null, 2));
       setGoalMode(readGoals(snap.config));
+      setFetchedModels([]);
       setRightEditable(false);
       setLoaded(true);
     } catch (e) {
@@ -253,6 +258,18 @@ export function CodexWorkspace() {
       setPendingDelete(null);
     },
   });
+
+  const fetchModels = useMutation({
+    mutationFn: () => endpointApi.fetchModels(fields.baseUrl, fields.apiKey, "codex"),
+    onSuccess: (ids) => {
+      setFetchedModels(ids);
+      toast.success(`拉取到 ${ids.length} 个模型`);
+    },
+    onError: (e) => toast.error(errMsg(e)),
+  });
+
+  /** 端点模式用 ccMesh 对外模型；自定义模式用从该地址拉取的模型。 */
+  const modelOptions = subTab === "custom" ? fetchedModels : advertised;
 
   const canSubmit = loaded && name.trim().length > 0;
 
@@ -338,12 +355,28 @@ export function CodexWorkspace() {
               </div>
 
               <div className="flex flex-col gap-1.5">
-                <Label htmlFor="cx-model">默认模型（model）</Label>
+                <div className="flex items-center justify-between gap-2">
+                  <Label htmlFor="cx-model">默认模型（model）</Label>
+                  {subTab === "custom" && (
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="xs"
+                      disabled={fetchModels.isPending || !fields.baseUrl}
+                      onClick={() => fetchModels.mutate()}
+                    >
+                      <RefreshCwIcon
+                        className={cn("size-3", fetchModels.isPending && "animate-spin")}
+                      />
+                      拉取模型
+                    </Button>
+                  )}
+                </div>
                 <ModelCombobox
                   id="cx-model"
                   value={fields.model}
                   onChange={(v) => setFields((f) => ({ ...f, model: v }))}
-                  options={advertised}
+                  options={modelOptions}
                   placeholder="gpt-5.5"
                 />
               </div>
@@ -354,7 +387,7 @@ export function CodexWorkspace() {
                   id="cx-review"
                   value={fields.reviewModel}
                   onChange={(v) => setFields((f) => ({ ...f, reviewModel: v }))}
-                  options={advertised}
+                  options={modelOptions}
                   placeholder="gpt-5.5"
                 />
               </div>
