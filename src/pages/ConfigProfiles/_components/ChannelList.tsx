@@ -50,10 +50,10 @@ export function ChannelList({
               <li key={ch.id}>
                 <div
                   className={cn(
-                    "group flex cursor-pointer items-center justify-between rounded-md px-2.5 py-2 text-sm",
+                    "group flex cursor-pointer items-center justify-between rounded-md px-2.5 py-2 text-sm transition-colors",
                     selectedId === ch.id
-                      ? "bg-accent/15 text-accent"
-                      : "text-ink-secondary hover:bg-edge/40",
+                      ? "bg-primary/10 font-medium text-primary"
+                      : "text-ink-secondary hover:bg-surface-hover hover:text-ink-primary",
                   )}
                   onClick={() => onSelect(ch.id)}
                   onContextMenu={(e) => {
