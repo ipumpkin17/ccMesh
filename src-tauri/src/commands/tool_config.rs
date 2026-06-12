@@ -66,8 +66,9 @@ pub fn parse_claude_fields(snapshot: Value) -> AppResult<ClaudeOperationFields> 
 pub fn preview_codex_config(
     config_toml: String,
     fields: CodexOperationFields,
+    goal_mode: Option<bool>,
 ) -> AppResult<String> {
-    tc::codex::apply_operation_fields(&config_toml, &fields)
+    tc::codex::build_codex_config(&config_toml, &fields, goal_mode)
 }
 
 #[tauri::command]

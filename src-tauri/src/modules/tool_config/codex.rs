@@ -64,13 +64,7 @@ pub fn parse_operation_fields(auth: &Value, config_toml: &str) -> CodexOperation
     f
 }
 
-/// 把操作字段写进 config.toml 文本（字段级更新，保留注释/其它键）。
-/// 空字段不修改对应键（保留模板默认值）。
-pub fn apply_operation_fields(config_toml: &str, f: &CodexOperationFields) -> AppResult<String> {
-    let mut doc: DocumentMut = config_toml
-        .parse()
-        .map_err(|e| AppError::InvalidArgument(format!("config.toml 解析失败: {e}")))?;
-
+fn apply_fields_doc(doc: &mut DocumentMut, f: &CodexOperationFields) {
     if !f.model.is_empty() {
         doc["model"] = value(f.model.as_str());
     }
@@ -92,6 +86,41 @@ pub fn apply_operation_fields(config_toml: &str, f: &CodexOperationFields) -> Ap
                 prov_tbl["base_url"] = value(f.base_url.as_str());
             }
         }
+    }
+}
+
+/// Goal mode 开关：开启写 `[features].goals = true`，关闭删除该键（features 空则删表）。
+/// 与 cc-switch `setCodexGoalMode` 一致。
+fn apply_goal_mode_doc(doc: &mut DocumentMut, enabled: bool) {
+    if enabled {
+        let features = doc.entry("features").or_insert(Item::Table(Table::new()));
+        if let Some(t) = features.as_table_mut() {
+            t["goals"] = value(true);
+        }
+    } else {
+        let mut drop_features = false;
+        if let Some(features) = doc.get_mut("features").and_then(|i| i.as_table_mut()) {
+            features.remove("goals");
+            drop_features = features.is_empty();
+        }
+        if drop_features {
+            doc.remove("features");
+        }
+    }
+}
+
+/// 整合：操作字段 + 可选开关（目前 goal_mode）写进 config.toml，保留注释/其它键。
+pub fn build_codex_config(
+    config_toml: &str,
+    f: &CodexOperationFields,
+    goal_mode: Option<bool>,
+) -> AppResult<String> {
+    let mut doc: DocumentMut = config_toml
+        .parse()
+        .map_err(|e| AppError::InvalidArgument(format!("config.toml 解析失败: {e}")))?;
+    apply_fields_doc(&mut doc, f);
+    if let Some(g) = goal_mode {
+        apply_goal_mode_doc(&mut doc, g);
     }
     Ok(doc.to_string())
 }
@@ -132,7 +161,7 @@ name = "OpenAI"
             model: "gpt-6".into(),
             review_model: "gpt-6-mini".into(),
         };
-        let out = apply_operation_fields(SAMPLE, &f).unwrap();
+        let out = build_codex_config(SAMPLE, &f, None).unwrap();
         assert!(out.contains("# 顶部注释保留"), "顶部注释丢失: {out}");
         assert!(out.contains("# 行内注释保留"), "行内注释丢失");
         assert!(out.contains("model = \"gpt-6\""));
@@ -150,9 +179,27 @@ name = "OpenAI"
     #[test]
     fn apply_empty_fields_keeps_template() {
         let f = CodexOperationFields::default();
-        let out = apply_operation_fields(SAMPLE, &f).unwrap();
+        let out = build_codex_config(SAMPLE, &f, None).unwrap();
         assert!(out.contains("model = \"gpt-5.5\""));
         assert!(out.contains("base_url = \"http://127.0.0.1:3000/v1\""));
+    }
+
+    #[test]
+    fn build_applies_goal_mode_and_preserves_comments() {
+        let f = CodexOperationFields::default();
+        // 开启 goal mode
+        let on = build_codex_config(SAMPLE, &f, Some(true)).unwrap();
+        assert!(on.contains("# 顶部注释保留"), "注释丢失: {on}");
+        assert!(on.contains("[features]"));
+        assert!(on.contains("goals = true"));
+        // 关闭 goal mode → 删除 goals 与空 [features]
+        let off = build_codex_config(&on, &f, Some(false)).unwrap();
+        assert!(!off.contains("goals = true"));
+        assert!(!off.contains("[features]"));
+        assert!(off.contains("# 顶部注释保留"), "关闭后注释仍应保留");
+        // goal_mode = None → 不动 features
+        let none = build_codex_config(SAMPLE, &f, None).unwrap();
+        assert!(!none.contains("[features]"));
     }
 
     #[test]
