@@ -20,6 +20,15 @@ impl UpstreamFormat {
             _ => UpstreamFormat::Claude,
         }
     }
+
+    /// 按格式回落的默认模型（连通性测试与模型列表回落共用，单一来源）。
+    pub fn default_model(self) -> &'static str {
+        match self {
+            UpstreamFormat::OpenAiChat => "gpt-4o-mini",
+            UpstreamFormat::OpenAiResponses => "gpt-5-codex",
+            UpstreamFormat::Claude => "claude-3-5-sonnet-latest",
+        }
+    }
 }
 
 /// 格式转换器：客户端固定为 Claude Messages 格式，按上游格式双向转换。
@@ -88,5 +97,12 @@ mod tests {
             UpstreamFormat::from_transformer_name("gemini"),
             UpstreamFormat::Claude
         );
+    }
+
+    #[test]
+    fn default_model_per_format() {
+        assert_eq!(UpstreamFormat::Claude.default_model(), "claude-3-5-sonnet-latest");
+        assert_eq!(UpstreamFormat::OpenAiChat.default_model(), "gpt-4o-mini");
+        assert_eq!(UpstreamFormat::OpenAiResponses.default_model(), "gpt-5-codex");
     }
 }
