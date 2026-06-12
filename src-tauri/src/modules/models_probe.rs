@@ -1,0 +1,206 @@
+//! 模型列表探测：鉴权聚合 + URL 候选构造，提高端点表单「刷新模型」的成功率。
+//!
+//! 探测顺序（任一步拿到非空结果立即返回）：
+//! 1. 原始 URL 上按所选 transformer 的鉴权方式请求；
+//! 2. 同 URL 换另一种鉴权方式重试；
+//! 3. 两种鉴权均失败后，剥离已知兼容子路径构造候选 URL，重复 1-2。
+//!
+//! 明确不做 `/v{N}` 结尾改 `/models` 的候选档位（由表单输入提示兜住）。
+
+use serde_json::Value;
+
+use crate::modules::transform::transformer::UpstreamFormat;
+use crate::utils::ua;
+
+/// 已知兼容子路径：部分供应商在真实 API 根后挂代理子路径，剥离后可能命中 `/v1/models`。
+const KNOWN_COMPAT_SUFFIXES: [&str; 9] = [
+    "/api/claudecode",
+    "/api/anthropic",
+    "/apps/anthropic",
+    "/api/coding",
+    "/claudecode",
+    "/anthropic",
+    "/step_plan",
+    "/coding",
+    "/claude",
+];
+
+/// 模型探测的鉴权方式（Claude 头 / OpenAI Bearer）。
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum ProbeAuth {
+    /// `x-api-key + anthropic-version`
+    Claude,
+    /// `Authorization: Bearer`
+    Bearer,
+}
+
+impl ProbeAuth {
+    /// transformer 对应的首选鉴权方式。
+    pub fn primary_for(transformer: &str) -> Self {
+        match UpstreamFormat::from_transformer_name(transformer) {
+            UpstreamFormat::Claude => ProbeAuth::Claude,
+            UpstreamFormat::OpenAiChat | UpstreamFormat::OpenAiResponses => ProbeAuth::Bearer,
+        }
+    }
+
+    fn other(self) -> Self {
+        match self {
+            ProbeAuth::Claude => ProbeAuth::Bearer,
+            ProbeAuth::Bearer => ProbeAuth::Claude,
+        }
+    }
+
+    /// 给请求套上对应的鉴权/UA 头（模型探测与连通性测试共用，单一来源）。
+    pub fn apply(self, b: reqwest::RequestBuilder, api_key: &str) -> reqwest::RequestBuilder {
+        match self {
+            ProbeAuth::Bearer => b
+                .header("user-agent", ua::codex_probe_ua())
+                .header("originator", ua::CODEX_ORIGINATOR)
+                .header("authorization", format!("Bearer {api_key}")),
+            ProbeAuth::Claude => b
+                .header("user-agent", ua::CLAUDE_PROBE_UA)
+                .header("x-api-key", api_key)
+                .header("anthropic-version", "2023-06-01"),
+        }
+    }
+}
+
+/// 构造候选模型 URL（已含 `/v1/models` 后缀），去重保序：
+/// 原始 base → 剥离已知兼容子路径（大小写不敏感，至多剥离一层）。
+fn build_candidate_urls(api_url: &str) -> Vec<String> {
+    let base = api_url.trim_end_matches('/');
+    let mut out = vec![format!("{base}/v1/models")];
+    if let Some(stripped) = strip_known_suffix(base) {
+        let stripped = stripped.trim_end_matches('/');
+        if !stripped.is_empty() {
+            let url = format!("{stripped}/v1/models");
+            if !out.contains(&url) {
+                out.push(url);
+            }
+        }
+    }
+    out
+}
+
+fn strip_known_suffix(base: &str) -> Option<&str> {
+    let lower = base.to_ascii_lowercase();
+    KNOWN_COMPAT_SUFFIXES
+        .iter()
+        .find(|s| lower.ends_with(*s))
+        .map(|s| &base[..base.len() - s.len()])
+}
+
+/// 单次请求 + 解析 `data[].id`（Claude/OpenAI 上游响应结构相同）。失败返回空。
+pub async fn request_model_ids(
+    client: &reqwest::Client,
+    url: &str,
+    api_key: &str,
+    auth: ProbeAuth,
+) -> Vec<String> {
+    let req = auth.apply(client.get(url), api_key);
+    if let Ok(resp) = req.send().await {
+        if resp.status().is_success() {
+            if let Ok(v) = resp.json::<Value>().await {
+                if let Some(data) = v.get("data").and_then(|d| d.as_array()) {
+                    return data
+                        .iter()
+                        .filter_map(|m| m.get("id").and_then(|i| i.as_str()).map(String::from))
+                        .collect();
+                }
+            }
+        }
+    }
+    Vec::new()
+}
+
+/// 聚合探测：候选 URL × 两种鉴权（所选 transformer 首选），任一成功立即返回，全失败返回空。
+/// 最多 2 候选 × 2 鉴权 = 4 次请求。
+pub async fn probe_models(
+    client: &reqwest::Client,
+    api_url: &str,
+    api_key: &str,
+    transformer: &str,
+) -> Vec<String> {
+    let primary = ProbeAuth::primary_for(transformer);
+    for url in build_candidate_urls(api_url) {
+        for auth in [primary, primary.other()] {
+            let ids = request_model_ids(client, &url, api_key, auth).await;
+            if !ids.is_empty() {
+                return ids;
+            }
+        }
+    }
+    Vec::new()
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn plain_base_yields_single_candidate() {
+        assert_eq!(
+            build_candidate_urls("https://api.anthropic.com"),
+            vec!["https://api.anthropic.com/v1/models"]
+        );
+    }
+
+    #[test]
+    fn trailing_slash_is_trimmed() {
+        assert_eq!(
+            build_candidate_urls("https://api.anthropic.com/"),
+            vec!["https://api.anthropic.com/v1/models"]
+        );
+    }
+
+    #[test]
+    fn deepseek_compat_suffix_is_stripped() {
+        assert_eq!(
+            build_candidate_urls("https://api.deepseek.com/anthropic"),
+            vec![
+                "https://api.deepseek.com/anthropic/v1/models",
+                "https://api.deepseek.com/v1/models",
+            ]
+        );
+    }
+
+    #[test]
+    fn suffix_match_is_case_insensitive() {
+        assert_eq!(
+            build_candidate_urls("https://x.com/API/Anthropic"),
+            vec![
+                "https://x.com/API/Anthropic/v1/models",
+                "https://x.com/v1/models",
+            ]
+        );
+    }
+
+    #[test]
+    fn v1_suffix_gets_no_special_handling() {
+        assert_eq!(
+            build_candidate_urls("https://x.com/v1"),
+            vec!["https://x.com/v1/v1/models"]
+        );
+    }
+
+    #[test]
+    fn longer_suffix_wins_over_shorter() {
+        // /api/claudecode 在 /claudecode 之前匹配，避免剥离不彻底
+        assert_eq!(
+            build_candidate_urls("https://x.com/api/claudecode"),
+            vec![
+                "https://x.com/api/claudecode/v1/models",
+                "https://x.com/v1/models",
+            ]
+        );
+    }
+
+    #[test]
+    fn primary_auth_follows_transformer() {
+        assert_eq!(ProbeAuth::primary_for("claude"), ProbeAuth::Claude);
+        assert_eq!(ProbeAuth::primary_for("openai"), ProbeAuth::Bearer);
+        assert_eq!(ProbeAuth::primary_for("codex"), ProbeAuth::Bearer);
+        // 未知值按 Claude 直通 → Claude 头先行
+        assert_eq!(ProbeAuth::primary_for("gemini"), ProbeAuth::Claude);
+    }
+}

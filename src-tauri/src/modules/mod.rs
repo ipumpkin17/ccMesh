@@ -1,6 +1,7 @@
 pub mod backup;
 pub mod logs;
 pub mod models_cache;
+pub mod models_probe;
 pub mod proxy;
 pub mod stats;
 pub mod storage;
