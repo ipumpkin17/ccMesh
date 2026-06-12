@@ -2,15 +2,18 @@ use std::time::{Duration, Instant};
 
 use serde::Serialize;
 use serde_json::json;
-use tauri::State;
+use tauri::{AppHandle, Emitter, State};
 
 use crate::error::{AppError, AppResult};
 use crate::models::endpoint::{CreateEndpointRequest, Endpoint, UpdateEndpointRequest};
+use crate::modules::models_probe::ProbeAuth;
 use crate::modules::proxy::client::{build_client, should_use_proxy};
 use crate::modules::storage::{config_repo, endpoint_repo};
 use crate::modules::transform::transformer::UpstreamFormat;
 use crate::state::AppState;
-use crate::utils::ua;
+
+/// 端点配置/测试状态变更事件（payload 为空，前端收到后全量重拉相关查询）。
+const ENDPOINTS_CHANGED_EVENT: &str = "endpoints-changed";
 
 #[tauri::command]
 pub fn list_endpoints(state: State<AppState>) -> AppResult<Vec<Endpoint>> {
@@ -26,12 +29,15 @@ pub fn create_endpoint(state: State<AppState>, req: CreateEndpointRequest) -> Ap
 
 #[tauri::command]
 pub fn update_endpoint(
+    app: AppHandle,
     state: State<AppState>,
     id: i64,
     req: UpdateEndpointRequest,
 ) -> AppResult<Endpoint> {
     let conn = state.db_pool.get()?;
-    endpoint_repo::update(&conn, id, &req)
+    let ep = endpoint_repo::update(&conn, id, &req)?;
+    let _ = app.emit(ENDPOINTS_CHANGED_EVENT, ());
+    Ok(ep)
 }
 
 #[tauri::command]
@@ -110,6 +116,7 @@ pub struct TestResult {
 /// 探测端点连通性：发送最小请求，200 即可用；持久化 test_status。
 #[tauri::command]
 pub async fn test_endpoint(
+    app: AppHandle,
     state: State<'_, AppState>,
     id: i64,
     model: Option<String>,
@@ -132,11 +139,7 @@ pub async fn test_endpoint(
     let base = ep.api_url.trim_end_matches('/');
     let format = UpstreamFormat::from_transformer_name(&ep.transformer);
     // 优先用调用方指定的模型（前端选择），否则端点锁定 model，再否则按格式回落默认
-    let fallback = match format {
-        UpstreamFormat::OpenAiChat => "gpt-4o-mini",
-        UpstreamFormat::OpenAiResponses => "gpt-5-codex",
-        UpstreamFormat::Claude => "claude-3-5-sonnet-latest",
-    };
+    let fallback = format.default_model();
     let model_str = model.filter(|s| !s.trim().is_empty()).unwrap_or_else(|| {
         if ep.model.is_empty() {
             fallback.to_string()
@@ -146,48 +149,32 @@ pub async fn test_endpoint(
     });
     let model = model_str.as_str();
 
-    let (url, builder) = match format {
-        UpstreamFormat::OpenAiChat => {
-            let url = format!("{base}/v1/chat/completions");
-            let b = client
-                .post(&url)
-                .header("user-agent", ua::codex_probe_ua())
-                .header("originator", ua::CODEX_ORIGINATOR)
-                .header("authorization", format!("Bearer {}", ep.api_key))
-                .json(&json!({
-                    "model": model, "max_tokens": 16,
-                    "messages": [{ "role": "user", "content": "ping" }]
-                }));
-            (url, b)
-        }
-        UpstreamFormat::OpenAiResponses => {
-            let url = format!("{base}/v1/responses");
-            let b = client
-                .post(&url)
-                .header("user-agent", ua::codex_probe_ua())
-                .header("originator", ua::CODEX_ORIGINATOR)
-                .header("authorization", format!("Bearer {}", ep.api_key))
-                .json(&json!({
-                    "model": model, "max_output_tokens": 16,
-                    "input": "ping"
-                }));
-            (url, b)
-        }
-        UpstreamFormat::Claude => {
-            let url = format!("{base}/v1/messages");
-            let b = client
-                .post(&url)
-                .header("user-agent", ua::CLAUDE_PROBE_UA)
-                .header("x-api-key", &ep.api_key)
-                .header("anthropic-version", "2023-06-01")
-                .json(&json!({
-                    "model": model, "max_tokens": 16,
-                    "messages": [{ "role": "user", "content": "ping" }]
-                }));
-            (url, b)
-        }
+    let (url, body) = match format {
+        UpstreamFormat::OpenAiChat => (
+            format!("{base}/v1/chat/completions"),
+            json!({
+                "model": model, "max_tokens": 16,
+                "messages": [{ "role": "user", "content": "ping" }]
+            }),
+        ),
+        UpstreamFormat::OpenAiResponses => (
+            format!("{base}/v1/responses"),
+            json!({
+                "model": model, "max_output_tokens": 16,
+                "input": "ping"
+            }),
+        ),
+        UpstreamFormat::Claude => (
+            format!("{base}/v1/messages"),
+            json!({
+                "model": model, "max_tokens": 16,
+                "messages": [{ "role": "user", "content": "ping" }]
+            }),
+        ),
     };
-    let _ = url;
+    let builder = ProbeAuth::primary_for(&ep.transformer)
+        .apply(client.post(&url), &ep.api_key)
+        .json(&body);
 
     let start = Instant::now();
     let result = builder.send().await;
@@ -211,6 +198,7 @@ pub async fn test_endpoint(
         let conn = state.db_pool.get()?;
         endpoint_repo::set_test_status(&conn, id, status)?;
     }
+    let _ = app.emit(ENDPOINTS_CHANGED_EVENT, ());
 
     Ok(TestResult {
         success,

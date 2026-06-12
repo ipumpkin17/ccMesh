@@ -313,13 +313,11 @@ impl BreakerRegistry {
         }
     }
 
-    /// 单端点健康信息（无记录 → 健康/闭合）。
-    pub fn health_of(&self, name: &str) -> EndpointHealthInfo {
+    /// 单端点健康信息；无熔断记录（未承接流量）返回 `None`，由调用方决定回退
+    /// （避免伪造 healthy 覆盖手动测试结论）。
+    pub fn health_of(&self, name: &str) -> Option<EndpointHealthInfo> {
         let g = self.inner.lock().unwrap();
-        match g.get(name) {
-            Some(b) => b.to_info(name),
-            None => EndpointHealthInfo::healthy(name),
-        }
+        g.get(name).map(|b| b.to_info(name))
     }
 }
 

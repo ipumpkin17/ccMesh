@@ -53,7 +53,8 @@ pub fn get_health(state: State<AppState>) -> AppResult<HealthInfo> {
     })
 }
 
-/// 端点实时健康/熔断态：代理运行时读运行期熔断器；未运行时按库内 test_status 回退。
+/// 端点实时健康/熔断态：代理运行时读运行期熔断器（无熔断记录的端点回退 test_status，
+/// 保证"实时请求结果 > 手动测试"且零流量端点不被伪 healthy 覆盖）；未运行时按库内 test_status 回退。
 #[tauri::command]
 pub fn get_endpoint_health(state: State<AppState>) -> AppResult<Vec<EndpointHealthInfo>> {
     let conn = state.db_pool.get()?;
@@ -62,7 +63,11 @@ pub fn get_endpoint_health(state: State<AppState>) -> AppResult<Vec<EndpointHeal
     let infos = match guard.as_ref() {
         Some(h) => enabled
             .iter()
-            .map(|e| h.state.breakers.health_of(&e.name))
+            .map(|e| {
+                h.state.breakers.health_of(&e.name).unwrap_or_else(|| {
+                    EndpointHealthInfo::from_test_status(&e.name, &e.test_status)
+                })
+            })
             .collect(),
         None => enabled
             .iter()
