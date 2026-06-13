@@ -16,6 +16,8 @@
     <a href="https://github.com/VkRainB/ccMesh/releases/latest">下载</a>
     ·
     <a href="docs/guides/auto-update-and-release.md">更新与发布</a>
+    ·
+    <a href="README.en.md">English</a>
   </p>
 </div>
 
