@@ -172,6 +172,18 @@ pub fn run() {
             commands::tool_config::preview_codex_config,
             commands::tool_config::parse_codex_fields
         ])
-        .run(tauri::generate_context!())
-        .expect("error while running tauri application");
+        .build(tauri::generate_context!())
+        .expect("error while running tauri application")
+        .run(|_app_handle, _event| {
+            // macOS：窗口最小化/隐藏后点击 Dock 图标会触发 Reopen，
+            // 默认不会恢复窗口，这里手动显示并取消最小化。
+            #[cfg(target_os = "macos")]
+            if let tauri::RunEvent::Reopen { .. } = _event {
+                if let Some(w) = _app_handle.get_webview_window("main") {
+                    let _ = w.show();
+                    let _ = w.unminimize();
+                    let _ = w.set_focus();
+                }
+            }
+        });
 }
