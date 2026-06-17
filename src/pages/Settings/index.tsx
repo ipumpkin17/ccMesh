@@ -1,6 +1,7 @@
 import { useRef, useState, type ReactNode } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useTheme } from "next-themes";
+import { disable, enable, isEnabled } from "@tauri-apps/plugin-autostart";
 import { toast } from "sonner";
 
 import { Button } from "@/components/ui/button";
@@ -28,6 +29,27 @@ function Row({ label, children }: { label: string; children: ReactNode }) {
   );
 }
 
+/** 带副标题的设置行（左标题+说明，右控件），用于启动行为开关。 */
+function DescRow({
+  title,
+  desc,
+  children,
+}: {
+  title: string;
+  desc: string;
+  children: ReactNode;
+}) {
+  return (
+    <div className="flex items-center justify-between gap-3 px-5 py-3">
+      <div className="flex flex-col gap-0.5">
+        <span className="text-sm">{title}</span>
+        <span className="text-xs text-ink-mute">{desc}</span>
+      </div>
+      {children}
+    </div>
+  );
+}
+
 const errMsg = (e: unknown) => (e instanceof Error ? e.message : String(e));
 
 export function Settings() {
@@ -43,6 +65,22 @@ export function Settings() {
       qc.invalidateQueries({ queryKey: ["app-config"] });
     } catch (e) {
       toast.error(`保存失败：${errMsg(e)}`);
+    }
+  };
+
+  // 自启动状态真相源为系统态（autostart 插件），不落库，避免与系统注册不一致。
+  const autostartQ = useQuery({
+    queryKey: ["autostart-enabled"],
+    queryFn: () => isEnabled(),
+  });
+  const toggleAutostart = async (on: boolean) => {
+    try {
+      if (on) await enable();
+      else await disable();
+      qc.invalidateQueries({ queryKey: ["autostart-enabled"] });
+    } catch (e) {
+      toast.error(`设置开机自启失败：${errMsg(e)}`);
+      qc.invalidateQueries({ queryKey: ["autostart-enabled"] });
     }
   };
 
@@ -183,6 +221,37 @@ export function Settings() {
             </SelectContent>
           </Select>
         </Row>
+        </div>
+      </section>
+
+      <section className="flex flex-col gap-2">
+        <div>
+          <h2 className="text-sm font-medium text-ink-secondary">启动行为</h2>
+          <p className="text-xs text-ink-mute">应用开启与随系统启动行为</p>
+        </div>
+        <div className="flex flex-col divide-y divide-edge-subtle rounded-lg border border-edge">
+          <DescRow title="自启动" desc="跟随系统自启动">
+            <Switch
+              checked={autostartQ.data ?? false}
+              disabled={autostartQ.isLoading}
+              onCheckedChange={toggleAutostart}
+              aria-label="自启动"
+            />
+          </DescRow>
+          <DescRow title="静默启动" desc="后台启动，启动时不展示窗口，常驻托盘运行">
+            <Switch
+              checked={cfg.silentStart}
+              onCheckedChange={(v) => save({ silentStart: String(v) })}
+              aria-label="静默启动"
+            />
+          </DescRow>
+          <DescRow title="自动运行" desc="应用打开时自动启动代理服务">
+            <Switch
+              checked={cfg.autoRun}
+              onCheckedChange={(v) => save({ autoRun: String(v) })}
+              aria-label="自动运行"
+            />
+          </DescRow>
         </div>
       </section>
 

@@ -24,6 +24,8 @@ export interface AppConfig {
   autoLightStart: string;
   autoDarkStart: string;
   closeWindowBehavior: string;
+  silentStart: boolean;
+  autoRun: boolean;
   modelsCacheTtl: number;
   proxyUrl: string;
   proxyEnabled: boolean;

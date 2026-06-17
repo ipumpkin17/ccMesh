@@ -43,11 +43,11 @@
   --edge: #e4e4e7;
   --edge-strong: #d4d4d8;
 
-  /* 文本（light） */
+  /* 文本（light）：弱化文字此前偏淡（#71717a/#a1a1aa）在浅底可读性差，整体加深一档（约 #52525B 基调）。 */
   --ink-primary: #18181b;
   --ink-secondary: #52525b;
-  --ink-mute: #71717a;
-  --ink-disabled: #a1a1aa;
+  --ink-mute: #52525b;
+  --ink-disabled: #71717a;
 
   /* 主色阶梯 + 语义色（共享品牌色 + 浅底可读性调深的强调文字色） */
   --primary-soft: #15803d;

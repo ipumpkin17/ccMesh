@@ -308,7 +308,7 @@ export function EndpointForm({ open, onOpenChange, editing }: Props) {
                         <Badge
                           key={m}
                           variant={lit ? "default" : "muted"}
-                          className={lit ? "gap-1" : "gap-1 opacity-60"}
+                          className="gap-1"
                         >
                           <button
                             type="button"
