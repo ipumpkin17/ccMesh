@@ -184,6 +184,10 @@ async fn models_route(State(st): State<Arc<ProxyState>>, headers: HeaderMap) -> 
         Err(_) => Vec::new(),
     };
 
+    // 跨端点去重（大小写不敏感，保留首次出现），与对外公布模型口径一致，
+    // 避免多个端点公布同名模型时 /v1/models 出现重复项（拉取模型下拉重复）。
+    let pairs = crate::modules::proxy::resolver::dedup_advertised_pairs(pairs);
+
     let anthropic = headers.contains_key("x-api-key") || headers.contains_key("anthropic-version");
     if anthropic {
         // Anthropic 格式：data[].{id,type,display_name,created_at} + first_id/last_id/has_more

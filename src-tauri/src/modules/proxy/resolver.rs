@@ -164,6 +164,17 @@ pub fn filter_by_model(enabled: &[Endpoint], model: Option<&str>) -> Vec<Endpoin
     }
 }
 
+/// 跨端点聚合的对外公布模型去重（大小写不敏感，保留首次出现）。
+/// 入参 `(模型名, 端点名)`；多个端点公布同名模型时只保留首次出现项，
+/// 使 `/v1/models` 与对外可用模型列表口径一致。
+pub fn dedup_advertised_pairs(pairs: Vec<(String, String)>) -> Vec<(String, String)> {
+    let mut seen = std::collections::HashSet::new();
+    pairs
+        .into_iter()
+        .filter(|(id, _)| seen.insert(id.to_lowercase()))
+        .collect()
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -370,6 +381,27 @@ mod tests {
         assert!(adv.iter().any(|m| m == "locked-x"));
         assert!(adv.iter().any(|m| m == "alias"));
         assert!(!adv.iter().any(|m| m == "ignored")); // models 被锁定 model 取代
+    }
+
+    #[test]
+    fn dedup_advertised_pairs_removes_cross_endpoint_dups_ci() {
+        // 多端点公布同名模型（含大小写差异）→ 只保留首次出现，归属首个端点。
+        let pairs = vec![
+            ("mimo-v2.5".to_string(), "gpt端点".to_string()),
+            ("mimo-v2.5-pro".to_string(), "gpt端点".to_string()),
+            ("gpt-5.5".to_string(), "gpt端点".to_string()),
+            ("MIMO-v2.5".to_string(), "cc端点".to_string()),
+            ("mimo-v2.5-pro".to_string(), "cc端点".to_string()),
+        ];
+        let got = dedup_advertised_pairs(pairs);
+        assert_eq!(
+            got,
+            vec![
+                ("mimo-v2.5".to_string(), "gpt端点".to_string()),
+                ("mimo-v2.5-pro".to_string(), "gpt端点".to_string()),
+                ("gpt-5.5".to_string(), "gpt端点".to_string()),
+            ]
+        );
     }
 
     #[test]
