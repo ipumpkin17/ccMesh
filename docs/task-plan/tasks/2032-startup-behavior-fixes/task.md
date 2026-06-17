@@ -1,7 +1,7 @@
 ---
 id: 2032-startup-behavior-fixes
 title: 启动行为(自启动/静默/自动运行)+点亮收尾+卡片URL放开
-status: in_progress
+status: done
 mode: full
 priority: P1
 layer: 全栈
@@ -11,7 +11,7 @@ owner: claude
 branch: 
 base_branch: main
 created: 2026-06-17
-completed: 
+completed: 2026-06-17
 parent: 
 children: 
 note: 
