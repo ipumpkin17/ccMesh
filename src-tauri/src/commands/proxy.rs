@@ -1,31 +1,24 @@
-use rusqlite::OptionalExtension;
 use tauri::{AppHandle, Emitter, State};
 
 use crate::error::{AppError, AppResult};
+use crate::models::config::AppConfig;
 use crate::models::proxy::ProxyStatus;
 use crate::modules::proxy::server::start_proxy as start_server;
-use crate::modules::storage::endpoint_repo;
+use crate::modules::storage::{config_repo, endpoint_repo};
 use crate::state::AppState;
 
-const DEFAULT_PORT: u16 = 3000;
-const PROXY_STATUS_EVENT: &str = "proxy-status-changed";
+pub(crate) const PROXY_STATUS_EVENT: &str = "proxy-status-changed";
 
+/// 读取代理监听端口：唯一真相源为 app_config 键 `port`（与设置页/get_config 一致）。
+/// 历史上这里误读不存在的 `proxy_port` 键，导致启停始终回落默认端口。
 fn read_port(state: &AppState) -> u16 {
-    if let Ok(conn) = state.db_pool.get() {
-        if let Ok(Some(v)) = conn
-            .query_row(
-                "SELECT value FROM app_config WHERE key = 'proxy_port'",
-                [],
-                |r| r.get::<_, String>(0),
-            )
-            .optional()
-        {
-            if let Ok(p) = v.parse::<u16>() {
-                return p;
-            }
-        }
-    }
-    DEFAULT_PORT
+    state
+        .db_pool
+        .get()
+        .ok()
+        .and_then(|conn| config_repo::get_config(&conn).ok())
+        .map(|cfg| cfg.port)
+        .unwrap_or_else(|| AppConfig::default().port)
 }
 
 fn enabled_count(state: &AppState) -> usize {
@@ -38,7 +31,7 @@ fn enabled_count(state: &AppState) -> usize {
         .unwrap_or(0)
 }
 
-fn build_status(state: &AppState) -> ProxyStatus {
+pub(crate) fn build_status(state: &AppState) -> ProxyStatus {
     let guard = state.proxy.lock().unwrap();
     match guard.as_ref() {
         Some(h) => ProxyStatus {

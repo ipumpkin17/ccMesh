@@ -104,3 +104,33 @@ pub fn get_config(conn: &Connection) -> AppResult<AppConfig> {
         },
     })
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::modules::storage::migration::run_migrations;
+
+    fn db() -> Connection {
+        let c = Connection::open_in_memory().unwrap();
+        run_migrations(&c).unwrap();
+        c
+    }
+
+    #[test]
+    fn port_defaults_when_absent() {
+        let c = db();
+        // 未写入任何端口键时回落默认端口（与 AppConfig::default 一致）
+        assert_eq!(get_config(&c).unwrap().port, AppConfig::default().port);
+    }
+
+    #[test]
+    fn port_reads_port_key_not_proxy_port() {
+        let c = db();
+        // 历史 bug：曾误读 proxy_port；写入它不应影响端口解析
+        set_value(&c, "proxy_port", "9999").unwrap();
+        assert_eq!(get_config(&c).unwrap().port, AppConfig::default().port);
+        // 真相源是 port 键
+        set_value(&c, "port", "3002").unwrap();
+        assert_eq!(get_config(&c).unwrap().port, 3002);
+    }
+}
