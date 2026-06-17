@@ -1,7 +1,7 @@
 ---
 id: 2029-2031-fixes-batch
 title: 需要修复内容(端口/单例/图标/弹窗/URL跳转/模型点亮)
-status: in_progress
+status: done
 mode: full
 priority: P1
 layer: 全栈
@@ -11,7 +11,7 @@ owner: claude
 branch: 
 base_branch: main
 created: 2026-06-17
-completed: 
+completed: 2026-06-17
 parent: 
 children: 
 note: 
