@@ -482,9 +482,15 @@ export function CodexWorkspace() {
           <DialogHeader>
             <DialogTitle>删除渠道</DialogTitle>
           </DialogHeader>
-          <p className="text-sm text-ink-secondary">
-            确定删除渠道「{pendingDelete?.name}」？该操作不可恢复（不影响已应用的真实配置文件）。
-          </p>
+          <div className="flex flex-col gap-2 text-sm">
+            <p className="text-ink-primary">
+              确定删除渠道「<span className="font-medium">{pendingDelete?.name}</span>」吗？
+            </p>
+            <p className="text-xs text-ink-mute">
+              仅删除此处保存的渠道方案，不影响已应用到系统的 <code>~/.codex/auth.json</code> 与{" "}
+              <code>config.toml</code>；此操作不可恢复。
+            </p>
+          </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setPendingDelete(null)}>
               取消
