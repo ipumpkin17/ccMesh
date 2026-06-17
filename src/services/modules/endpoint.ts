@@ -19,6 +19,8 @@ export interface Endpoint {
   transformer: string;
   model: string;
   models: string[];
+  /** 点亮（对外公布）的模型子集：`models` 的子集。空数组=全部公布（向后兼容旧端点）。 */
+  activeModels: string[];
   modelMappings: ModelMapping[];
   remark: string;
   sortOrder: number;
@@ -37,6 +39,7 @@ export interface CreateEndpointRequest {
   transformer?: string;
   model?: string;
   models?: string[];
+  activeModels?: string[];
   modelMappings?: ModelMapping[];
   remark?: string;
 }
@@ -50,16 +53,21 @@ export function outboundModels(
   return ep.model ? [ep.model] : ep.models ?? [];
 }
 
-/** 对外公布的可用模型：出站模型并入映射入站名，大小写去重（保留首次出现）。 */
+/**
+ * 对外公布的可用模型：基础集（锁定 model 优先；否则点亮子集 activeModels 非空则取它，
+ * 空则回退全量 models）并入映射入站名，大小写去重（保留首次出现）。与后端 resolver 一致。
+ */
 export function advertisedModels(
-  ep: Pick<Endpoint, "model" | "models" | "modelMappings">,
+  ep: Pick<Endpoint, "model" | "models" | "activeModels" | "modelMappings">,
 ): string[] {
+  const base = ep.model
+    ? [ep.model]
+    : ep.activeModels && ep.activeModels.length > 0
+      ? ep.activeModels
+      : ep.models ?? [];
   const out: string[] = [];
   const seen = new Set<string>();
-  for (const m of [
-    ...outboundModels(ep),
-    ...(ep.modelMappings ?? []).map((x) => x.from),
-  ]) {
+  for (const m of [...base, ...(ep.modelMappings ?? []).map((x) => x.from)]) {
     const key = m.trim().toLowerCase();
     if (!key || seen.has(key)) continue;
     seen.add(key);

@@ -35,6 +35,8 @@ interface FormState {
   transformer: string;
   model: string;
   models: string[];
+  /** 点亮（对外公布）的模型子集：models 的子集。空数组=全部公布（兼容旧端点）。 */
+  activeModels: string[];
   useProxy: boolean;
   remark: string;
 }
@@ -46,6 +48,7 @@ const EMPTY: FormState = {
   transformer: "claude",
   model: "",
   models: [],
+  activeModels: [],
   useProxy: false,
   remark: "",
 };
@@ -85,6 +88,7 @@ export function EndpointForm({ open, onOpenChange, editing }: Props) {
           transformer: editing.transformer,
           model: editing.model,
           models: editing.models ?? [],
+          activeModels: editing.activeModels ?? [],
           useProxy: editing.useProxy ?? false,
           remark: editing.remark,
         }
@@ -114,7 +118,25 @@ export function EndpointForm({ open, onOpenChange, editing }: Props) {
     update({ models: [...form.models, m] });
   };
   const removeModel = (m: string) =>
-    update({ models: form.models.filter((x) => x !== m) });
+    update({
+      models: form.models.filter((x) => x !== m),
+      // 移除模型时同步从点亮子集剔除，避免脏数据（后端也会规整）。
+      activeModels: form.activeModels.filter((x) => x !== m),
+    });
+
+  // 点亮判定：activeModels 为空 = 全部点亮（兼容旧端点）；非空时仅其中的为点亮。
+  const isLit = (m: string) =>
+    form.activeModels.length === 0 || form.activeModels.includes(m);
+  // 切换点亮：以当前“有效点亮集”为基准增删；归一化——全亮或清空都存为 []（=全部公布）。
+  const toggleModel = (m: string) => {
+    const lit = new Set(
+      form.activeModels.length === 0 ? form.models : form.activeModels,
+    );
+    if (lit.has(m)) lit.delete(m);
+    else lit.add(m);
+    const next = form.models.filter((x) => lit.has(x));
+    update({ activeModels: next.length === form.models.length ? [] : next });
+  };
 
   const refresh = useMutation({
     mutationFn: () =>
@@ -164,7 +186,7 @@ export function EndpointForm({ open, onOpenChange, editing }: Props) {
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-lg overflow-hidden">
+      <DialogContent className="max-w-lg overflow-x-hidden">
         <DialogHeader>
           <DialogTitle>{editing ? "编辑端点" : "新建端点"}</DialogTitle>
         </DialogHeader>
@@ -242,8 +264,12 @@ export function EndpointForm({ open, onOpenChange, editing }: Props) {
 
             <div className="flex flex-col gap-1.5">
               <div className="flex items-center justify-between">
-                <Label>模型清单（对外公布，供 /v1/models 与展示）</Label>
-                <span className="text-xs text-ink-mute">已选 {form.models.length}</span>
+                <Label>模型清单（点击标签切换点亮，亮=对外公布）</Label>
+                <span className="text-xs text-ink-mute">
+                  共 {form.models.length}
+                  {form.models.length > 0 &&
+                    `，点亮 ${form.activeModels.length === 0 ? form.models.length : form.activeModels.length}`}
+                </span>
               </div>
               <div className="flex gap-2">
                 <Input
@@ -280,27 +306,47 @@ export function EndpointForm({ open, onOpenChange, editing }: Props) {
               {form.models.length > 0 && (
                 <>
                   <div className="flex max-h-40 flex-wrap gap-1.5 overflow-auto rounded-md border border-edge p-2">
-                    {form.models.map((m) => (
-                      <Badge key={m} variant="muted" className="gap-1">
-                        {m}
-                        <button
-                          type="button"
-                          onClick={() => removeModel(m)}
-                          aria-label={`移除 ${m}`}
-                          className="cursor-pointer"
+                    {form.models.map((m) => {
+                      const lit = isLit(m);
+                      return (
+                        <Badge
+                          key={m}
+                          variant={lit ? "default" : "muted"}
+                          className={lit ? "gap-1" : "gap-1 opacity-60"}
                         >
-                          <XIcon className="size-3" />
-                        </button>
-                      </Badge>
-                    ))}
+                          <button
+                            type="button"
+                            onClick={() => toggleModel(m)}
+                            aria-label={`${lit ? "取消点亮" : "点亮"} ${m}`}
+                            aria-pressed={lit}
+                            className="cursor-pointer"
+                          >
+                            {m}
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => removeModel(m)}
+                            aria-label={`移除 ${m}`}
+                            className="cursor-pointer"
+                          >
+                            <XIcon className="size-3" />
+                          </button>
+                        </Badge>
+                      );
+                    })}
                   </div>
-                  <button
-                    type="button"
-                    className="self-end text-xs text-ink-mute hover:text-ink-secondary"
-                    onClick={() => update({ models: [] })}
-                  >
-                    清除全部
-                  </button>
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs text-ink-mute">
+                      全部未点亮时默认全部公布（兼容旧配置）
+                    </span>
+                    <button
+                      type="button"
+                      className="text-xs text-ink-mute hover:text-ink-secondary"
+                      onClick={() => update({ models: [], activeModels: [] })}
+                    >
+                      清除全部
+                    </button>
+                  </div>
                 </>
               )}
             </div>
