@@ -23,7 +23,22 @@ pub fn run() {
         .with(modules::logs::CaptureLayer)
         .init();
 
-    tauri::Builder::default()
+    let mut builder = tauri::Builder::default();
+
+    // 应用单例：必须最先注册。二次启动（含点击桌面快捷方式）回调到已运行实例，
+    // 唤起并聚焦已有主窗口，避免多开造成端口冲突。Windows/macOS/Linux 通用。
+    #[cfg(desktop)]
+    {
+        builder = builder.plugin(tauri_plugin_single_instance::init(|app, _args, _cwd| {
+            if let Some(w) = app.get_webview_window("main") {
+                let _ = w.show();
+                let _ = w.unminimize();
+                let _ = w.set_focus();
+            }
+        }));
+    }
+
+    builder
         .plugin(tauri_plugin_updater::Builder::new().build())
         .plugin(tauri_plugin_process::init())
         .plugin(tauri_plugin_dialog::init())
