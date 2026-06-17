@@ -13,11 +13,12 @@ pub fn run() {
     use tracing_subscriber::prelude::*;
     // 默认 info，并压制第三方框架噪音：tao/wry 等经 `log` crate 桥接 → log=warn；HTTP 栈降到 warn。
     // 设 RUST_LOG 可覆盖（例：RUST_LOG=ccmesh=debug,log=warn 只看本项目 debug）。
-    let console_filter = tracing_subscriber::EnvFilter::try_from_default_env().unwrap_or_else(|_| {
-        tracing_subscriber::EnvFilter::new(
-            "info,log=warn,hyper=warn,reqwest=warn,h2=warn,rustls=warn,tao=warn,wry=warn",
-        )
-    });
+    let console_filter =
+        tracing_subscriber::EnvFilter::try_from_default_env().unwrap_or_else(|_| {
+            tracing_subscriber::EnvFilter::new(
+                "info,log=warn,hyper=warn,reqwest=warn,h2=warn,rustls=warn,tao=warn,wry=warn",
+            )
+        });
     tracing_subscriber::registry()
         .with(tracing_subscriber::fmt::layer().with_filter(console_filter))
         .with(modules::logs::CaptureLayer)
@@ -39,6 +40,8 @@ pub fn run() {
     }
 
     builder
+        // 开机自启（自启动）：仅注册插件，启停由前端按设置开关调用 enable/disable。
+        .plugin(tauri_plugin_autostart::Builder::new().build())
         .plugin(tauri_plugin_updater::Builder::new().build())
         .plugin(tauri_plugin_process::init())
         .plugin(tauri_plugin_dialog::init())
@@ -122,6 +125,49 @@ pub fn run() {
                                 let _ = close_handle.emit("close-requested", ());
                             }
                         }
+                    }
+                });
+            }
+
+            // 自动运行（默认开）：应用打开即拉起代理服务，覆盖静默启动等无 UI 交互场景。
+            // 放后端 setup 而非前端，确保不展示窗口时也能自动运行。
+            let auto_run = app
+                .state::<state::AppState>()
+                .db_pool
+                .get()
+                .ok()
+                .and_then(|c| modules::storage::config_repo::get_config(&c).ok())
+                .map(|cfg| cfg.auto_run)
+                .unwrap_or_else(|| models::config::AppConfig::default().auto_run);
+            if auto_run {
+                let run_handle = app.handle().clone();
+                tauri::async_runtime::spawn(async move {
+                    let state = run_handle.state::<state::AppState>();
+                    // 已运行则跳过（避免重复绑定端口）；锁守卫在语句结束即释放，不跨 await。
+                    if state.proxy.lock().unwrap().is_some() {
+                        return;
+                    }
+                    let port = state
+                        .db_pool
+                        .get()
+                        .ok()
+                        .and_then(|c| modules::storage::config_repo::get_config(&c).ok())
+                        .map(|cfg| cfg.port)
+                        .unwrap_or_else(|| models::config::AppConfig::default().port);
+                    match modules::proxy::server::start_proxy(
+                        state.db_pool.clone(),
+                        port,
+                        state.stats.clone(),
+                    )
+                    .await
+                    {
+                        Ok(handle) => {
+                            *state.proxy.lock().unwrap() = Some(handle);
+                            let status = commands::proxy::build_status(&state);
+                            let _ = run_handle.emit(commands::proxy::PROXY_STATUS_EVENT, status);
+                            tracing::info!("自动运行：代理已启动");
+                        }
+                        Err(e) => tracing::warn!("自动运行：代理启动失败: {e}"),
                     }
                 });
             }

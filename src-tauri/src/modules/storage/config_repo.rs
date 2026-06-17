@@ -15,6 +15,8 @@ pub const SAFE_CONFIG_KEYS: &[&str] = &[
     "autoLightStart",
     "autoDarkStart",
     "closeWindowBehavior",
+    "silentStart",
+    "autoRun",
     "modelsCacheTtl",
     "webdav_url",
     "webdav_username",
@@ -83,6 +85,8 @@ pub fn get_config(conn: &Connection) -> AppResult<AppConfig> {
         auto_light_start: parse_str(&m, "autoLightStart", &d.auto_light_start),
         auto_dark_start: parse_str(&m, "autoDarkStart", &d.auto_dark_start),
         close_window_behavior: parse_str(&m, "closeWindowBehavior", &d.close_window_behavior),
+        silent_start: parse_bool(&m, "silentStart", d.silent_start),
+        auto_run: parse_bool(&m, "autoRun", d.auto_run),
         models_cache_ttl: parse_i64(&m, "modelsCacheTtl", d.models_cache_ttl),
         proxy_url: parse_str(&m, "proxyUrl", &d.proxy_url),
         proxy_enabled: parse_bool(&m, "proxyEnabled", d.proxy_enabled),
@@ -121,6 +125,21 @@ mod tests {
         let c = db();
         // 未写入任何端口键时回落默认端口（与 AppConfig::default 一致）
         assert_eq!(get_config(&c).unwrap().port, AppConfig::default().port);
+    }
+
+    #[test]
+    fn startup_flags_default_and_roundtrip() {
+        let c = db();
+        // 默认：静默关、自动运行开（与 AppConfig::default 一致）
+        let cfg = get_config(&c).unwrap();
+        assert!(!cfg.silent_start);
+        assert!(cfg.auto_run);
+        // 写入后正确回读（沿用 parse_bool 的 "true"/"false"）
+        set_value(&c, "silentStart", "true").unwrap();
+        set_value(&c, "autoRun", "false").unwrap();
+        let cfg = get_config(&c).unwrap();
+        assert!(cfg.silent_start);
+        assert!(!cfg.auto_run);
     }
 
     #[test]

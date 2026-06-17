@@ -44,7 +44,11 @@ pub struct AppConfig {
     pub auto_light_start: String,      // "HH:MM"
     pub auto_dark_start: String,       // "HH:MM"
     pub close_window_behavior: String, // quit/minimize/ask
-    pub models_cache_ttl: i64,         // 分钟
+    /// 静默启动：启动时不展示窗口、常驻托盘后台运行（默认关）。自启动随系统由 autostart 插件管理。
+    pub silent_start: bool,
+    /// 自动运行：应用打开时自动启动代理服务（默认开）。
+    pub auto_run: bool,
+    pub models_cache_ttl: i64, // 分钟
     /// 全局代理地址（空=直连）；端点 use_proxy 为真时经此代理出网。
     pub proxy_url: String,
     /// 全局「启用代理」总开关：开启时转发/获取模型经代理（端点未单独开 use_proxy 时按此）。
@@ -70,6 +74,8 @@ impl Default for AppConfig {
             auto_light_start: "07:00".into(),
             auto_dark_start: "19:00".into(),
             close_window_behavior: "ask".into(),
+            silent_start: false,
+            auto_run: true,
             models_cache_ttl: 30,
             proxy_url: String::new(),
             proxy_enabled: false,
