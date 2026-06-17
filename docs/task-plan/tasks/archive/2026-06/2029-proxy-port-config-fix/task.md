@@ -1,7 +1,7 @@
 ---
 id: 2029-proxy-port-config-fix
 title: 本地代理端口读取/生效修复
-status: in_progress
+status: done
 mode: full
 priority: P1
 layer: backend
@@ -11,7 +11,7 @@ owner: claude
 branch: 
 base_branch: main
 created: 2026-06-17
-completed: 
+completed: 2026-06-17
 parent: 
 children: 
 note: 
