@@ -1,5 +1,7 @@
 mod commands;
 mod error;
+#[cfg(target_os = "linux")]
+mod linux_fix;
 mod models;
 mod modules;
 mod state;
@@ -35,6 +37,9 @@ pub fn run() {
                 let _ = w.show();
                 let _ = w.unminimize();
                 let _ = w.set_focus();
+                // Linux：show() 后补一次窗口交互重激活，修复 WebKitGTK 整窗点击无响应。
+                #[cfg(target_os = "linux")]
+                linux_fix::nudge_main_window(w.clone());
             }
         }));
     }
@@ -217,6 +222,7 @@ pub fn run() {
             commands::window::set_language,
             commands::window::apply_close_action,
             commands::window::hide_to_tray,
+            commands::window::notify_window_shown,
             commands::update::check_for_updates,
             commands::update::download_and_install,
             commands::update::get_update_settings,

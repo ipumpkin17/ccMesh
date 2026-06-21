@@ -45,6 +45,9 @@ fn show_main<R: Runtime>(app: &AppHandle<R>) {
         let _ = w.show();
         let _ = w.unminimize();
         let _ = w.set_focus();
+        // Linux：show() 后补一次窗口交互重激活，修复 WebKitGTK 整窗点击无响应。
+        #[cfg(target_os = "linux")]
+        crate::linux_fix::nudge_main_window(w.clone());
     }
 }
 

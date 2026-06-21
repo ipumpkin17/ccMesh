@@ -38,3 +38,19 @@ pub fn hide_to_tray(app: AppHandle) -> AppResult<()> {
     }
     Ok(())
 }
+
+/// 前端首屏 show() 后调用：在 Linux 上执行窗口交互重激活（focus + 无视觉伪 resize），
+/// 修复 WebKitGTK `visible:false → show()` 路径下整窗点击无响应。Windows/macOS 为 no-op。
+#[tauri::command]
+pub fn notify_window_shown(app: AppHandle) {
+    #[cfg(target_os = "linux")]
+    {
+        if let Some(w) = app.get_webview_window("main") {
+            crate::linux_fix::nudge_main_window(w);
+        }
+    }
+    #[cfg(not(target_os = "linux"))]
+    {
+        let _ = app;
+    }
+}
