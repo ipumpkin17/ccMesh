@@ -1,7 +1,7 @@
 ---
 id: 2035-linux-ui-unresponsive-fix
 title: Linux下UI点击无响应(WebKitGTK窗口交互冻结)修复
-status: in_progress
+status: done
 mode: full
 priority: P1
 layer: desktop
@@ -11,7 +11,7 @@ owner: claude
 branch: 
 base_branch: main
 created: 2026-06-21
-completed: 
+completed: 2026-06-21
 parent: 
 children: 
 note: 
