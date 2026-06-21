@@ -20,13 +20,13 @@ use crate::modules::proxy::rotation::{self, Rotation};
 use crate::modules::stats::aggregator::{RequestRecord, StatsAggregator};
 use crate::modules::storage::{db::DbPool, endpoint_repo};
 use crate::modules::transform::claude_openai::openai_response_to_claude;
+use crate::modules::transform::reasoning_effort::{
+    downgrade_reasoning_effort_in_responses, is_unsupported_reasoning_effort_error,
+};
 use crate::modules::transform::responses_chat::{
     chat_response_to_responses, responses_request_to_chat, ResponsesStreamConverter,
 };
 use crate::modules::transform::streaming::StreamConverter;
-use crate::modules::transform::reasoning_effort::{
-    downgrade_reasoning_effort_in_responses, is_unsupported_reasoning_effort_error,
-};
 use crate::modules::transform::thinking_rectifier::{
     rectify_anthropic_request, should_rectify_thinking_signature, RectifierConfig,
 };
@@ -155,6 +155,16 @@ fn json_error(status: StatusCode, message: &str) -> Response {
         })),
     )
         .into_response()
+}
+
+fn empty_candidates_message(model: Option<&str>, breaker_exhausted: bool) -> String {
+    if breaker_exhausted {
+        return "所有候选端点均熔断或无可用端点".to_string();
+    }
+    match model.map(str::trim).filter(|m| !m.is_empty()) {
+        Some(m) => format!("所有候选端点均不支持模型 '{m}'"),
+        None => "所有候选端点均熔断或无可用端点".to_string(),
+    }
 }
 
 fn urldecode(s: &str) -> String {
@@ -318,11 +328,7 @@ pub async fn handle_proxy(
     } else {
         // 模型过滤前日志：打印每个端点公布的模型
         if let Some(m) = model.as_deref() {
-            tracing::debug!(
-                model = m,
-                candidates = enabled.len(),
-                "模型过滤前候选端点"
-            );
+            tracing::debug!(model = m, candidates = enabled.len(), "模型过滤前候选端点");
             for ep in &enabled {
                 let advertised = resolver::advertised_models(ep);
                 tracing::debug!(
@@ -372,7 +378,7 @@ pub async fn handle_proxy(
 
         filtered
     };
-    // 熔断选路：非显式端点时过滤掉未到期的 Open 端点（全 Open 则返回空，由上方守卫返回 502）。
+    // 熔断选路：非显式端点时过滤掉未到期的 Open 端点（全 Open 则返回空，由下方守卫返回 502）。
     // 显式指定端点绕过熔断（用户意图优先），但结果仍计入熔断。
     let enabled_before_breaker = enabled.clone();
     let (enabled, gate): (Vec<Endpoint>, bool) = if use_specific {
@@ -398,14 +404,13 @@ pub async fn handle_proxy(
                 "熔断过滤完成（存在 Open 端点）"
             );
         } else if !enabled_before_breaker.is_empty() {
-            tracing::debug!(
-                candidates = cands.len(),
-                "熔断过滤：无 Open 端点或全 Open"
-            );
+            tracing::debug!(candidates = cands.len(), "熔断过滤：无 Open 端点或全 Open");
         }
 
         (cands, gate)
     };
+    let breaker_exhausted =
+        !use_specific && !enabled_before_breaker.is_empty() && enabled.is_empty();
     // 熔断后二次模型过滤：当熔断器保留了兜底候选（全 Open）时，再次按模型支持性过滤，避免误伤不支持该模型的端点。
     // 此过滤仅在「模型过滤阶段已回退全量」时生效（即 enabled 经过模型过滤后未减少，说明无端点声明该模型）。
     let enabled: Vec<Endpoint> = if !use_specific && model.is_some() {
@@ -420,7 +425,8 @@ pub async fn handle_proxy(
                 } else {
                     // 端点公布了模型 → 仅当声明了请求模型时保留
                     advertised.iter().any(|am| {
-                        am.trim().eq_ignore_ascii_case(model.as_deref().unwrap().trim())
+                        am.trim()
+                            .eq_ignore_ascii_case(model.as_deref().unwrap().trim())
                     })
                 }
             })
@@ -453,14 +459,7 @@ pub async fn handle_proxy(
     };
     let n = enabled.len();
     if n == 0 {
-        let msg = if model.is_some() {
-            format!(
-                "所有候选端点均不支持模型 '{}'",
-                model.as_deref().unwrap()
-            )
-        } else {
-            "所有候选端点均熔断或无可用端点".to_string()
-        };
+        let msg = empty_candidates_message(model.as_deref(), breaker_exhausted);
         return json_error(StatusCode::BAD_GATEWAY, &msg);
     }
     let max = if use_specific {
@@ -686,15 +685,13 @@ pub async fn handle_proxy(
                 if !rotation::should_retry_status(status) {
                     // 读错误体：Responses→Chat reasoning_effort 降级 / thinking 签名整流（透明重试）。
                     let may_downgrade_effort = responses_to_chat;
-                    let may_rectify_sig =
-                        st.rectifier_config.enabled && !sig_rectified;
+                    let may_rectify_sig = st.rectifier_config.enabled && !sig_rectified;
                     if may_downgrade_effort || may_rectify_sig {
                         let resp_headers = copy_response_headers(&resp);
                         let err_bytes = resp.bytes().await.unwrap_or_default();
                         let err_text = String::from_utf8_lossy(&err_bytes);
 
-                        if may_downgrade_effort
-                            && is_unsupported_reasoning_effort_error(&err_text)
+                        if may_downgrade_effort && is_unsupported_reasoning_effort_error(&err_text)
                         {
                             if let Some(cj) = body_json.as_mut() {
                                 if downgrade_reasoning_effort_in_responses(cj) {
@@ -1063,6 +1060,23 @@ fn stream_transform_response(
         HeaderValue::from_static("text/event-stream"),
     );
     response
+}
+
+#[cfg(test)]
+mod tests {
+    use super::empty_candidates_message;
+
+    #[test]
+    fn empty_candidates_message_prefers_breaker_reason_over_model() {
+        let msg = empty_candidates_message(Some("gpt-5.5"), true);
+        assert_eq!(msg, "所有候选端点均熔断或无可用端点");
+    }
+
+    #[test]
+    fn empty_candidates_message_reports_unsupported_model_when_not_breaker_exhausted() {
+        let msg = empty_candidates_message(Some("gpt-5.5"), false);
+        assert_eq!(msg, "所有候选端点均不支持模型 'gpt-5.5'");
+    }
 }
 
 /// 非流式 Chat 响应 → 缓冲后转换为 Responses JSON 回传；记录真实 usage（codex 端点的 openai 上游路径）。
