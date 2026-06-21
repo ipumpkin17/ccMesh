@@ -316,10 +316,65 @@ pub async fn handle_proxy(
     let enabled: Vec<Endpoint> = if use_specific {
         enabled
     } else {
-        resolver::filter_by_model(&enabled, model.as_deref())
+        // 模型过滤前日志：打印每个端点公布的模型
+        if let Some(m) = model.as_deref() {
+            tracing::debug!(
+                model = m,
+                candidates = enabled.len(),
+                "模型过滤前候选端点"
+            );
+            for ep in &enabled {
+                let advertised = resolver::advertised_models(ep);
+                tracing::debug!(
+                    endpoint = %ep.name,
+                    advertised_models = ?advertised,
+                    locked_model = %ep.model,
+                    models_count = ep.models.len(),
+                    active_models_count = ep.active_models.len(),
+                    "端点公布模型详情"
+                );
+            }
+        }
+
+        let filtered = resolver::filter_by_model(&enabled, model.as_deref());
+
+        // 模型过滤后日志：汇总过滤结果
+        if let Some(m) = model.as_deref() {
+            let before_count = enabled.len();
+            let after_count = filtered.len();
+            if after_count < before_count {
+                tracing::info!(
+                    model = m,
+                    before = before_count,
+                    after = after_count,
+                    filtered_out = before_count - after_count,
+                    "模型过滤完成"
+                );
+                let filtered_names: Vec<String> = enabled
+                    .iter()
+                    .filter(|e| !filtered.iter().any(|f| f.name == e.name))
+                    .map(|e| e.name.clone())
+                    .collect();
+                if !filtered_names.is_empty() {
+                    tracing::debug!(
+                        filtered_endpoints = ?filtered_names,
+                        "以下端点未声明该模型，已过滤"
+                    );
+                }
+            } else if after_count == before_count && before_count > 0 {
+                tracing::debug!(
+                    model = m,
+                    candidates = after_count,
+                    "模型过滤：无端点声明该模型，回退全量（向后兼容）"
+                );
+            }
+        }
+
+        filtered
     };
     // 熔断选路：非显式端点时过滤掉未到期的 Open 端点（全 Open 则返回空，由上方守卫返回 502）。
     // 显式指定端点绕过熔断（用户意图优先），但结果仍计入熔断。
+    let enabled_before_breaker = enabled.clone();
     let (enabled, gate): (Vec<Endpoint>, bool) = if use_specific {
         (enabled, false)
     } else {
@@ -327,6 +382,28 @@ pub async fn handle_proxy(
         // 候选变少 → 剔除了 Open，存在可用子集，需对候选取许可（半开单探测）；
         // 数量不变 → 无 Open 或全 Open 兜底，均不 gate。
         let gate = cands.len() < enabled.len();
+
+        // 熔断选路后日志
+        if gate {
+            let filtered_names: Vec<String> = enabled_before_breaker
+                .iter()
+                .filter(|e| !cands.iter().any(|c| c.name == e.name))
+                .map(|e| e.name.clone())
+                .collect();
+            tracing::info!(
+                before = enabled_before_breaker.len(),
+                after = cands.len(),
+                filtered_out = enabled_before_breaker.len() - cands.len(),
+                open_endpoints = ?filtered_names,
+                "熔断过滤完成（存在 Open 端点）"
+            );
+        } else if !enabled_before_breaker.is_empty() {
+            tracing::debug!(
+                candidates = cands.len(),
+                "熔断过滤：无 Open 端点或全 Open"
+            );
+        }
+
         (cands, gate)
     };
     let n = enabled.len();
@@ -439,14 +516,36 @@ pub async fn handle_proxy(
         } else {
             "passthrough"
         };
+
+        // 检查选中端点是否真正声明了请求模型
+        let model_declared = if let Some(ref m) = model {
+            resolver::advertised_models(&ep)
+                .iter()
+                .any(|am| am.trim().eq_ignore_ascii_case(m.trim()))
+        } else {
+            true // 无模型请求视为匹配
+        };
+
         tracing::info!(
             endpoint = %ep.name,
             transformer = %ep.transformer,
             mode = route_mode,
             outbound_model = %outbound_model,
             upstream_path,
+            model_declared,
             "转发上游"
         );
+
+        // 如果端点未声明该模型，记录警告（可能是配置错误或回退逻辑）
+        if !model_declared {
+            let advertised = resolver::advertised_models(&ep);
+            tracing::warn!(
+                endpoint = %ep.name,
+                requested_model = model.as_deref().unwrap_or("-"),
+                advertised = ?advertised,
+                "警告：选中端点未声明请求模型（可能是配置错误或回退逻辑）"
+            );
+        }
 
         let token = st.active.start(&ep.name);
         let result = tokio::select! {
