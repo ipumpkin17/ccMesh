@@ -141,10 +141,10 @@ export function EndpointForm({ open, onOpenChange, editing }: Props) {
       endpointApi.fetchModels(form.apiUrl, form.apiKey, form.transformer, form.useProxy),
     onSuccess: (ids) => {
       const merged = Array.from(new Set([...form.models, ...ids]));
-      // activeModels 为空时自动设为全量（首次点亮），已有值则保留并剔除已移除模型。
+      // activeModels 为空=全部公布（默认行为），保持空；已有值=用户显式点亮，保留并剔除已移除模型。
       const autoActive =
         form.activeModels.length === 0
-          ? merged
+          ? []
           : form.activeModels.filter((m) => merged.includes(m));
       update({ models: merged, activeModels: autoActive });
       toast.success(`拉取到 ${ids.length} 个模型`);
