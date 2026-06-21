@@ -432,14 +432,20 @@ pub async fn handle_proxy(
                 .filter(|e| !model_filtered.iter().any(|f| f.name == e.name))
                 .map(|e| e.name.clone())
                 .collect();
-            tracing::info!(
-                model = model.as_deref().unwrap_or("-"),
-                before = before_count,
-                after = after_count,
-                filtered_out = before_count - after_count,
-                filtered_endpoints = ?filtered_names,
-                "熔断后二次模型过滤完成（剔除不支持该模型的兜底端点）"
-            );
+            if after_count == 0 {
+                tracing::warn!(
+                    model = model.as_deref().unwrap_or("-"),
+                    filtered_endpoints = ?filtered_names,
+                    "所有候选端点均不支持请求的模型"
+                );
+            } else {
+                tracing::debug!(
+                    model = model.as_deref().unwrap_or("-"),
+                    before = before_count,
+                    after = after_count,
+                    "熔断兜底后按模型过滤"
+                );
+            }
         }
         model_filtered
     } else {
@@ -447,10 +453,15 @@ pub async fn handle_proxy(
     };
     let n = enabled.len();
     if n == 0 {
-        return json_error(
-            StatusCode::BAD_GATEWAY,
-            "所有候选端点均熔断或无可用端点",
-        );
+        let msg = if model.is_some() {
+            format!(
+                "所有候选端点均不支持模型 '{}'",
+                model.as_deref().unwrap()
+            )
+        } else {
+            "所有候选端点均熔断或无可用端点".to_string()
+        };
+        return json_error(StatusCode::BAD_GATEWAY, &msg);
     }
     let max = if use_specific {
         3
