@@ -13,6 +13,7 @@
     "check": "pnpm check:front && pnpm check:rust",
     "tauri": "tauri",
     "tauri:build": "dotenv -e .env.local -- tauri build",
+    "cargo:build": "pnpm install && cargo build --manifest-path src-tauri/Cargo.toml",
     "version:set": "node scripts/update-version.mjs"
   },
   "dependencies": {
