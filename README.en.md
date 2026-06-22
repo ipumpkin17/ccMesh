@@ -120,6 +120,10 @@ Choose a package for your distro:
   sudo dnf install ./ccMesh-*.x86_64.rpm
   ```
 
+<div align="center">
+  <img src="docs/screenshots/linux/linux-desktop.png" alt="Linux desktop" height="320" /><br/><sub>ccMesh running on Linux desktop</sub>
+</div>
+
 ## Build from source
 
 **Prerequisites**

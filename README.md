@@ -121,6 +121,10 @@ xattr -dr com.apple.quarantine /Applications/ccMesh.app
   sudo dnf install ./ccMesh-*.x86_64.rpm
   ```
 
+<div align="center">
+  <img src="docs/screenshots/linux/linux-desktop.png" alt="Linux 桌面" height="320" /><br/><sub>Linux 桌面运行预览</sub>
+</div>
+
 ## 从源码构建
 
 **环境要求**
