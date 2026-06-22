@@ -83,7 +83,7 @@ impl Default for AppConfig {
             proxy_enabled: false,
             proxy_for_update: false,
             openai_ua: ua::codex_probe_ua(),
-            claude_cli_ua: String::new(),
+            claude_cli_ua: ua::CLAUDE_PROBE_UA.into(),
             update: UpdateSettings::default(),
             webdav: WebDavConfig::default(),
         }

@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { InfoIcon } from "lucide-react";
+import { InfoIcon, TriangleAlertIcon } from "lucide-react";
 
 import { StatusDot, TabularText } from "@/components/ui";
 import {
@@ -146,7 +146,7 @@ export function RequestLogTable({ items }: { items: RequestLog[] }) {
             <th className="px-3 py-2 text-left font-medium">端点</th>
             <th className="px-3 py-2 text-left font-medium">入站</th>
             <th className="px-3 py-2 text-left font-medium">出站</th>
-            <th className="px-3 py-2 text-center font-medium">状态</th>
+            <th className="w-[5.5rem] px-3 py-2 text-left font-medium">状态</th>
             <th className="px-3 py-2 text-right font-medium">用时</th>
             <th className="px-3 py-2 text-right font-medium">首字</th>
             <th className="px-3 py-2 text-right font-medium">Token</th>
@@ -246,31 +246,34 @@ function RequestRow({ log }: { log: RequestLog }) {
       >
         {log.upstreamPath || inferPath(log.inboundFormat)}
       </td>
-      <td className="px-3 py-2 text-center">
-        {log.isError && log.errorBody ? (
-          <HoverCard openDelay={100} closeDelay={50}>
-            <HoverCardTrigger asChild>
-              <button
-                type="button"
-                aria-label="查看错误详情"
-                title="查看错误详情"
-                className="inline-flex items-center gap-1.5 text-ink-secondary transition-colors hover:text-foreground"
-              >
-                <StatusDot status={statusDot(log.statusCode)} />
-                <TabularText className="text-xs">{log.statusCode ?? "ERR"}</TabularText>
-                <InfoIcon className="size-3.5" />
-              </button>
-            </HoverCardTrigger>
-            <HoverCardContent align="center" className="max-h-72 w-96 overflow-auto">
-              <ErrorDetail errorBody={log.errorBody} />
-            </HoverCardContent>
-          </HoverCard>
-        ) : (
+      <td className="w-[5.5rem] px-3 py-2">
+        <div className="flex items-center justify-between">
           <span className="inline-flex items-center gap-1.5">
             <StatusDot status={statusDot(log.statusCode)} />
-            <TabularText className="text-xs">{log.statusCode ?? "ERR"}</TabularText>
+            <TabularText className="w-8 text-left text-xs text-ink-secondary">
+              {log.statusCode ?? "ERR"}
+            </TabularText>
           </span>
-        )}
+          {log.isError && log.errorBody ? (
+            <HoverCard openDelay={100} closeDelay={50}>
+              <HoverCardTrigger asChild>
+                <button
+                  type="button"
+                  aria-label="查看错误详情"
+                  title="查看错误详情"
+                  className="inline-flex shrink-0 items-center text-warning/60 transition-colors hover:text-warning"
+                >
+                  <TriangleAlertIcon className="size-3" />
+                </button>
+              </HoverCardTrigger>
+              <HoverCardContent align="center" className="max-h-72 w-96 overflow-auto">
+                <ErrorDetail errorBody={log.errorBody} />
+              </HoverCardContent>
+            </HoverCard>
+          ) : (
+            <span className="inline-block size-3 shrink-0" aria-hidden="true" />
+          )}
+        </div>
       </td>
       <td className="px-3 py-2 text-right text-xs text-ink-secondary">
         <TabularText>

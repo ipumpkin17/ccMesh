@@ -315,7 +315,7 @@ export function Settings() {
             <div className="flex items-baseline justify-between gap-3">
               <span className="text-sm">OpenAI / Codex 端点 UA</span>
               <span className="truncate font-mono text-xs text-ink-mute">
-                默认 Codex CLI UA，适配 new-api 客户端限制
+                codex_cli_rs/0.114.0 (Mac OS 14.2.0; x86_64) vscode/1.111.0
               </span>
             </div>
             <Input
@@ -328,7 +328,7 @@ export function Settings() {
             <div className="flex items-baseline justify-between gap-3">
               <span className="text-sm">Claude 端点 UA</span>
               <span className="truncate font-mono text-xs text-ink-mute">
-                例 claude-cli/2.1.2 (external, cli)
+              claude-cli/2.1.185 (external, sdk-cli)
               </span>
             </div>
             <Input
