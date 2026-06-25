@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
-import { ArrowRightIcon, PlusIcon, XIcon } from "lucide-react";
+import { ArrowRightIcon, InfoIcon, PlusIcon, XIcon } from "lucide-react";
 import { toast } from "sonner";
 
 import { Button } from "@/components/ui/button";
@@ -19,6 +19,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import {
   endpointApi,
   litOutboundModels,
@@ -77,7 +78,7 @@ export function ModelMappingDialog({ open, onOpenChange, endpoint }: Props) {
         </DialogHeader>
 
         <p className="text-xs text-ink-mute">
-          客户端用「入站模型」请求，网关转发上游时改写为「出站模型」。出站只能选该端点点亮的模型（未点亮任何项时为全部）。
+          客户端用「入站模型」请求，网关转发上游时改写为「出站模型」。
         </p>
 
         {noModels ? (
@@ -89,7 +90,15 @@ export function ModelMappingDialog({ open, onOpenChange, endpoint }: Props) {
             <div className="flex items-center gap-2 px-1 text-xs text-ink-mute">
               <span className="flex-1">入站模型（手动输入）</span>
               <span className="w-5" />
-              <span className="flex-1">出站模型（可用模型）</span>
+              <span className="flex flex-1 items-center gap-1.5">
+                出站模型（可用模型）
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <InfoIcon className="size-3.5 cursor-help text-ink-disabled" />
+                  </TooltipTrigger>
+                  <TooltipContent>仅该端点点亮模型，未点亮则全部</TooltipContent>
+                </Tooltip>
+              </span>
               <span className="w-8" />
             </div>
 
@@ -100,7 +109,7 @@ export function ModelMappingDialog({ open, onOpenChange, endpoint }: Props) {
                 <div key={i} className="flex items-center gap-2">
                   <Input
                     className="flex-1"
-                    placeholder="如 gpt-5"
+                    placeholder="gpt-5.5"
                     value={row.from}
                     onChange={(e) => setFrom(i, e.target.value)}
                   />

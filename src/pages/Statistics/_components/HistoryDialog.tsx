@@ -69,7 +69,7 @@ export function HistoryDialog() {
           <HistoryIcon className="size-4" /> 历史记录
         </Button>
       </DialogTrigger>
-      <DialogContent className="max-w-6xl">
+      <DialogContent className="max-w-6xl sm:max-w-6xl">
         <DialogHeader>
           <DialogTitle>历史记录</DialogTitle>
         </DialogHeader>
