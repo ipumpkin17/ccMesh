@@ -9,6 +9,7 @@ const log: RequestLog = {
   ts: Date.now(),
   endpointName: "ep-a",
   inboundFormat: "claude",
+  transformer: "claude",
   upstreamUrl: "https://up.example",
   inboundPath: "/v1/messages",
   upstreamPath: "/v1/chat/completions",

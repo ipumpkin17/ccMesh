@@ -54,6 +54,8 @@ export interface RequestLog {
   ts: number;
   endpointName: string;
   inboundFormat: string;
+  /** 端点 transformer 快照（claude/openai/codex 等）。旧行/未记录为 null，前端回退 inboundFormat。 */
+  transformer: string | null;
   upstreamUrl: string;
   /** 真实入站路由路径（如 /v1/messages）。旧行为空串。 */
   inboundPath: string;

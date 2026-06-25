@@ -1,6 +1,8 @@
 import { useEffect, useMemo, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { InfoIcon, TriangleAlertIcon } from "lucide-react";
+import { Claude, Codex, OpenAI } from "@lobehub/icons";
+import type { ComponentType } from "react";
 
 import { StatusDot, TabularText } from "@/components/ui";
 import {
@@ -215,7 +217,34 @@ function inferPath(format: string): string {
   return "—";
 }
 
+/** 端点类型（transformer 优先，回退 inboundFormat）→ 品牌图标。
+ *  transformer 值：claude / openai / openai_chat / openai2 / codex / openai_responses / openai-responses / ...
+ *  inboundFormat 值：claude / openai / responses（旧行回退）。
+ *  与端点卡片视觉一致：claude→Anthropic、openai 系→OpenAI、codex/responses 系→Codex。 */
+const ENDPOINT_ICON: Record<string, ComponentType<{ size?: number; className?: string }>> = {
+  claude: Claude.Color,
+  openai: OpenAI,
+  "openai_chat": OpenAI,
+  "openai-chat": OpenAI,
+  openai2: OpenAI,
+  codex: Codex.Color,
+  responses: Codex.Color,
+  "openai_responses": Codex.Color,
+  "openai-responses": Codex.Color,
+};
+const getEndpointIcon = (
+  type: string | null | undefined,
+): ComponentType<{ size?: number; className?: string }> => {
+  if (type) {
+    const icon = ENDPOINT_ICON[type.toLowerCase()];
+    if (icon) return icon;
+  }
+  return OpenAI;
+};
+
 function RequestRow({ log }: { log: RequestLog }) {
+  // 优先 transformer（端点配置类型，更准确），旧行/未记录回退 inboundFormat
+  const FormatIcon = getEndpointIcon(log.transformer ?? log.inboundFormat);
   const total =
     log.inputTokens +
     log.outputTokens +
@@ -229,7 +258,12 @@ function RequestRow({ log }: { log: RequestLog }) {
       >
         <TabularText>{fmtDateTime(log.ts)}</TabularText>
       </td>
-      <td className="px-3 py-2">{log.endpointName}</td>
+      <td className="px-3 py-2">
+        <div className="flex items-center gap-1.5">
+          <FormatIcon size={14} className="shrink-0" />
+          <span className="truncate">{log.endpointName}</span>
+        </div>
+      </td>
       <td
         className="px-3 py-2 font-mono text-xs text-ink-secondary"
         title={`入站协议：${log.inboundFormat}`}
