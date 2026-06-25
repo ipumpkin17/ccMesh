@@ -6,8 +6,8 @@ import type { Endpoint } from "@/services/modules/endpoint";
 import { useFilterStore, useLayoutStore } from "@/stores";
 import { DnDList } from "./_components/DnDList";
 import { EndpointForm } from "./_components/EndpointForm";
+import { EndpointSidebar } from "./_components/EndpointSidebar";
 import { FilterBar } from "./_components/FilterBar";
-import { ModelList } from "./_components/ModelList";
 
 export function Endpoints() {
   const { data: endpoints, isLoading } = useEndpoints();
@@ -48,27 +48,34 @@ export function Endpoints() {
   };
 
   return (
-    <div className="mx-auto flex h-full max-w-4xl flex-col gap-5">
-      {/* 固定头部：标题 + 筛选栏（不随下方区域滚动） */}
-      <div className="flex shrink-0 flex-col gap-5">
-        <h1 className="text-2xl font-light tracking-tight">端点管理</h1>
-        <FilterBar onCreate={openCreate} />
+    <div className="flex h-full min-h-0 flex-col gap-4">
+      {/* 第一行：标题 + 筛选控件（仅中栏有内容，左右空白对称占位让中栏居中） */}
+      <div className="flex shrink-0 gap-4">
+        <div className="hidden min-w-0 flex-[1] xl:block" aria-hidden />
+        <div className="flex min-w-0 max-w-4xl flex-[3] flex-col gap-4">
+          <h1 className="shrink-0 text-2xl font-light tracking-tight">端点管理</h1>
+          <FilterBar onCreate={openCreate} />
+        </div>
+        <div className="hidden min-w-0 flex-[1] xl:block" aria-hidden />
       </div>
 
-      {/* 上区（端点列表）：占剩余视口高度 60%，超出内部滚动 */}
-      <div className="scrollbar-none min-h-0 flex-[3] overflow-y-auto pr-1">
-        {isLoading ? (
-          <p className="text-sm text-ink-mute">加载中…</p>
-        ) : filtered.length === 0 ? (
-          <p className="text-sm text-ink-mute">暂无端点，点击「新建端点」添加。</p>
-        ) : (
-          <DnDList endpoints={filtered} draggable={dragEnabled} view={view} onEdit={openEdit} />
-        )}
-      </div>
+      {/* 第二行：端点列表（中栏） + 端点统计/可用模型（右栏），三栏顶部水平对齐 */}
+      <div className="flex min-h-0 flex-1 gap-4">
+        <div className="hidden min-w-0 flex-[1] xl:block" aria-hidden />
 
-      {/* 下区（可用模型）：占剩余视口高度 40%，标题固定、仅模型内容内部滚动 */}
-      <div className="flex min-h-0 flex-[2] flex-col">
-        <ModelList />
+        {/* 中栏：端点列表，限宽 4xl，超出内部滚动 */}
+        <div className="scrollbar-none min-h-0 min-w-0 max-w-4xl flex-[3] overflow-y-auto rounded-lg border border-edge bg-surface p-4">
+          {isLoading ? (
+            <p className="text-sm text-ink-mute">加载中…</p>
+          ) : filtered.length === 0 ? (
+            <p className="text-sm text-ink-mute">暂无端点，点击「新建端点」添加。</p>
+          ) : (
+            <DnDList endpoints={filtered} draggable={dragEnabled} view={view} onEdit={openEdit} />
+          )}
+        </div>
+
+        {/* 右栏：端点统计 + 可用模型，顶部与中栏端点列表卡片对齐 */}
+        <EndpointSidebar />
       </div>
 
       <EndpointForm open={formOpen} onOpenChange={setFormOpen} editing={editing} />
