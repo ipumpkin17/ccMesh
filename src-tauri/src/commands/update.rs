@@ -89,6 +89,7 @@ pub async fn download_and_install(app: AppHandle, state: State<'_, AppState>) ->
 
     let mut downloaded: u64 = 0;
     let app_progress = app.clone();
+    let app_restart = app.clone();
     update
         .download_and_install(
             move |chunk, total| {
@@ -98,7 +99,10 @@ pub async fn download_and_install(app: AppHandle, state: State<'_, AppState>) ->
                     json!({ "downloaded": downloaded, "total": total }),
                 );
             },
-            || {},
+            move || {
+                tracing::info!("更新包已就绪，重启应用以完成更新");
+                app_restart.request_restart();
+            },
         )
         .await
         .map_err(|e| AppError::Unknown(format!("下载安装失败: {e}")))?;

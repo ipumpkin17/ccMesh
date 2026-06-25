@@ -40,7 +40,9 @@ export function UpdateSection() {
 
   const download = async () => {
     try {
+      toast.info("开始下载更新…");
       await updateApi.downloadAndInstall();
+      toast.success("更新完成，应用即将重启");
     } catch (e) {
       toast.error(`下载失败：${errMsg(e)}`);
     }
