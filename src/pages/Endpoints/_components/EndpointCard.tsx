@@ -251,20 +251,27 @@ export function EndpointCard({
   );
 
   const meta = (
-    <span className="flex min-w-0 items-center pl-6 text-xs text-ink-secondary">
-      <button
-        type="button"
+    <span className="flex min-w-0 items-center text-xs text-ink-secondary">
+      <span
+        role="link"
+        tabIndex={0}
         className="cursor-pointer truncate text-left hover:text-primary"
         title={`在浏览器打开 ${endpoint.apiUrl}`}
-        onClick={(e) => {
-          e.stopPropagation();
+        onClick={() => {
+          const sel = window.getSelection();
+          if (sel && !sel.isCollapsed) return;
+          openUrl(endpoint.apiUrl).catch((err) => toast.error(errMsg(err)));
+        }}
+        onKeyDown={(e) => {
+          if (e.key !== "Enter" && e.key !== " ") return;
+          e.preventDefault();
           openUrl(endpoint.apiUrl).catch((err) => toast.error(errMsg(err)));
         }}
       >
         {endpoint.apiUrl}
-      </button>
+      </span>
       {endpoint.model ? (
-        <span className="shrink-0 whitespace-pre"> · {endpoint.model}</span>
+        <span className="shrink-0 select-none whitespace-pre"> · {endpoint.model}</span>
       ) : null}
     </span>
   );
@@ -307,21 +314,21 @@ export function EndpointCard({
     return (
       <Card className="h-full gap-0 py-0">
         <CardContent className="flex h-full flex-col gap-2.5 p-4">
-          <div className="flex items-center gap-2">
+          <div className="flex select-none items-center gap-2">
             <TransformerIcon size={16} className="shrink-0" />
             <span className="min-w-0 flex-1 truncate font-medium">{endpoint.name}</span>
             <Badge variant="muted">{endpoint.transformer}</Badge>
             {grip}
           </div>
           {meta}
-          <div className="mt-auto flex items-center justify-between gap-2 border-t border-edge-subtle pt-2.5">
+          <div className="mt-auto flex select-none items-center justify-between gap-2 border-t border-edge-subtle pt-2.5">
             <div className="flex items-center gap-1.5">
               {availability}
               {circuitBadge}
             </div>
             {enableSwitch}
           </div>
-          <div className="flex justify-end">{actions}</div>
+          <div className="flex select-none justify-end">{actions}</div>
         </CardContent>
       </Card>
     );
@@ -330,10 +337,12 @@ export function EndpointCard({
   return (
     <Card>
       <CardContent className="flex items-center gap-3 px-4 py-3">
-        {grip}
-        <div className="flex min-w-0 flex-1 flex-col gap-1">
-          <div className="flex items-center gap-2">
-            <TransformerIcon size={16} className="shrink-0" />
+        <div className="flex shrink-0 select-none items-center gap-2">
+          {grip}
+          <TransformerIcon size={18} className="shrink-0" />
+        </div>
+        <div className="flex min-w-0 flex-1 flex-col gap-0.5">
+          <div className="flex select-none items-center gap-2">
             <span className="truncate font-medium">{endpoint.name}</span>
             <Badge variant="muted">{endpoint.transformer}</Badge>
             {availability}
@@ -341,8 +350,8 @@ export function EndpointCard({
           </div>
           {meta}
         </div>
-        {enableSwitch}
-        {actions}
+        <div className="select-none">{enableSwitch}</div>
+        <div className="select-none">{actions}</div>
       </CardContent>
     </Card>
   );
