@@ -1,3 +1,4 @@
+import { useEffect, useRef } from "react";
 import { PanelLeftIcon } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
@@ -9,6 +10,21 @@ import { NAV_ITEMS, SETTINGS_ITEM } from "./navConfig";
 
 export function TopNav() {
   const setNavMode = useLayoutStore((s) => s.setNavMode);
+  // 顶部导航横向滚动条已隐藏，监听纵向滚轮映射为左右滚动，保持横向列表可操作。
+  const navRef = useRef<HTMLElement>(null);
+
+  useEffect(() => {
+    const nav = navRef.current;
+    if (!nav) return;
+    const onWheel = (e: WheelEvent) => {
+      if (e.deltaY === 0) return;
+      e.preventDefault();
+      nav.scrollLeft += e.deltaY;
+    };
+    // 非被动监听才能 preventDefault 阻止页面纵向滚动。
+    nav.addEventListener("wheel", onWheel, { passive: false });
+    return () => nav.removeEventListener("wheel", onWheel);
+  }, []);
 
   return (
     <header
@@ -19,7 +35,10 @@ export function TopNav() {
         <Logo extra={<VersionPopover />} />
       </div>
 
-      <nav className="flex flex-1 items-center gap-1 overflow-x-auto">
+      <nav
+        ref={navRef}
+        className="scrollbar-none flex flex-1 items-center gap-1 overflow-x-auto"
+      >
         {NAV_ITEMS.map((item) => (
           <NavItem key={item.id} item={item} variant="horizontal" />
         ))}

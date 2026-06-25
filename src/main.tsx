@@ -40,7 +40,7 @@ ReactDOM.createRoot(document.getElementById("root") as HTMLElement).render(
       <QueryClientProvider client={queryClient}>
         <TooltipProvider>
           <App />
-          <Toaster />
+          <Toaster position="top-right" offset={{ top: "90px", right: "32px" }} />
         </TooltipProvider>
         {ReactQueryDevtools && (
           <Suspense fallback={null}>

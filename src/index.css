@@ -259,4 +259,11 @@
   .scrollbar-none::-webkit-scrollbar {
     display: none;
   }
+
+  /* 隐藏浏览器对 type="password" 原生自带的显隐按钮（Edge/IE 的 ::-ms-reveal、
+     WebKit 的 ::webkit-reveal-button），避免与项目自定义的密钥显隐按钮重复出现"两个眼睛"。 */
+  input[type="password"]::-ms-reveal,
+  input[type="password"]::-webkit-reveal-button {
+    display: none;
+  }
 }
