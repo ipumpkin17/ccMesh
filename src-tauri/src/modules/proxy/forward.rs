@@ -113,6 +113,8 @@ struct RequestMeta {
     endpoint: String,
     model: Option<String>,
     inbound_format: String,
+    /// 端点 transformer 快照（claude/openai/codex 等），写入日志用于前端按端点类型显示品牌图标。
+    transformer: Option<String>,
     upstream_url: String,
     /// 真实入站路由路径（客户端实际请求的 `uri.path()`）。
     inbound_path: String,
@@ -147,6 +149,7 @@ impl RequestMeta {
             endpoint_name: self.endpoint.clone(),
             model: self.model.clone(),
             inbound_format: self.inbound_format.clone(),
+            transformer: self.transformer.clone(),
             upstream_url: self.upstream_url.clone(),
             inbound_path: self.inbound_path.clone(),
             upstream_path: self.upstream_path.clone(),
@@ -508,6 +511,8 @@ pub async fn handle_proxy(
     let mut last_error_body: Option<String> = None;
     // 最后一次实际尝试的出站路径：全部失败兜底记录时填入，避免前端按入站格式误推断。
     let mut last_upstream_path = String::new();
+    // 最后一次实际尝试端点的 transformer：全部失败兜底记录时填入，用于前端按端点类型显示品牌图标。
+    let mut last_transformer: Option<String> = None;
     // thinking 签名整流一次性标志：命中后清洗重试，仅一次，防死循环。
     let mut sig_rectified = false;
 
@@ -520,6 +525,7 @@ pub async fn handle_proxy(
         };
         st.set_current(&ep.name);
         last_endpoint = ep.name.clone();
+        last_transformer = Some(ep.transformer.clone());
 
         // 熔断许可：gate 时对候选取许可（半开同一时刻仅 1 个探测）；拒绝则跳到下一个端点。
         let used_permit = if gate {
@@ -671,6 +677,7 @@ pub async fn handle_proxy(
                         "claude"
                     })
                     .to_string(),
+                    transformer: Some(ep.transformer.clone()),
                     upstream_url: ep.api_url.clone(),
                     inbound_path: path.clone(),
                     upstream_path: upstream_path.to_string(),
@@ -812,6 +819,7 @@ pub async fn handle_proxy(
             endpoint_name: last_endpoint.clone(),
             model: model.clone(),
             inbound_format: inbound_label.to_string(),
+            transformer: last_transformer,
             upstream_url: String::new(),
             inbound_path: path.clone(),
             upstream_path: last_upstream_path.clone(),

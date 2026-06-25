@@ -34,6 +34,8 @@ pub struct RequestRecord {
     pub endpoint_name: String,
     pub model: Option<String>,
     pub inbound_format: String,
+    /// 端点 transformer 快照（claude/openai/codex 等），用于前端按端点类型显示品牌图标。
+    pub transformer: Option<String>,
     pub upstream_url: String,
     /// 真实入站路由路径（`uri.path()`）。
     pub inbound_path: String,
@@ -117,6 +119,7 @@ impl StatsAggregator {
             ts,
             endpoint_name: rec.endpoint_name,
             inbound_format: rec.inbound_format,
+            transformer: rec.transformer,
             upstream_url: rec.upstream_url,
             inbound_path: rec.inbound_path,
             upstream_path: rec.upstream_path,

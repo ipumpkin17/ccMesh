@@ -69,6 +69,8 @@ pub struct RequestLog {
     pub ts: i64,
     pub endpoint_name: String,
     pub inbound_format: String,
+    /// 端点 transformer 快照（claude/openai/codex 等）。旧行/未记录为 None，前端回退 inbound_format。
+    pub transformer: Option<String>,
     pub upstream_url: String,
     /// 真实入站路由路径（如 `/v1/messages`、`/v1/chat/completions`）。旧行为空串。
     pub inbound_path: String,

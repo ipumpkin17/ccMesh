@@ -12,16 +12,17 @@ pub fn insert_batch(conn: &mut Connection, logs: &[RequestLog], device_id: &str)
     {
         let mut stmt = tx.prepare(
             "INSERT INTO request_logs(
-                ts, endpoint_name, inbound_format, upstream_url, inbound_path, upstream_path,
+                ts, endpoint_name, inbound_format, transformer, upstream_url, inbound_path, upstream_path,
                 status_code, is_error, input_tokens, output_tokens, cache_creation_tokens,
                 cache_read_tokens, model, duration_ms, first_byte_ms, actual_model, error_body, device_id)
-             VALUES(?1,?2,?3,?4,?5,?6,?7,?8,?9,?10,?11,?12,?13,?14,?15,?16,?17,?18)",
+             VALUES(?1,?2,?3,?4,?5,?6,?7,?8,?9,?10,?11,?12,?13,?14,?15,?16,?17,?18,?19)",
         )?;
         for l in logs {
             stmt.execute(params![
                 l.ts,
                 l.endpoint_name,
                 l.inbound_format,
+                l.transformer,
                 l.upstream_url,
                 l.inbound_path,
                 l.upstream_path,
@@ -50,20 +51,21 @@ fn row_to_log(r: &rusqlite::Row) -> rusqlite::Result<RequestLog> {
         ts: r.get(1)?,
         endpoint_name: r.get(2)?,
         inbound_format: r.get(3)?,
-        upstream_url: r.get(4)?,
-        status_code: r.get(5)?,
-        is_error: r.get::<_, i64>(6)? != 0,
-        input_tokens: r.get(7)?,
-        output_tokens: r.get(8)?,
-        cache_creation_tokens: r.get(9)?,
-        cache_read_tokens: r.get(10)?,
-        model: r.get(11)?,
-        duration_ms: r.get(12)?,
-        inbound_path: r.get(13)?,
-        upstream_path: r.get(14)?,
-        first_byte_ms: r.get(15)?,
-        actual_model: r.get(16)?,
-        error_body: r.get(17)?,
+        transformer: r.get(4)?,
+        upstream_url: r.get(5)?,
+        status_code: r.get(6)?,
+        is_error: r.get::<_, i64>(7)? != 0,
+        input_tokens: r.get(8)?,
+        output_tokens: r.get(9)?,
+        cache_creation_tokens: r.get(10)?,
+        cache_read_tokens: r.get(11)?,
+        model: r.get(12)?,
+        duration_ms: r.get(13)?,
+        inbound_path: r.get(14)?,
+        upstream_path: r.get(15)?,
+        first_byte_ms: r.get(16)?,
+        actual_model: r.get(17)?,
+        error_body: r.get(18)?,
     })
 }
 
@@ -103,7 +105,7 @@ pub fn query_page(
     page_args.push(SqlValue::Integer(limit));
     page_args.push(SqlValue::Integer(offset));
     let sql = format!(
-        "SELECT id, ts, endpoint_name, inbound_format, upstream_url, status_code, is_error,
+        "SELECT id, ts, endpoint_name, inbound_format, transformer, upstream_url, status_code, is_error,
                 input_tokens, output_tokens, cache_creation_tokens, cache_read_tokens, model, duration_ms,
                 inbound_path, upstream_path, first_byte_ms, actual_model, error_body
          FROM request_logs{where_sql}
@@ -141,6 +143,7 @@ mod tests {
             ts,
             endpoint_name: endpoint.to_string(),
             inbound_format: "claude".to_string(),
+            transformer: Some("claude".to_string()),
             upstream_url: "https://x".to_string(),
             inbound_path: "/v1/messages".to_string(),
             upstream_path: "/v1/chat/completions".to_string(),
@@ -257,5 +260,21 @@ mod tests {
             items[0].error_body.as_deref(),
             Some(r#"{"error":{"code":"channel:client_restricted"}}"#)
         );
+    }
+
+    #[test]
+    fn transformer_roundtrips_and_legacy_null() {
+        let mut c = db();
+        // 正常行带 transformer
+        let mut codex_log = log(100, "a", false);
+        codex_log.transformer = Some("codex".to_string());
+        // 模拟旧行：transformer 为 None
+        let mut legacy = log(200, "b", false);
+        legacy.transformer = None;
+        insert_batch(&mut c, &[codex_log, legacy], "dev").unwrap();
+        let (items, _) = query_page(&c, None, None, None, 50, 0).unwrap();
+        // ts 倒序：b(200) 在前 transformer None；a(100) Some("codex")
+        assert_eq!(items[0].transformer, None);
+        assert_eq!(items[1].transformer.as_deref(), Some("codex"));
     }
 }
