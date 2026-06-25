@@ -10,6 +10,8 @@ import {
   WaypointsIcon,
 } from "lucide-react";
 import { toast } from "sonner";
+import { Claude, Codex, OpenAI } from "@lobehub/icons";
+import type { ComponentType } from "react";
 
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -38,6 +40,14 @@ import { ModelMappingDialog } from "./ModelMappingDialog";
 import { TestBadge } from "./TestBadge";
 
 const errMsg = (e: unknown) => (e instanceof Error ? e.message : String(e));
+
+/** 端点 transformer 类型 → 品牌图标（claude→Anthropic、openai→OpenAI、codex→Codex）。OpenAI 无 Color 用默认 Mono，其余用彩色。 */
+const TRANSFORMER_ICON: Record<string, ComponentType<{ size?: number; className?: string }>> = {
+  claude: Claude.Color,
+  openai: OpenAI,
+  codex: Codex.Color,
+};
+const getTransformerIcon = (transformer: string) => TRANSFORMER_ICON[transformer] ?? OpenAI;
 
 function IconAction({
   label,
@@ -87,6 +97,7 @@ export function EndpointCard({
 }: Props) {
   const qc = useQueryClient();
   const invalidate = () => qc.invalidateQueries({ queryKey: ["endpoints"] });
+  const TransformerIcon = getTransformerIcon(endpoint.transformer);
   const [testOpen, setTestOpen] = useState(false);
   const [mapOpen, setMapOpen] = useState(false);
   // 共享 ["endpoint-health"] 查询（多卡片去重）；展示运行期熔断态。
@@ -240,10 +251,10 @@ export function EndpointCard({
   );
 
   const meta = (
-    <span className="flex min-w-0 items-center text-xs text-ink-secondary">
+    <span className="flex min-w-0 items-center pl-6 text-xs text-ink-secondary">
       <button
         type="button"
-        className="cursor-pointer truncate text-left hover:text-primary hover:underline"
+        className="cursor-pointer truncate text-left hover:text-primary"
         title={`在浏览器打开 ${endpoint.apiUrl}`}
         onClick={(e) => {
           e.stopPropagation();
@@ -297,6 +308,7 @@ export function EndpointCard({
       <Card className="h-full gap-0 py-0">
         <CardContent className="flex h-full flex-col gap-2.5 p-4">
           <div className="flex items-center gap-2">
+            <TransformerIcon size={16} className="shrink-0" />
             <span className="min-w-0 flex-1 truncate font-medium">{endpoint.name}</span>
             <Badge variant="muted">{endpoint.transformer}</Badge>
             {grip}
@@ -321,6 +333,7 @@ export function EndpointCard({
         {grip}
         <div className="flex min-w-0 flex-1 flex-col gap-1">
           <div className="flex items-center gap-2">
+            <TransformerIcon size={16} className="shrink-0" />
             <span className="truncate font-medium">{endpoint.name}</span>
             <Badge variant="muted">{endpoint.transformer}</Badge>
             {availability}
