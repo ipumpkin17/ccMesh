@@ -2,7 +2,7 @@ use std::net::SocketAddr;
 use std::sync::{Arc, Mutex};
 use std::time::Duration;
 
-use axum::extract::State;
+use axum::extract::{DefaultBodyLimit, State};
 use axum::http::HeaderMap;
 use axum::routing::{get, post};
 use axum::{
@@ -72,6 +72,7 @@ fn build_router(state: Arc<ProxyState>) -> Router {
         .route("/v1/models", get(models_route))
         .route("/v1/messages/count_tokens", post(count_tokens_route))
         .fallback(handle_proxy)
+        .layer(DefaultBodyLimit::disable())
         .with_state(state)
 }
 
