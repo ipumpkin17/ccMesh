@@ -56,7 +56,7 @@ export function Endpoints() {
       </div>
 
       {/* 上区（端点列表）：占剩余视口高度 60%，超出内部滚动 */}
-      <div className="min-h-0 flex-[3] overflow-y-auto pr-1">
+      <div className="scrollbar-none min-h-0 flex-[3] overflow-y-auto pr-1">
         {isLoading ? (
           <p className="text-sm text-ink-mute">加载中…</p>
         ) : filtered.length === 0 ? (

@@ -250,4 +250,13 @@
   ::-webkit-scrollbar-corner {
     background: transparent;
   }
+
+  /* 隐藏滚动条工具类：仅在挂载该类的滚动容器上生效，不影响全局其他滚动条 */
+  .scrollbar-none {
+    scrollbar-width: none;
+    -ms-overflow-style: none;
+  }
+  .scrollbar-none::-webkit-scrollbar {
+    display: none;
+  }
 }

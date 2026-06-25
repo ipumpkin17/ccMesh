@@ -193,7 +193,7 @@ export function EndpointCard({
         </Tooltip>
         <PopoverContent align="end" className="w-56 p-2">
           <p className="mb-1.5 px-1 text-xs text-ink-mute">选择测试模型</p>
-          <div className="flex max-h-60 flex-col gap-0.5 overflow-auto">
+          <div className="scrollbar-none flex max-h-60 flex-col gap-0.5 overflow-auto">
             {testModels.map((m) => (
               <button
                 key={m}
@@ -275,7 +275,7 @@ export function EndpointCard({
           <TestBadge status={availabilityStatus} />
         </span>
       </HoverCardTrigger>
-      <HoverCardContent side="top" className="max-h-60 w-56 overflow-auto">
+      <HoverCardContent side="top" className="scrollbar-none max-h-60 w-56 overflow-auto">
         {displayModels.length === 0 ? (
           <span className="text-sm text-ink-mute">无已配置模型</span>
         ) : (
