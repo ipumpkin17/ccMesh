@@ -8,7 +8,13 @@
     <a href="https://linux.do/"><img src="https://img.shields.io/badge/Linux.do-Community-2b6de8?style=flat-square" alt="Linux.do"></a>
     <img src="https://img.shields.io/github/v/release/VkRainB/ccMesh?label=version&color=blue" alt="version" />
     <img src="https://img.shields.io/badge/license-Apache--2.0-green" alt="license" />
-    <img src="https://img.shields.io/badge/platform-Windows%20%7C%20macOS%20%7C%20Linux-lightgrey" alt="platform" />
+    <a href="https://github.com/VkRainB/ccMesh/releases"><img alt="Downloads" src="https://img.shields.io/github/downloads/VkRainB/ccMesh/total?style=flat-square&color=6366f1&label=downloads"></a>
+    <a href="https://github.com/VkRainB/ccMesh/stargazers"><img alt="Stars" src="https://img.shields.io/github/stars/VkRainB/ccMesh?style=flat-square&color=yellow&label=stars"></a>
+  </p>
+  <p>
+    <img src="https://img.shields.io/badge/Windows-0078D6?style=flat-square&logo=windows&logoColor=white" alt="Windows" />
+    <img src="https://img.shields.io/badge/macOS-000000?style=flat-square&logo=apple&logoColor=white" alt="macOS" />
+    <img src="https://img.shields.io/badge/Linux-FCC624?style=flat-square&logo=linux&logoColor=black" alt="Linux" />
   </p>
 
   <p>
