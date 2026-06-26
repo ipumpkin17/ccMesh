@@ -7,7 +7,9 @@
 //! 字段映射对齐 moon-bridge 调研基准（research/03）：
 //! `max_output_tokens→max_completion_tokens`、`instructions→单条 system 置首`、
 //! `reasoning.effort→reasoning_effort`、`parallel_tool_calls` 透传、`stop` 不映射。
-//! tool_call `arguments` 在两侧均为 JSON 字符串，原样透传（不做双重编解码）。
+//! tool_call `arguments` 在两侧均为 JSON 字符串；请求侧会对历史 `arguments` 做
+//! 完整性校验——合法则规范化（排序键）输出，残缺则降级为 `{}` 以避免上游 prefill
+//! 解析失败（`unexpected end of data`）。
 
 use std::collections::HashMap;
 
@@ -186,11 +188,29 @@ fn convert_input_items(items: &[Value], system_texts: &mut Vec<String>, messages
                     .get("arguments")
                     .and_then(|v| v.as_str())
                     .unwrap_or("{}");
+                // Responses 历史里的 arguments 可能是流式累积未闭合的 JSON 串
+                // （例如 `{"path":"foo","content":"bar` 缺尾部 `}`）。原样透传给
+                // Chat 上游会在 prefill 解析 tool_calls 时报
+                // `unexpected end of data`。这里做一次完整性校验：能解析则规范化
+                // 输出（顺带排序键提升 prefix-cache 命中），否则降级为 `{}` 并告警。
+                let safe_args = match serde_json::from_str::<Value>(args) {
+                    Ok(parsed) => canonical_json_string(&parsed),
+                    Err(err) => {
+                        tracing::warn!(
+                            call_id = %call_id,
+                            name = %name,
+                            error = %err,
+                            args_len = args.len(),
+                            "function_call.arguments 非合法 JSON，已降级为 {{}} 以避免上游 prefill 解析失败"
+                        );
+                        "{}".to_string()
+                    }
+                };
                 if !call_id.is_empty() && !name.is_empty() {
                     pending_calls.push(json!({
                         "id": call_id,
                         "type": "function",
-                        "function": { "name": name, "arguments": args }
+                        "function": { "name": name, "arguments": safe_args }
                     }));
                 }
             }
@@ -943,6 +963,39 @@ mod tests {
         assert_eq!(out["messages"][0]["role"], json!("tool"));
         assert_eq!(out["messages"][0]["tool_call_id"], json!("c1"));
         assert_eq!(out["messages"][0]["content"], json!("result text"));
+    }
+
+    #[test]
+    fn input_array_function_call_malformed_arguments_downgraded_to_empty() {
+        // 模拟流式累积未闭合的 arguments（codex 多轮历史里常见），
+        // 转换时必须降级为 `{}`，否则上游 prefill 会报 `unexpected end of data`。
+        let req = json!({
+            "input": [
+                { "type": "function_call", "call_id": "c1", "name": "f",
+                  "arguments": "{\"path\":\"foo\",\"content\":\"bar" }
+            ]
+        });
+        let out = responses_request_to_chat(&req, None);
+        assert_eq!(
+            out["messages"][0]["tool_calls"][0]["function"]["arguments"],
+            json!("{}")
+        );
+    }
+
+    #[test]
+    fn input_array_function_call_valid_arguments_canonicalized() {
+        // 合法 JSON 应规范化（排序键）后输出，保持 prefix-cache 友好。
+        let req = json!({
+            "input": [
+                { "type": "function_call", "call_id": "c1", "name": "f",
+                  "arguments": "{\"b\":2,\"a\":1}" }
+            ]
+        });
+        let out = responses_request_to_chat(&req, None);
+        assert_eq!(
+            out["messages"][0]["tool_calls"][0]["function"]["arguments"],
+            json!("{\"a\":1,\"b\":2}")
+        );
     }
 
     #[test]
