@@ -29,6 +29,7 @@ import {
 import { Switch } from "@/components/ui/switch";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { useEndpointHealth } from "@/hooks/useEndpointHealth";
+import { getModelIcon } from "@/lib/model-icons";
 import { cn } from "@/lib/utils";
 import {
   advertisedModels,
@@ -224,20 +225,24 @@ export function EndpointCard({
         </Tooltip>
         <PopoverContent align="end" className="w-56 p-2">
           <p className="mb-1.5 px-1 text-xs text-ink-mute">选择测试模型</p>
-          <div className="scrollbar-none flex max-h-60 flex-col gap-0.5 overflow-auto">
-            {testModels.map((m) => (
-              <button
-                key={m}
-                type="button"
-                className="cursor-pointer rounded px-2 py-1 text-left font-mono text-xs hover:bg-surface-hover"
-                onClick={() => {
-                  setTestOpen(false);
-                  test.mutate(m);
-                }}
-              >
-                {m}
-              </button>
-            ))}
+          <div className="scrollbar-none flex max-h-60 flex-col gap-1 overflow-auto">
+            {testModels.map((m) => {
+              const ModelIcon = getModelIcon(m);
+              return (
+                <button
+                  key={m}
+                  type="button"
+                  className="flex min-w-0 cursor-pointer items-center gap-1.5 rounded px-2 py-1 text-left text-xs hover:bg-surface-hover"
+                  onClick={() => {
+                    setTestOpen(false);
+                    test.mutate(m);
+                  }}
+                >
+                  <ModelIcon size={14} className="shrink-0" />
+                  <span className="truncate font-mono">{m}</span>
+                </button>
+              );
+            })}
           </div>
         </PopoverContent>
       </Popover>
@@ -313,13 +318,17 @@ export function EndpointCard({
         {displayModels.length === 0 ? (
           <span className="text-sm text-ink-mute">无已配置模型</span>
         ) : (
-          <div className="flex flex-col gap-0.5">
-            <span className="mb-1 text-xs text-ink-secondary">模型（{displayModels.length}）</span>
-            {displayModels.map((m) => (
-              <span key={m} className="font-mono text-xs">
-                {m}
-              </span>
-            ))}
+          <div className="flex flex-col gap-1">
+            <span className="mb-0.5 text-xs text-ink-secondary">模型（{displayModels.length}）</span>
+            {displayModels.map((m) => {
+              const ModelIcon = getModelIcon(m);
+              return (
+                <span key={m} className="flex min-w-0 items-center gap-1.5 text-xs">
+                  <ModelIcon size={14} className="shrink-0" />
+                  <span className="truncate font-mono">{m}</span>
+                </span>
+              );
+            })}
           </div>
         )}
       </HoverCardContent>

@@ -25,6 +25,7 @@ import {
 import { Switch } from "@/components/ui/switch";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
+import { getModelIcon } from "@/lib/model-icons";
 import { endpointApi, type Endpoint } from "@/services/modules/endpoint";
 
 const JsonEditor = lazy(() => import("@/components/common/JsonEditor"));
@@ -324,19 +325,21 @@ export function EndpointForm({ open, onOpenChange, editing }: Props) {
                   <div className="flex max-h-40 flex-wrap gap-1.5 overflow-auto rounded-md border border-edge p-2">
                     {form.models.map((m) => {
                       const lit = isLit(m);
+                      const ModelIcon = getModelIcon(m);
                       return (
                         <Badge
                           key={m}
                           variant={lit ? "default" : "muted"}
-                          className="gap-1"
+                          className="flex items-center gap-1"
                         >
                           <button
                             type="button"
                             onClick={() => toggleModel(m)}
                             aria-label={`${lit ? "取消点亮" : "点亮"} ${m}`}
                             aria-pressed={lit}
-                            className="cursor-pointer"
+                            className="flex cursor-pointer items-center gap-1"
                           >
+                            <ModelIcon size={14} className="shrink-0" />
                             {m}
                           </button>
                           <button
