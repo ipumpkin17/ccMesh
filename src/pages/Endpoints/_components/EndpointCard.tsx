@@ -10,7 +10,7 @@ import {
   WaypointsIcon,
 } from "lucide-react";
 import { toast } from "sonner";
-import { Claude, Codex, OpenAI } from "@lobehub/icons";
+import { Anthropic, Codex, OpenAI } from "@lobehub/icons";
 import type { ComponentType } from "react";
 
 import { Badge } from "@/components/ui/badge";
@@ -45,7 +45,7 @@ const errMsg = (e: unknown) => (e instanceof Error ? e.message : String(e));
 
 /** 端点 transformer 类型 → 品牌图标（claude→Anthropic、openai→OpenAI、codex→Codex）。OpenAI 无 Color 用默认 Mono，其余用彩色。 */
 const TRANSFORMER_ICON: Record<string, ComponentType<{ size?: number; className?: string }>> = {
-  claude: Claude.Color,
+  claude: Anthropic,
   openai: OpenAI,
   codex: Codex.Color,
 };

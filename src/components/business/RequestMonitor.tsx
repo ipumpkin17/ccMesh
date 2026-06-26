@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { InfoIcon, TriangleAlertIcon } from "lucide-react";
-import { Claude, Codex, OpenAI } from "@lobehub/icons";
+import { Anthropic, Codex, OpenAI } from "@lobehub/icons";
 import type { ComponentType } from "react";
 
 import { StatusDot, TabularText } from "@/components/ui";
@@ -222,7 +222,7 @@ function inferPath(format: string): string {
  *  inboundFormat 值：claude / openai / responses（旧行回退）。
  *  与端点卡片视觉一致：claude→Anthropic、openai 系→OpenAI、codex/responses 系→Codex。 */
 const ENDPOINT_ICON: Record<string, ComponentType<{ size?: number; className?: string }>> = {
-  claude: Claude.Color,
+  claude: Anthropic,
   openai: OpenAI,
   "openai_chat": OpenAI,
   "openai-chat": OpenAI,
