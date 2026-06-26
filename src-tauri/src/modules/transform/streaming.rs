@@ -210,12 +210,18 @@ impl StreamConverter {
 
         if let Some(usage) = chunk.get("usage") {
             if !usage.is_null() {
+                // 先取 cache_read，再算净输入：OpenAI 的 prompt_tokens/input_tokens
+                // 已含 cached_tokens，需扣除以对齐 Claude 语义（input_tokens 不含缓存），
+                // 避免回传给 Claude 客户端的 input_tokens 仍含缓存导致合计双重计算。
+                if let Some(cr) = cache_read_tokens(usage) {
+                    self.ctx.cache_read_tokens = cr;
+                }
                 if let Some(it) = usage
                     .get("prompt_tokens")
                     .or_else(|| usage.get("input_tokens"))
                     .and_then(|v| v.as_i64())
                 {
-                    self.ctx.input_tokens = it;
+                    self.ctx.input_tokens = (it - self.ctx.cache_read_tokens).max(0);
                 }
                 if let Some(ot) = usage
                     .get("completion_tokens")
@@ -229,9 +235,6 @@ impl StreamConverter {
                     .and_then(|v| v.as_i64())
                 {
                     self.ctx.cache_creation_tokens = cc;
-                }
-                if let Some(cr) = cache_read_tokens(usage) {
-                    self.ctx.cache_read_tokens = cr;
                 }
             }
         }
@@ -447,7 +450,8 @@ mod tests {
         }));
         let done = join(c.finish());
         assert!(done.contains("\"output_tokens\":7"));
-        assert_eq!(c.usage(), (3, 7, 0, 2));
+        // prompt_tokens(3) 已含 cached_tokens(2)，净输入 3 - 2 = 1
+        assert_eq!(c.usage(), (1, 7, 0, 2));
     }
 
     #[test]
@@ -465,7 +469,8 @@ mod tests {
         }));
         let done = join(c.finish());
         assert!(done.contains("event: message_delta"));
-        assert!(done.contains("\"input_tokens\":100"));
+        // prompt_tokens(100) 已含 cached_tokens(30)，净输入 100 - 30 = 70
+        assert!(done.contains("\"input_tokens\":70"));
         assert!(done.contains("\"output_tokens\":50"));
         assert!(done.contains("\"cache_read_input_tokens\":30"));
     }

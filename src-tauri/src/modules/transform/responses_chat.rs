@@ -701,20 +701,9 @@ impl ResponsesStreamConverter {
     fn absorb_usage(&mut self, chunk: &Value) {
         if let Some(u) = chunk.get("usage") {
             if !u.is_null() {
-                if let Some(i) = u
-                    .get("prompt_tokens")
-                    .or_else(|| u.get("input_tokens"))
-                    .and_then(|v| v.as_i64())
-                {
-                    self.input_tokens = i;
-                }
-                if let Some(o) = u
-                    .get("completion_tokens")
-                    .or_else(|| u.get("output_tokens"))
-                    .and_then(|v| v.as_i64())
-                {
-                    self.output_tokens = o;
-                }
+                // 先取 cache_read，再算净输入：OpenAI 的 prompt_tokens/input_tokens
+                // 已含 cached_tokens，需扣除以与 Claude（input_tokens 不含缓存）对齐，
+                // 避免下游合计 input + output + cache_read 双重计算缓存。
                 let cr = u
                     .pointer("/prompt_tokens_details/cached_tokens")
                     .or_else(|| u.pointer("/input_tokens_details/cached_tokens"))
@@ -722,6 +711,20 @@ impl ResponsesStreamConverter {
                     .unwrap_or(0);
                 if cr > 0 {
                     self.cache_read = cr;
+                }
+                if let Some(i) = u
+                    .get("prompt_tokens")
+                    .or_else(|| u.get("input_tokens"))
+                    .and_then(|v| v.as_i64())
+                {
+                    self.input_tokens = (i - self.cache_read).max(0);
+                }
+                if let Some(o) = u
+                    .get("completion_tokens")
+                    .or_else(|| u.get("output_tokens"))
+                    .and_then(|v| v.as_i64())
+                {
+                    self.output_tokens = o;
                 }
             }
         }
@@ -1185,6 +1188,27 @@ mod tests {
         assert!(done.contains("\"input_tokens\":11"));
         assert!(done.contains("\"output_tokens\":4"));
         assert_eq!(c.usage(), (11, 4, 0, 0));
+    }
+
+    #[test]
+    fn stream_usage_chunk_deducts_cache_read_from_input() {
+        // 复现图片场景：OpenAI 末尾 usage 的 prompt_tokens 已含 cached_tokens，
+        // 转换器需扣除 cache_read 得到净输入，避免合计双重计算。
+        // prompt_tokens=16987, cached=16832 → 净 input=155, output=279
+        let mut c = ResponsesStreamConverter::new("m".into(), 0);
+        c.process_chunk(&json!({ "id": "x", "choices": [{ "delta": { "content": "y" } }] }));
+        c.process_chunk(&json!({
+            "choices": [],
+            "usage": {
+                "prompt_tokens": 16987,
+                "completion_tokens": 279,
+                "prompt_tokens_details": { "cached_tokens": 16832 }
+            }
+        }));
+        assert_eq!(c.usage(), (155, 279, 0, 16832));
+        // 合计 = 155 + 279 + 0 + 16832 = 17266，与上游 total_tokens 一致
+        let (i, o, cc, cr) = c.usage();
+        assert_eq!(i + o + cc + cr, 17266);
     }
 
     #[test]

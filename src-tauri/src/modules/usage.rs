@@ -14,6 +14,10 @@ pub struct TokenUsage {
 /// 从非流式上游响应体解析真实 token 用量，按端点上游格式区分字段名。
 /// Claude: `usage.input_tokens / output_tokens / cache_creation_input_tokens / cache_read_input_tokens`；
 /// OpenAI: `usage.prompt_tokens / completion_tokens / prompt_tokens_details.cached_tokens`。
+///
+/// **`input` 字段统一为"非缓存净输入"语义**：OpenAI 的 `prompt_tokens`/`input_tokens`
+/// 已包含 `cached_tokens`，需扣除 `cache_read` 以与 Claude（`input_tokens` 不含缓存）
+/// 对齐。这样下游合计 `input + output + cache_creation + cache_read` 不会双重计算缓存。
 pub fn from_response(body: &Value, format: UpstreamFormat) -> TokenUsage {
     let usage = body.get("usage");
     match format {
@@ -23,20 +27,38 @@ pub fn from_response(body: &Value, format: UpstreamFormat) -> TokenUsage {
             cache_creation: field(usage, "cache_creation_input_tokens"),
             cache_read: cache_read_tokens(usage),
         },
-        UpstreamFormat::OpenAiChat => TokenUsage {
-            input: first_field(usage, &["prompt_tokens", "input_tokens"]),
-            output: first_field(usage, &["completion_tokens", "output_tokens"]),
-            cache_creation: field(usage, "cache_creation_input_tokens"),
-            cache_read: cache_read_tokens(usage),
-        },
+        UpstreamFormat::OpenAiChat => {
+            let cache_read = cache_read_tokens(usage);
+            TokenUsage {
+                input: net_input(
+                    first_field(usage, &["prompt_tokens", "input_tokens"]),
+                    cache_read,
+                ),
+                output: first_field(usage, &["completion_tokens", "output_tokens"]),
+                cache_creation: field(usage, "cache_creation_input_tokens"),
+                cache_read,
+            }
+        }
         // Responses：usage.input_tokens / output_tokens / input_tokens_details.cached_tokens。
-        UpstreamFormat::OpenAiResponses => TokenUsage {
-            input: first_field(usage, &["input_tokens", "prompt_tokens"]),
-            output: first_field(usage, &["output_tokens", "completion_tokens"]),
-            cache_creation: field(usage, "cache_creation_input_tokens"),
-            cache_read: cache_read_tokens(usage),
-        },
+        UpstreamFormat::OpenAiResponses => {
+            let cache_read = cache_read_tokens(usage);
+            TokenUsage {
+                input: net_input(
+                    first_field(usage, &["input_tokens", "prompt_tokens"]),
+                    cache_read,
+                ),
+                output: first_field(usage, &["output_tokens", "completion_tokens"]),
+                cache_creation: field(usage, "cache_creation_input_tokens"),
+                cache_read,
+            }
+        }
     }
+}
+
+/// OpenAI 风格的净输入：`prompt_tokens`/`input_tokens` 已含 `cached_tokens`，
+/// 扣除后得到非缓存净输入。扣除后向下截断到 0（上游偶发 cache_read > input 时）。
+fn net_input(raw_input: i64, cache_read: i64) -> i64 {
+    (raw_input - cache_read).max(0)
 }
 
 fn field(usage: Option<&Value>, key: &str) -> i64 {
@@ -167,12 +189,17 @@ impl UsageAccumulator {
             UpstreamFormat::OpenAiChat => {
                 if let Some(u) = j.get("usage") {
                     if !u.is_null() {
+                        let cache_read = cache_read_tokens(Some(u));
+                        if cache_read > 0 {
+                            self.cache_read = cache_read;
+                        }
                         if let Some(i) = u
                             .get("prompt_tokens")
                             .or_else(|| u.get("input_tokens"))
                             .and_then(|v| v.as_i64())
                         {
-                            self.input = i;
+                            // prompt_tokens 已含 cached_tokens，扣除后为净输入
+                            self.input = net_input(i, self.cache_read);
                         }
                         if let Some(o) = u
                             .get("completion_tokens")
@@ -187,10 +214,6 @@ impl UsageAccumulator {
                         {
                             self.cache_creation = c;
                         }
-                        let cache_read = cache_read_tokens(Some(u));
-                        if cache_read > 0 {
-                            self.cache_read = cache_read;
-                        }
                     }
                 }
             }
@@ -202,15 +225,16 @@ impl UsageAccumulator {
                     .or_else(|| j.get("usage"));
                 if let Some(u) = u {
                     if !u.is_null() {
-                        if let Some(i) = u.get("input_tokens").and_then(|v| v.as_i64()) {
-                            self.input = i;
-                        }
-                        if let Some(o) = u.get("output_tokens").and_then(|v| v.as_i64()) {
-                            self.output = o;
-                        }
                         let cache_read = cache_read_tokens(Some(u));
                         if cache_read > 0 {
                             self.cache_read = cache_read;
+                        }
+                        if let Some(i) = u.get("input_tokens").and_then(|v| v.as_i64()) {
+                            // input_tokens 已含 cached_tokens，扣除后为净输入
+                            self.input = net_input(i, self.cache_read);
+                        }
+                        if let Some(o) = u.get("output_tokens").and_then(|v| v.as_i64()) {
+                            self.output = o;
                         }
                     }
                 }
@@ -270,9 +294,10 @@ mod tests {
             "completion_tokens": 12,
             "prompt_tokens_details": { "cached_tokens": 9 }
         } });
+        // prompt_tokens 已含 cached_tokens，input 归一化为净输入 30 - 9 = 21
         assert_eq!(
             from_response(&body, UpstreamFormat::OpenAiChat),
-            tu(30, 12, 0, 9)
+            tu(21, 12, 0, 9)
         );
     }
 
@@ -283,9 +308,10 @@ mod tests {
             "output_tokens": 5,
             "input_tokens_details": { "cached_tokens": 7 }
         } });
+        // input_tokens 已含 cached_tokens，净输入 12 - 7 = 5
         assert_eq!(
             from_response(&body, UpstreamFormat::OpenAiChat),
-            tu(12, 5, 0, 7)
+            tu(5, 5, 0, 7)
         );
 
         let body = json!({ "usage": {
@@ -293,9 +319,10 @@ mod tests {
             "completion_tokens": 5,
             "cached_tokens": 8
         } });
+        // 净输入 12 - 8 = 4
         assert_eq!(
             from_response(&body, UpstreamFormat::OpenAiChat),
-            tu(12, 5, 0, 8)
+            tu(4, 5, 0, 8)
         );
     }
 
@@ -331,11 +358,11 @@ mod tests {
         acc.feed(b"data: {\"choices\":[{\"delta\":{\"content\":\"hi\"}}]}\n\n");
         acc.feed(
             b"data: {\"choices\":[],\"usage\":{\"prompt_tokens\":40,\"completion_tokens\":20,\"prompt_tokens_details\":{\"cached_tokens\":11}}}
-
 ",
         );
         acc.feed(b"data: [DONE]\n\n");
-        assert_eq!(acc.finish(), tu(40, 20, 0, 11));
+        // prompt_tokens(40) 已含 cached_tokens(11)，净输入 40 - 11 = 29
+        assert_eq!(acc.finish(), tu(29, 20, 0, 11));
     }
 
     #[test]
@@ -344,5 +371,36 @@ mod tests {
         acc.feed(b"data: {\"usage\":{\"prompt_tokens\":5,");
         acc.feed(b"\"completion_tokens\":7}}\n\n");
         assert_eq!(acc.finish(), tu(5, 7, 0, 0));
+    }
+
+    #[test]
+    fn responses_input_excludes_cache_read() {
+        // 复现图片里的真实场景：OpenAI Responses 的 input_tokens 已含 cache_read。
+        // input_tokens=13319, output_tokens=29, cache_read_input_tokens=8192
+        // 归一化后净输入 = 13319 - 8192 = 5127，合计 = 5127 + 29 + 8192 = 13348
+        let body = json!({ "usage": {
+            "input_tokens": 13319,
+            "output_tokens": 29,
+            "total_tokens": 13348,
+            "cache_read_input_tokens": 8192,
+            "reasoning_output_tokens": 0
+        } });
+        let u = from_response(&body, UpstreamFormat::OpenAiResponses);
+        assert_eq!(u, tu(5127, 29, 0, 8192));
+        assert_eq!(u.input + u.output + u.cache_creation + u.cache_read, 13348);
+    }
+
+    #[test]
+    fn net_input_clamps_to_zero_when_cache_exceeds_input() {
+        // 上游偶发 cache_read > input 时，净输入截断到 0，不出现负数
+        let body = json!({ "usage": {
+            "prompt_tokens": 10,
+            "completion_tokens": 5,
+            "prompt_tokens_details": { "cached_tokens": 20 }
+        } });
+        assert_eq!(
+            from_response(&body, UpstreamFormat::OpenAiChat),
+            tu(0, 5, 0, 20)
+        );
     }
 }
