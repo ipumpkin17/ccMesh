@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { openUrl } from "@tauri-apps/plugin-opener";
 import {
@@ -29,6 +29,7 @@ import {
 import { Switch } from "@/components/ui/switch";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { useEndpointHealth } from "@/hooks/useEndpointHealth";
+import { cn } from "@/lib/utils";
 import {
   advertisedModels,
   endpointApi,
@@ -96,10 +97,24 @@ export function EndpointCard({
   view = "list",
 }: Props) {
   const qc = useQueryClient();
-  const invalidate = () => qc.invalidateQueries({ queryKey: ["endpoints"] });
+  const invalidate = useCallback(
+    () => qc.invalidateQueries({ queryKey: ["endpoints"] }),
+    [qc],
+  );
   const TransformerIcon = getTransformerIcon(endpoint.transformer);
   const [testOpen, setTestOpen] = useState(false);
   const [mapOpen, setMapOpen] = useState(false);
+  // 布局切换后等一帧再启用 transition，避免切换瞬间因 group-hover 触发过渡动画。
+  const [toolbarTransition, setToolbarTransition] = useState(false);
+  useEffect(() => {
+    setToolbarTransition(false);
+    if (view !== "grid") return;
+    const id = requestAnimationFrame(() => setToolbarTransition(true));
+    return () => cancelAnimationFrame(id);
+  }, [view]);
+
+  const onMutateError = (e: unknown) => toast.error(errMsg(e));
+
   // 共享 ["endpoint-health"] 查询（多卡片去重）；展示运行期熔断态。
   const { data: epHealth } = useEndpointHealth();
   const health = epHealth?.find((h) => h.name === endpoint.name);
@@ -116,7 +131,7 @@ export function EndpointCard({
   const toggle = useMutation({
     mutationFn: (v: boolean) => endpointApi.update(endpoint.id, { enabled: v }),
     onSuccess: invalidate,
-    onError: (e) => toast.error(errMsg(e)),
+    onError: onMutateError,
   });
   const test = useMutation({
     mutationFn: (model?: string) => endpointApi.test(endpoint.id, model),
@@ -126,7 +141,7 @@ export function EndpointCard({
         : toast.error(`${endpoint.name}：${r.message}`);
       invalidate();
     },
-    onError: (e) => toast.error(errMsg(e)),
+    onError: onMutateError,
   });
   const clone = useMutation({
     mutationFn: () => endpointApi.clone(endpoint.id),
@@ -134,7 +149,7 @@ export function EndpointCard({
       toast.success("已克隆");
       invalidate();
     },
-    onError: (e) => toast.error(errMsg(e)),
+    onError: onMutateError,
   });
   const del = useMutation({
     mutationFn: () => endpointApi.remove(endpoint.id),
@@ -142,7 +157,7 @@ export function EndpointCard({
       toast.success("已删除");
       invalidate();
     },
-    onError: (e) => toast.error(errMsg(e)),
+    onError: onMutateError,
   });
 
   const grip =
@@ -177,6 +192,11 @@ export function EndpointCard({
       <TooltipContent>{endpoint.enabled ? "禁用端点" : "启用端点"}</TooltipContent>
     </Tooltip>
   );
+
+  const handleOpenUrl = () => {
+    if (window.getSelection()?.isCollapsed === false) return;
+    openUrl(endpoint.apiUrl).catch((err) => toast.error(errMsg(err)));
+  };
 
   // 测试连通性用出站(真实)模型：test 直连上游、不经网关，入站映射名上游不认。
   const testModels = outboundModels(endpoint);
@@ -257,15 +277,11 @@ export function EndpointCard({
         tabIndex={0}
         className="cursor-pointer truncate text-left hover:text-primary"
         title={`在浏览器打开 ${endpoint.apiUrl}`}
-        onClick={() => {
-          const sel = window.getSelection();
-          if (sel && !sel.isCollapsed) return;
-          openUrl(endpoint.apiUrl).catch((err) => toast.error(errMsg(err)));
-        }}
+        onClick={handleOpenUrl}
         onKeyDown={(e) => {
           if (e.key !== "Enter" && e.key !== " ") return;
           e.preventDefault();
-          openUrl(endpoint.apiUrl).catch((err) => toast.error(errMsg(err)));
+          handleOpenUrl();
         }}
       >
         {endpoint.apiUrl}
@@ -317,7 +333,7 @@ export function EndpointCard({
           <div className="flex select-none items-center gap-2">
             <TransformerIcon size={16} className="shrink-0" />
             <span className="min-w-0 flex-1 truncate font-medium">{endpoint.name}</span>
-            <Badge variant="muted">{endpoint.transformer}</Badge>
+            {/* <Badge variant="muted">{endpoint.transformer}</Badge> */}
             {grip}
           </div>
           {meta}
@@ -328,7 +344,16 @@ export function EndpointCard({
             </div>
             {enableSwitch}
           </div>
-          <div className="flex select-none justify-end">{actions}</div>
+          <div className="group/toolbar flex h-9 select-none items-center justify-end">
+            <div
+              className={cn(
+                "pointer-events-none opacity-0 group-hover/toolbar:pointer-events-auto group-hover/toolbar:opacity-100",
+                toolbarTransition && "transition-opacity duration-200 ease-in-out",
+              )}
+            >
+              {actions}
+            </div>
+          </div>
         </CardContent>
       </Card>
     );
