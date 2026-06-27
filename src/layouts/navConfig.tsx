@@ -7,6 +7,7 @@ import {
   RefreshCwIcon,
   ScrollTextIcon,
   SettingsIcon,
+  InfoIcon,
 } from "lucide-react";
 
 import type { ViewId } from "@/stores";
@@ -37,4 +38,11 @@ export const SETTINGS_ITEM: NavItemDef = {
   label: "设置",
   labelEn: "Settings",
   icon: SettingsIcon,
+};
+
+export const ABOUT_ITEM: NavItemDef = {
+  id: "about",
+  label: "关于",
+  labelEn: "About",
+  icon: InfoIcon,
 };

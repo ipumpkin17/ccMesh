@@ -170,7 +170,7 @@ pub fn run() {
                             *state.proxy.lock().unwrap() = Some(handle);
                             let status = commands::proxy::build_status(&state);
                             let _ = run_handle.emit(commands::proxy::PROXY_STATUS_EVENT, status);
-                            tracing::info!("自动运行：代理已启动");
+                            tracing::debug!("自动运行：代理已启动");
                         }
                         Err(e) => tracing::warn!("自动运行：代理启动失败: {e}"),
                     }
@@ -214,6 +214,7 @@ pub fn run() {
             commands::tokens::count_tokens,
             commands::logs::get_recent_logs,
             commands::logs::set_log_level,
+            commands::logs::clear_logs,
             commands::webdav::test_webdav,
             commands::webdav::webdav_backup,
             commands::webdav::webdav_restore,
@@ -237,7 +238,10 @@ pub fn run() {
             commands::tool_config::preview_claude_settings,
             commands::tool_config::parse_claude_fields,
             commands::tool_config::preview_codex_config,
-            commands::tool_config::parse_codex_fields
+            commands::tool_config::parse_codex_fields,
+            commands::tool_env::get_tool_versions,
+            commands::tool_env::run_tool_lifecycle_action,
+            commands::tool_env::probe_tool_installations
         ])
         .build(tauri::generate_context!())
         .expect("error while running tauri application")

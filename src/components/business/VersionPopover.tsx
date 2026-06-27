@@ -21,6 +21,7 @@ import {
   type UpdateInfo,
 } from "@/services/modules/update";
 import { useUpdateStore } from "@/stores/modules/update";
+import { useLayoutStore } from "@/stores";
 
 const errMsg = (e: unknown) => (e instanceof Error ? e.message : String(e));
 
@@ -32,6 +33,7 @@ export function VersionPopover() {
 
   const updateAvailable = useUpdateStore((s) => s.available);
   const updateVersion = useUpdateStore((s) => s.version);
+  const setActiveView = useLayoutStore((s) => s.setActiveView);
 
   useEffect(() => {
     getAppVersion()
@@ -165,14 +167,23 @@ export function VersionPopover() {
 
         {/* 底部链接 */}
         <div className="flex items-center justify-between border-t border-edge pt-3">
-          <button
-            type="button"
-            className="inline-flex items-center gap-1 text-xs text-ink-secondary hover:text-ink-primary transition-colors"
-            onClick={() => openReleases()}
-          >
-            <ExternalLinkIcon className="size-3" />
-            查看发布
-          </button>
+          <div className="flex items-center gap-3">
+            <button
+              type="button"
+              className="inline-flex items-center gap-1 text-xs text-ink-secondary hover:text-ink-primary transition-colors"
+              onClick={() => openReleases()}
+            >
+              <ExternalLinkIcon className="size-3" />
+              查看发布
+            </button>
+            <button
+              type="button"
+              className="text-xs text-primary-soft hover:text-primary transition-colors"
+              onClick={() => setActiveView("about")}
+            >
+              关于
+            </button>
+          </div>
           <button
             type="button"
             className="text-amber-500 hover:text-amber-400 transition-colors"

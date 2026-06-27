@@ -6,7 +6,7 @@ import { ThemeToggle, Logo, LangToggle } from "@/components/common";
 import { VersionPopover } from "@/components/business";
 import { useLayoutStore } from "@/stores";
 import { NavItem } from "./NavItem";
-import { NAV_ITEMS, SETTINGS_ITEM } from "./navConfig";
+import { NAV_ITEMS, SETTINGS_ITEM, ABOUT_ITEM } from "./navConfig";
 
 export function TopNav() {
   const setNavMode = useLayoutStore((s) => s.setNavMode);
@@ -43,6 +43,7 @@ export function TopNav() {
           <NavItem key={item.id} item={item} variant="horizontal" />
         ))}
         <NavItem item={SETTINGS_ITEM} variant="horizontal" />
+        <NavItem item={ABOUT_ITEM} variant="horizontal" />
       </nav>
 
       <div className="flex shrink-0 items-center gap-2">

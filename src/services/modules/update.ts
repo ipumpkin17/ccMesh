@@ -22,7 +22,12 @@ export interface DownloadProgress {
   total: number | null;
 }
 
+export const GITHUB_REPO_URL = "https://github.com/VkRainB/ccMesh";
 export const GITHUB_RELEASES_URL = "https://github.com/VkRainB/ccMesh/releases";
+
+export async function openGitHubRepo() {
+  await openUrl(GITHUB_REPO_URL);
+}
 
 export async function openReleases() {
   await openUrl(GITHUB_RELEASES_URL);

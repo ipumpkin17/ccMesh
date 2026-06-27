@@ -6,6 +6,7 @@ export const en: Record<string, string> = {
   "nav.sync": "Sync",
   "nav.logs": "Logs",
   "nav.settings": "Settings",
+  "nav.about": "About",
   "common.loading": "Loading…",
   "common.save": "Save",
   "common.cancel": "Cancel",

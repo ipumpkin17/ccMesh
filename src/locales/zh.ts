@@ -6,6 +6,7 @@ export const zh: Record<string, string> = {
   "nav.sync": "同步",
   "nav.logs": "日志",
   "nav.settings": "设置",
+  "nav.about": "关于",
   "common.loading": "加载中…",
   "common.save": "保存",
   "common.cancel": "取消",

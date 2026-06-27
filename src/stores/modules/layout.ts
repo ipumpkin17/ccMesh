@@ -11,7 +11,8 @@ export type ViewId =
   | "statistics"
   | "sync"
   | "logs"
-  | "settings";
+  | "settings"
+  | "about";
 export type Lang = "zh" | "en";
 
 interface LayoutState {
