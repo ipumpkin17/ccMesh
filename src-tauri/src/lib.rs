@@ -224,7 +224,7 @@ pub fn run() {
             commands::window::hide_to_tray,
             commands::window::notify_window_shown,
             commands::update::check_for_updates,
-            commands::update::download_and_install,
+            commands::update::install_update_and_restart,
             commands::update::get_update_settings,
             commands::update::set_update_settings,
             commands::update::skip_version,
