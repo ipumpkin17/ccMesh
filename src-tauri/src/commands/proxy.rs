@@ -77,7 +77,7 @@ pub(crate) async fn stop_proxy_for_update(state: &AppState) {
     let handle = { state.proxy.lock().unwrap().take() };
     if let Some(h) = handle {
         h.stop().await;
-        tracing::info!("更新前已停止代理");
+        tracing::debug!("更新前已停止代理");
     }
 }
 

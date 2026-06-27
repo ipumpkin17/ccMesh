@@ -101,6 +101,11 @@ pub fn recent() -> Vec<LogLine> {
     buffer().lock().unwrap().iter().cloned().collect()
 }
 
+/// 清空环形缓冲（前端"清空日志"调用，避免重新 mount 后 recent() 恢复旧日志）。
+pub fn clear() {
+    buffer().lock().unwrap().clear();
+}
+
 #[derive(Default)]
 struct LogVisitor {
     message: String,
