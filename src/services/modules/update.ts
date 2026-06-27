@@ -34,7 +34,7 @@ export async function getAppVersion(): Promise<string> {
 
 export const updateApi = {
   check: () => request<UpdateInfo>("check_for_updates"),
-  downloadAndInstall: () => request<void>("download_and_install"),
+  installUpdateAndRestart: () => request<void>("install_update_and_restart"),
   getSettings: () => request<UpdateSettings>("get_update_settings"),
   setSettings: (autoCheck: boolean, checkInterval: number) =>
     request<void>("set_update_settings", { autoCheck, checkInterval }),

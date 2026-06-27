@@ -68,7 +68,7 @@ export function VersionPopover() {
     e.stopPropagation();
     try {
       toast.info("开始下载更新…");
-      await updateApi.downloadAndInstall();
+      await updateApi.installUpdateAndRestart();
     } catch (err) {
       toast.error(`下载失败：${errMsg(err)}`);
     }

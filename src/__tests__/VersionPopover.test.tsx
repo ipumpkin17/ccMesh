@@ -4,7 +4,7 @@ import { describe, expect, it, vi, beforeEach } from "vitest";
 const mockGetAppVersion = vi.fn().mockResolvedValue("0.1.2");
 const mockOpenReleases = vi.fn().mockResolvedValue(undefined);
 const mockCheck = vi.fn();
-const mockDownloadAndInstall = vi.fn().mockResolvedValue(undefined);
+const mockInstallUpdateAndRestart = vi.fn().mockResolvedValue(undefined);
 const mockOnProgress = vi.fn().mockResolvedValue(() => {});
 
 vi.mock("@/services/modules/update", () => ({
@@ -13,7 +13,8 @@ vi.mock("@/services/modules/update", () => ({
   GITHUB_RELEASES_URL: "https://github.com/VkRainB/ccMesh/releases",
   updateApi: {
     check: (...args: unknown[]) => mockCheck(...args),
-    downloadAndInstall: (...args: unknown[]) => mockDownloadAndInstall(...args),
+    installUpdateAndRestart: (...args: unknown[]) =>
+      mockInstallUpdateAndRestart(...args),
     onProgress: (...args: unknown[]) => mockOnProgress(...args),
   },
 }));
@@ -47,7 +48,7 @@ describe("VersionPopover", () => {
     expect(screen.queryByLabelText("下载更新")).not.toBeInTheDocument();
   });
 
-  it("available=true 时渲染更新图标，点击调用 downloadAndInstall", async () => {
+  it("available=true 时渲染更新图标，点击调用 installUpdateAndRestart", async () => {
     storeState = { available: true, version: "0.2.0", set: vi.fn() };
     render(<VersionPopover />);
     await waitFor(() => {
@@ -56,7 +57,7 @@ describe("VersionPopover", () => {
     const icon = screen.getByLabelText("下载更新");
     expect(icon).toBeInTheDocument();
     fireEvent.click(icon);
-    expect(mockDownloadAndInstall).toHaveBeenCalled();
+    expect(mockInstallUpdateAndRestart).toHaveBeenCalled();
   });
 
   it("打开 Popover 后点「查看发布」调用 openReleases", async () => {
