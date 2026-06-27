@@ -1,3 +1,4 @@
+import { CopyIcon } from "lucide-react";
 import { useEffect, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { useTheme } from "next-themes";
@@ -7,6 +8,7 @@ import { StatusDot, TabularText } from "@/components/ui";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
 import { Switch } from "@/components/ui/switch";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { useEndpointHealth, useEndpointHealthEvents } from "@/hooks/useEndpointHealth";
 import { cn } from "@/lib/utils";
 import { circuitDot, healthApi } from "@/services/modules/health";
@@ -65,6 +67,29 @@ export function ServiceCard() {
   // 优先用最近请求明细的端点；回退代理状态；停机不高亮。
   const current = running ? liveEndpoint ?? status?.currentEndpoint ?? null : null;
   const endpoints = (health?.endpoints ?? []).filter((e) => e.enabled);
+  const gatewayUrl =
+    status?.port != null ? `http://127.0.0.1:${status.port}` : null;
+
+  const copyGateway = async () => {
+    if (!gatewayUrl) return;
+    try {
+      if (navigator.clipboard?.writeText) {
+        await navigator.clipboard.writeText(gatewayUrl);
+      } else {
+        const ta = document.createElement("textarea");
+        ta.value = gatewayUrl;
+        ta.style.position = "fixed";
+        ta.style.opacity = "0";
+        document.body.appendChild(ta);
+        ta.select();
+        document.execCommand("copy");
+        document.body.removeChild(ta);
+      }
+      toast.success("已复制代理信息");
+    } catch {
+      toast.error("复制失败");
+    }
+  };
 
   const toggle = async (next: boolean) => {
     try {
@@ -147,19 +172,41 @@ export function ServiceCard() {
         >
           <div className="flex flex-col gap-1.5">
             <span className="text-sm font-medium">本地代理</span>
-            <button
-              type="button"
-              onClick={() => setActiveView("settings")}
-              className={cn(
-                "self-start text-xs underline-offset-2 transition-colors hover:underline",
-                dark
-                  ? "text-white/85 hover:text-white"
-                  : "text-slate-600 hover:text-slate-900",
-              )}
-              title="前往设置修改端口"
-            >
-              端口 <TabularText>{status?.port ?? "—"}</TabularText>
-            </button>
+            <div className="flex items-center gap-1.5 self-start">
+              <button
+                type="button"
+                onClick={() => setActiveView("settings")}
+                className={cn(
+                  "cursor-pointer text-xs transition-colors hover:opacity-90",
+                  dark
+                    ? "text-white/85 hover:text-white"
+                    : "text-slate-600 hover:text-slate-900",
+                )}
+                title="前往设置修改端口"
+              >
+                端口 <TabularText>{status?.port ?? "—"}</TabularText>
+              </button>
+              {gatewayUrl ? (
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <button
+                      type="button"
+                      onClick={copyGateway}
+                      className={cn(
+                        "inline-flex shrink-0 transition-colors",
+                        dark
+                          ? "text-white/85 hover:text-white"
+                          : "text-slate-600 hover:text-slate-900",
+                      )}
+                      aria-label="复制代理信息"
+                    >
+                      <CopyIcon className="size-3" />
+                    </button>
+                  </TooltipTrigger>
+                  <TooltipContent>点击复制代理信息</TooltipContent>
+                </Tooltip>
+              ) : null}
+            </div>
           </div>
           <div className="flex items-center justify-between gap-2">
             <span className={cn("text-xs", dark ? "text-white/85" : "text-slate-600")}>
