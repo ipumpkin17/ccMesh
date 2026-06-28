@@ -57,7 +57,7 @@ docs/task-plan/
 | 3.1 | 最终验证（整体回归，显式声明无法无头验证的部分） | required·once | Bash |
 | 3.2 | 更新 progress.csv（`task.py progress set` 改状态/补日期） | required·once | task.py |
 | 3.3 | 按模块 scoped 提交（派生 scoped-commit-bot，传精确文件清单） | required·once | scoped-commit-bot |
-| 3.4 | 标记完成 + 归档（`task.py finish` → `task.py archive`） | required·once | task.py |
+| 3.4 | 标记完成 + 归档（`task.py finish`，默认即归档；`--no-archive` 仅标记） | required·once | task.py |
 
 lite 快速通道（mode=lite，跳过 1.1–1.5 的文档产物）：`create --lite` → 登记 progress → 实现 → 验证 →
 progress set 完成 → scoped 提交 → finish/archive。中途变复杂用 `task.py mode full` 升级回 planning。
@@ -130,24 +130,23 @@ progress set 完成 → scoped 提交 → finish/archive。中途变复杂用 `t
 6. **更新进度**：每完成一个子任务 `python "$TPW_TASK" progress set <编号> --status 完成 --done <日期>`。
 7. **按模块 scoped 提交**：派生 `scoped-commit-bot`，**传本轮精确文件清单**。绝不 `git add -A`/`.`。
    先 docs（PRD/feature/progress）单独成提交，再按「纯逻辑+单测 / 集成 / 命令+事件 / 前端」分组。
-8. **收尾**：全部提交完成后 `task.py finish` 标记 done，再 `task.py archive` 归档。
+8. **收尾**：全部提交完成后 `task.py finish` 标记 done 并**默认归档**（移入 tasks/archive/YYYY-MM/；`--no-archive` 可仅标记）。
    有可复用经验（约定/契约/陷阱）就沉淀到项目 spec/CLAUDE.md，供未来任务复用。
 [/workflow-state:in_progress]
 
 [workflow-state:lite]
 当前任务走 **lite 快速通道**（简单任务：不写 prd/feature/context，进度只记 progress.csv）。按序推进：
 
-1. **登记进度**（若未记）：`python "$TPW_TASK" progress add --stage 执行 --milestone <里程碑> --id <NN前缀> --title <标题> --layer <层> --status 进行中`（整任务一行即可）。
+1. **登记进度**（若未记）：`python "$TPW_TASK" progress add --stage 执行 --milestone <里程碑> --title <标题> --layer <层> --status 进行中`（整任务一行即可；`--id` 省略，工具按里程碑自动分配 `<里程碑号>.<子任务号>` 连续编号）。
 2. **实现**：最小必要调研（直接 Grep/codegraph 检索，不派子 agent）→ 直接改码，遵循周边代码风格。
 3. **验证**：跑项目自带 lint/typecheck/test（按栈探测，别臆造）；发现问题自修并重跑。
 4. **复杂度升级出口**：实现中发现超出 lite 判据（>2 文件 / 出现架构或契约决策 / 冒出需要澄清的真歧义）→
    立即 `python "$TPW_TASK" mode full` 升级（缺 prd 时自动回 planning），补 prd.md/feature.md 后按标准链路推进。**别硬扛**。
-5. **收尾**：`progress set <NN前缀> --status 完成 --done <日期>` → 派生 `scoped-commit-bot`（传精确文件清单，
-   绝不 `git add -A`）→ `task.py finish` → `task.py archive`。
+5. **收尾**：`progress set <编号> --status 完成 --done <日期>` → 派生 `scoped-commit-bot`（传精确文件清单，
+   绝不 `git add -A`）→ `task.py finish`（默认即归档）。
 [/workflow-state:lite]
 
 [workflow-state:done]
-任务已标记 done。确认工作改动已提交后，运行 `python "$TPW_TASK" archive` 归档到
-tasks/archive/YYYY-MM/，并在 progress.csv 中确认该任务相关行均为 完成。
+任务已标记 done。`task.py finish` 已**默认归档**到 tasks/archive/YYYY-MM/；若用了 `--no-archive`，运行 `python "$TPW_TASK" archive` 补归档。在 progress.csv 中确认该任务相关行均为 完成。
 若工作树仍脏（有未提交的本任务改动），先回到 Phase 3.7 用 scoped-commit-bot 提交，再归档。
 [/workflow-state:done]
