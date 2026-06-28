@@ -2,6 +2,7 @@ import { request } from "../request";
 
 /** 预览项：cc-switch 识别到的单个端点（不写库、不探测）。 */
 export interface PreviewItem {
+  /** 复合键 `{appType}:{id}`，与 cc-switch 主键一致。 */
   ccSwitchId: string;
   appType: string; // "claude" | "codex"
   name: string;
