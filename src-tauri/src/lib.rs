@@ -209,6 +209,8 @@ pub fn run() {
             commands::endpoint::clone_endpoint,
             commands::endpoint::test_endpoint,
             commands::endpoint::test_proxy,
+            commands::cc_switch::preview_cc_switch_import,
+            commands::cc_switch::import_cc_switch_providers,
             commands::models::get_models,
             commands::models::fetch_endpoint_models,
             commands::tokens::count_tokens,
