@@ -26,6 +26,11 @@ pub struct MappedProvider {
     pub skip_reason: Option<String>,
 }
 
+/// cc-switch 复合主键 (id, app_type) → 前端勾选 / 导入用的唯一标识。
+fn cc_switch_selection_id(row: &ProviderRow) -> String {
+    format!("{}:{}", row.app_type, row.id)
+}
+
 /// 占位/无效密钥：cc-switch 的 OAuth/托管账号会写入这些占位值，迁移时跳过。
 fn is_placeholder_key(key: &str) -> bool {
     let k = key.trim();
@@ -130,7 +135,7 @@ pub fn map_row(row: &ProviderRow) -> AppResult<MappedProvider> {
     // OAuth / 托管账号先行跳过（无需解析 url/key）
     if let Some(reason) = skip_reason(&meta) {
         return Ok(MappedProvider {
-            cc_switch_id: row.id.clone(),
+            cc_switch_id: cc_switch_selection_id(row),
             app_type: row.app_type.clone(),
             name: row.name.clone(),
             raw_url: String::new(),
@@ -203,7 +208,7 @@ pub fn map_row(row: &ProviderRow) -> AppResult<MappedProvider> {
         }
         other => {
             return Ok(MappedProvider {
-                cc_switch_id: row.id.clone(),
+                cc_switch_id: cc_switch_selection_id(row),
                 app_type: row.app_type.clone(),
                 name: row.name.clone(),
                 raw_url: String::new(),
@@ -227,7 +232,7 @@ pub fn map_row(row: &ProviderRow) -> AppResult<MappedProvider> {
     };
 
     Ok(MappedProvider {
-        cc_switch_id: row.id.clone(),
+        cc_switch_id: cc_switch_selection_id(row),
         app_type: row.app_type.clone(),
         name: row.name.clone(),
         raw_url,
@@ -362,6 +367,17 @@ mod tests {
         let m = map_row(&row("claude", settings, "{}")).unwrap();
         assert_eq!(m.status, "skipped");
         assert_eq!(m.skip_reason.as_deref(), Some("no_key"));
+    }
+
+    #[test]
+    fn selection_id_is_app_type_scoped() {
+        let claude = row("claude", r#"{"env":{"ANTHROPIC_BASE_URL":"https://a.com","ANTHROPIC_API_KEY":"sk-a"}}"#, "{}");
+        let codex = row("codex", r#"{"auth":{"OPENAI_API_KEY":"sk-b"},"config":"base_url = \"https://b.com/v1\""}"#, "{}");
+        let m1 = map_row(&claude).unwrap();
+        let m2 = map_row(&codex).unwrap();
+        assert_eq!(m1.cc_switch_id, "claude:p1");
+        assert_eq!(m2.cc_switch_id, "codex:p1");
+        assert_ne!(m1.cc_switch_id, m2.cc_switch_id);
     }
 
     #[test]

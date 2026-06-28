@@ -52,7 +52,7 @@ fn pick_lock_model(hints: &[String], probed: &[String]) -> String {
 
 /// 对已识别（status=ok）且被勾选的供应商执行探测 + 写库。
 ///
-/// `providers` 应为预览阶段的全部映射项；`selected_ids` 为用户勾选的 cc_switch_id 集合。
+/// `providers` 应为预览阶段的全部映射项；`selected_ids` 为用户勾选的 `{app_type}:{id}` 集合。
 /// skipped 项即使被勾选也不会导入（前端已置灰，这里双保险）。
 pub async fn import(
     conn: &mut Connection,
