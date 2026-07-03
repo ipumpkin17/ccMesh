@@ -23,7 +23,7 @@ vi.mock("@lobehub/icons", () => {
   stub.Text = stub;
   // 覆盖 model-icons.tsx / EndpointCard / RequestMonitor 用到的全部品牌名
   const brands = [
-    "Aws", "Azure", "Cerebras", "Claude", "ClaudeCode", "Cloudflare", "Cohere", "Codex",
+    "Anthropic", "Aws", "Azure", "Cerebras", "Claude", "ClaudeCode", "Cloudflare", "Cohere", "Codex",
     "DeepSeek", "Doubao", "Fireworks", "Gemma", "Gemini", "Google", "Grok",
     "Groq", "HuggingFace", "Hunyuan", "InternLM", "Kimi", "KwaiKAT", "Meta",
     "Microsoft", "Minimax", "Mistral", "Nvidia", "Novita", "Ollama", "OpenAI",
