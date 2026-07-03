@@ -319,6 +319,20 @@ impl BreakerRegistry {
         let g = self.inner.lock().unwrap();
         g.get(name).map(|b| b.to_info(name))
     }
+
+    /// 强制闭合指定端点熔断器（用户手动测试确认可用时调用）。
+    /// 仅在存在记录且状态非 Closed 时转换为 Closed 并返回 true（供调用方决定是否 emit 事件）；
+    /// 无记录或已 Closed 返回 false，避免多余事件。复用 `to_closed` 清零全部计数。
+    pub fn force_close(&self, name: &str) -> bool {
+        let mut g = self.inner.lock().unwrap();
+        if let Some(b) = g.get_mut(name) {
+            if b.state != CircuitState::Closed {
+                b.to_closed();
+                return true;
+            }
+        }
+        false
+    }
 }
 
 /// 选路候选：过滤掉未到期的 Open 端点。全 Open 时返回空（调用方应返回 502），
@@ -466,5 +480,37 @@ mod tests {
         }
         let c2 = select_candidates(&eps, &reg, now);
         assert!(c2.is_empty());
+    }
+
+    #[test]
+    fn force_close_resets_open_and_half_open() {
+        let reg = BreakerRegistry::new(cfg());
+        let now = Instant::now();
+        // 无记录 → false（不伪造转换）
+        assert!(!reg.force_close("a"));
+        // 累计失败达阈值 → Open
+        for _ in 0..3 {
+            reg.record_failure("a", false, now, "boom");
+        }
+        assert!(!reg.is_available("a", now)); // Open 未到期 → 选路跳过
+        // force_close → Closed，返回 true；计数清零、health 反映 healthy/closed
+        assert!(reg.force_close("a"));
+        let h = reg.health_of("a").unwrap();
+        assert_eq!(h.circuit, "closed");
+        assert_eq!(h.status, "healthy");
+        assert_eq!(h.consecutive_failures, 0);
+        assert!(reg.is_available("a", now));
+        // 已 Closed 再 force_close → false（无转换，不 emit）
+        assert!(!reg.force_close("a"));
+
+        // HalfOpen 也能强制闭合
+        let reg2 = BreakerRegistry::new(cfg());
+        for _ in 0..3 {
+            reg2.record_failure("b", false, now, "boom");
+        }
+        let later = now + Duration::from_secs(61);
+        assert!(reg2.allow_request("b", later).allowed); // 惰性转 HalfOpen 并占许可
+        assert!(reg2.force_close("b"));
+        assert_eq!(reg2.health_of("b").unwrap().circuit, "closed");
     }
 }
