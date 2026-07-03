@@ -1,9 +1,10 @@
 import { useRef, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { disable, enable, isEnabled } from "@tauri-apps/plugin-autostart";
+import { disable, enable } from "@tauri-apps/plugin-autostart";
 import { toast } from "sonner";
 
 import { SettingsGrid } from "@/components/settings";
+import { useAutostartEnabled } from "@/hooks/useAutostartEnabled";
 import { configApi } from "@/services/modules/config";
 import { AdvancedCard } from "./_components/AdvancedCard";
 import { GeneralCard } from "./_components/GeneralCard";
@@ -20,16 +21,12 @@ export function Settings() {
     try {
       await configApi.setConfig(patch);
       qc.invalidateQueries({ queryKey: ["config"] });
-      qc.invalidateQueries({ queryKey: ["app-config"] });
     } catch (e) {
       toast.error(`保存失败：${errMsg(e)}`);
     }
   };
 
-  const autostartQ = useQuery({
-    queryKey: ["autostart-enabled"],
-    queryFn: () => isEnabled(),
-  });
+  const autostartQ = useAutostartEnabled();
   const toggleAutostart = async (on: boolean) => {
     try {
       if (on) await enable();
