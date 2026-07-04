@@ -1,5 +1,6 @@
+import { CopyIcon } from "lucide-react";
 import { useEffect, useState } from "react";
-import { useQuery } from "@tanstack/react-query";
+import { useQueryClient } from "@tanstack/react-query";
 import { useTheme } from "next-themes";
 import { toast } from "sonner";
 
@@ -7,13 +8,15 @@ import { StatusDot, TabularText } from "@/components/ui";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
 import { Switch } from "@/components/ui/switch";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
+import { useEndpoints } from "@/hooks/useEndpoints";
 import { useEndpointHealth, useEndpointHealthEvents } from "@/hooks/useEndpointHealth";
+import { useProxyStatus } from "@/hooks/useProxyStatus";
 import { cn } from "@/lib/utils";
-import { circuitDot, healthApi } from "@/services/modules/health";
+import { circuitDot } from "@/services/modules/health";
 import { proxyApi } from "@/services/modules/proxy";
 import { statsApi } from "@/services/modules/stats";
 import { useLayoutStore } from "@/stores";
-import { useProxyStore } from "@/stores/modules/proxy";
 import { ProxyScene } from "./ProxyScene";
 
 /**
@@ -22,30 +25,18 @@ import { ProxyScene } from "./ProxyScene";
  * 右卡=本地代理信息 + 开关 + 端口跳设置，叠加雪山日落场景（开启太阳升起、关闭落下）。
  */
 export function ServiceCard() {
-  const status = useProxyStore((s) => s.status);
-  const setStatus = useProxyStore((s) => s.setStatus);
+  const qc = useQueryClient();
+  const { data: status } = useProxyStatus();
+  const { data: endpointList } = useEndpoints();
   const setActiveView = useLayoutStore((s) => s.setActiveView);
   const { resolvedTheme } = useTheme();
   const dark = resolvedTheme === "dark";
   // 最近一条请求明细对应的端点（与实时监控同源，第一时间反映轮换/故障转移）。
   const [liveEndpoint, setLiveEndpoint] = useState<string | null>(null);
-  const { data: health } = useQuery({
-    queryKey: ["health"],
-    queryFn: healthApi.getHealth,
-  });
   // 端点实时健康/熔断态；健康/端点变更事件到达即刷新（共享 hook 统一订阅）。
   useEndpointHealthEvents();
   const { data: epHealth } = useEndpointHealth();
   const healthByName = new Map((epHealth ?? []).map((h) => [h.name, h]));
-
-  useEffect(() => {
-    let unlisten: (() => void) | undefined;
-    proxyApi.status().then(setStatus).catch(() => undefined);
-    proxyApi.onStatusChanged(setStatus).then((un) => {
-      unlisten = un;
-    });
-    return () => unlisten?.();
-  }, [setStatus]);
 
   // 实时高亮：新请求明细到达即更新当前工作端点（与下方实时监控同一事件源）。
   useEffect(() => {
@@ -64,12 +55,35 @@ export function ServiceCard() {
 
   // 优先用最近请求明细的端点；回退代理状态；停机不高亮。
   const current = running ? liveEndpoint ?? status?.currentEndpoint ?? null : null;
-  const endpoints = (health?.endpoints ?? []).filter((e) => e.enabled);
+  const endpoints = (endpointList ?? []).filter((e) => e.enabled);
+  const gatewayUrl =
+    status?.port != null ? `http://127.0.0.1:${status.port}` : null;
+
+  const copyGateway = async () => {
+    if (!gatewayUrl) return;
+    try {
+      if (navigator.clipboard?.writeText) {
+        await navigator.clipboard.writeText(gatewayUrl);
+      } else {
+        const ta = document.createElement("textarea");
+        ta.value = gatewayUrl;
+        ta.style.position = "fixed";
+        ta.style.opacity = "0";
+        document.body.appendChild(ta);
+        ta.select();
+        document.execCommand("copy");
+        document.body.removeChild(ta);
+      }
+      toast.success("已复制代理信息");
+    } catch {
+      toast.error("复制失败");
+    }
+  };
 
   const toggle = async (next: boolean) => {
     try {
       const s = next ? await proxyApi.start() : await proxyApi.stop();
-      setStatus(s);
+      qc.invalidateQueries({ queryKey: ["proxy-status"] });
       toast.success(next ? `代理已启动 · 端口 ${s.port}` : "代理已停止");
     } catch (e) {
       toast.error(`操作失败：${e instanceof Error ? e.message : String(e)}`);
@@ -147,19 +161,41 @@ export function ServiceCard() {
         >
           <div className="flex flex-col gap-1.5">
             <span className="text-sm font-medium">本地代理</span>
-            <button
-              type="button"
-              onClick={() => setActiveView("settings")}
-              className={cn(
-                "self-start text-xs underline-offset-2 transition-colors hover:underline",
-                dark
-                  ? "text-white/85 hover:text-white"
-                  : "text-slate-600 hover:text-slate-900",
-              )}
-              title="前往设置修改端口"
-            >
-              端口 <TabularText>{status?.port ?? "—"}</TabularText>
-            </button>
+            <div className="flex items-center gap-1.5 self-start">
+              <button
+                type="button"
+                onClick={() => setActiveView("settings")}
+                className={cn(
+                  "cursor-pointer text-xs transition-colors hover:opacity-90",
+                  dark
+                    ? "text-white/85 hover:text-white"
+                    : "text-slate-600 hover:text-slate-900",
+                )}
+                title="前往设置修改端口"
+              >
+                端口 <TabularText>{status?.port ?? "—"}</TabularText>
+              </button>
+              {gatewayUrl ? (
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <button
+                      type="button"
+                      onClick={copyGateway}
+                      className={cn(
+                        "inline-flex shrink-0 transition-colors",
+                        dark
+                          ? "text-white/85 hover:text-white"
+                          : "text-slate-600 hover:text-slate-900",
+                      )}
+                      aria-label="复制代理信息"
+                    >
+                      <CopyIcon className="size-3" />
+                    </button>
+                  </TooltipTrigger>
+                  <TooltipContent>点击复制代理信息</TooltipContent>
+                </Tooltip>
+              ) : null}
+            </div>
           </div>
           <div className="flex items-center justify-between gap-2">
             <span className={cn("text-xs", dark ? "text-white/85" : "text-slate-600")}>

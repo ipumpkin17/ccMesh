@@ -1,4 +1,5 @@
 pub mod backup;
+pub mod cc_switch;
 pub mod config;
 pub mod endpoint;
 pub mod health;
@@ -8,6 +9,7 @@ pub mod proxy;
 pub mod stats;
 pub mod tokens;
 pub mod tool_config;
+pub mod tool_env;
 pub mod update;
 pub mod usage;
 pub mod webdav;

@@ -22,7 +22,12 @@ export interface DownloadProgress {
   total: number | null;
 }
 
+export const GITHUB_REPO_URL = "https://github.com/VkRainB/ccMesh";
 export const GITHUB_RELEASES_URL = "https://github.com/VkRainB/ccMesh/releases";
+
+export async function openGitHubRepo() {
+  await openUrl(GITHUB_REPO_URL);
+}
 
 export async function openReleases() {
   await openUrl(GITHUB_RELEASES_URL);
@@ -34,7 +39,7 @@ export async function getAppVersion(): Promise<string> {
 
 export const updateApi = {
   check: () => request<UpdateInfo>("check_for_updates"),
-  downloadAndInstall: () => request<void>("download_and_install"),
+  installUpdateAndRestart: () => request<void>("install_update_and_restart"),
   getSettings: () => request<UpdateSettings>("get_update_settings"),
   setSettings: (autoCheck: boolean, checkInterval: number) =>
     request<void>("set_update_settings", { autoCheck, checkInterval }),

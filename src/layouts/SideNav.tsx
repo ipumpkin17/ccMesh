@@ -15,7 +15,7 @@ import {
 } from "@/components/ui/tooltip";
 import { useLayoutStore } from "@/stores";
 import { NavItem } from "./NavItem";
-import { NAV_ITEMS, SETTINGS_ITEM } from "./navConfig";
+import { NAV_ITEMS, SETTINGS_ITEM, ABOUT_ITEM } from "./navConfig";
 
 export function SideNav() {
   const sidebarState = useLayoutStore((s) => s.sidebarState);
@@ -57,6 +57,7 @@ export function SideNav() {
             <UpdateBadge />
           </span>
         </div>
+        <NavItem item={ABOUT_ITEM} variant="vertical" collapsed={collapsed} />
         <div
           className={cn(
             "flex gap-1 pt-1",

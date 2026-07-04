@@ -362,47 +362,20 @@ pub async fn handle_proxy(
     let enabled: Vec<Endpoint> = if use_specific {
         enabled
     } else {
-        // 模型过滤前日志：打印每个端点公布的模型
-        if let Some(m) = model.as_deref() {
-            tracing::debug!(model = m, candidates = enabled.len(), "模型过滤前候选端点");
-            for ep in &enabled {
-                let advertised = resolver::advertised_models(ep);
-                tracing::debug!(
-                    endpoint = %ep.name,
-                    advertised_models = ?advertised,
-                    locked_model = %ep.model,
-                    models_count = ep.models.len(),
-                    active_models_count = ep.active_models.len(),
-                    "端点公布模型详情"
-                );
-            }
-        }
-
         let filtered = resolver::filter_by_model(&enabled, model.as_deref());
 
-        // 模型过滤后日志：汇总过滤结果
+        // 模型过滤后日志：仅在数量变化或回退全量时记录（正常路径降噪）
         if let Some(m) = model.as_deref() {
             let before_count = enabled.len();
             let after_count = filtered.len();
             if after_count < before_count {
-                tracing::info!(
+                tracing::debug!(
                     model = m,
                     before = before_count,
                     after = after_count,
                     filtered_out = before_count - after_count,
                     "模型过滤完成"
                 );
-                let filtered_names: Vec<String> = enabled
-                    .iter()
-                    .filter(|e| !filtered.iter().any(|f| f.name == e.name))
-                    .map(|e| e.name.clone())
-                    .collect();
-                if !filtered_names.is_empty() {
-                    tracing::debug!(
-                        filtered_endpoints = ?filtered_names,
-                        "以下端点未声明该模型，已过滤"
-                    );
-                }
             } else if after_count == before_count && before_count > 0 {
                 tracing::debug!(
                     model = m,
@@ -425,22 +398,13 @@ pub async fn handle_proxy(
         // 数量不变 → 无 Open 或全 Open 兜底，均不 gate。
         let gate = cands.len() < enabled.len();
 
-        // 熔断选路后日志
+        // 熔断选路后日志：仅在剔除 Open 端点时记录（正常路径降噪）
         if gate {
-            let filtered_names: Vec<String> = enabled_before_breaker
-                .iter()
-                .filter(|e| !cands.iter().any(|c| c.name == e.name))
-                .map(|e| e.name.clone())
-                .collect();
-            tracing::info!(
+            tracing::debug!(
                 before = enabled_before_breaker.len(),
                 after = cands.len(),
-                filtered_out = enabled_before_breaker.len() - cands.len(),
-                open_endpoints = ?filtered_names,
                 "熔断过滤完成（存在 Open 端点）"
             );
-        } else if !enabled_before_breaker.is_empty() {
-            tracing::debug!(candidates = cands.len(), "熔断过滤：无 Open 端点或全 Open");
         }
 
         (cands, gate)
@@ -616,7 +580,7 @@ pub async fn handle_proxy(
             true // 无模型请求视为匹配
         };
 
-        tracing::info!(
+        tracing::debug!(
             endpoint = %ep.name,
             transformer = %ep.transformer,
             mode = route_mode,
@@ -656,7 +620,12 @@ pub async fn handle_proxy(
             }
             Some(Ok(resp)) => {
                 let status = resp.status().as_u16();
-                tracing::info!(endpoint = %ep.name, status, "上游响应");
+                // 成功响应降噪到 DEBUG；非 200 保留 INFO 以保证上游错误在默认级别可见
+                if status == 200 {
+                    tracing::debug!(endpoint = %ep.name, status, "上游响应");
+                } else {
+                    tracing::info!(endpoint = %ep.name, status, "上游响应");
+                }
                 // 实际(出站)模型：改写后的 outbound_model 非空且与入站不同（ci）才记录，供前端展示"实际模型"。
                 let requested = model.as_deref().unwrap_or("");
                 let actual_model = if !outbound_model.is_empty()

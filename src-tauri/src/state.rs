@@ -6,7 +6,7 @@ use crate::modules::proxy::server::ProxyHandle;
 use crate::modules::stats::aggregator::StatsAggregator;
 use crate::modules::storage::db::DbPool;
 
-/// 模型列表缓存（30 分钟 TTL，详见阶段 4 P4-6）。Phase 0 仅占位。
+/// 模型列表缓存（30 分钟 TTL)
 #[derive(Default)]
 pub struct ModelsCache {
     pub models: Vec<serde_json::Value>,

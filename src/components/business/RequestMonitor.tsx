@@ -1,5 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
-import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { useMemo, useState } from "react";
 import { InfoIcon, TriangleAlertIcon } from "lucide-react";
 import { Anthropic, Codex, OpenAI } from "@lobehub/icons";
 import type { ComponentType } from "react";
@@ -18,9 +17,10 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { useRequestLogs } from "@/hooks/useRequestLogs";
 import { RANGE_OPTIONS, rangeMs, startOfTodayMs, type RangeKey } from "@/lib/range";
 import { formatDuration, formatTokenK } from "@/lib/format";
-import { statsApi, type RequestLog } from "@/services/modules/stats";
+import { type RequestLog } from "@/services/modules/stats";
 
 type Mode = "live" | "ranged";
 
@@ -39,7 +39,6 @@ interface Props {
  * 数据统一走 `get_request_logs` 分页查询；live 模式在第 1 页时由 `request-logged` 事件触发刷新。
  */
 export function RequestMonitor({ mode, endpointFilter, pageSize = 20, title }: Props) {
-  const qc = useQueryClient();
   const [page, setPage] = useState(1);
   const [rangeKey, setRangeKey] = useState<RangeKey>("today");
   // 按天对齐的稳定锚点：同一天内多次渲染得到相同区间，避免 queryKey 逐帧漂移导致无限重取。
@@ -49,41 +48,14 @@ export function RequestMonitor({ mode, endpointFilter, pageSize = 20, title }: P
     [mode, rangeKey, todayStart],
   );
 
-  const { data, isLoading } = useQuery({
-    queryKey: [
-      "request-logs",
-      mode,
-      range.startMs ?? null,
-      range.endMs ?? null,
-      endpointFilter ?? null,
-      page,
-      pageSize,
-    ],
-    queryFn: () =>
-      statsApi.getRequestLogs({
-        startMs: range.startMs,
-        endMs: range.endMs,
-        endpoint: endpointFilter,
-        page,
-        pageSize,
-      }),
+  const { data, isLoading } = useRequestLogs({
+    mode,
+    startMs: range.startMs,
+    endMs: range.endMs,
+    endpointFilter,
+    page,
+    pageSize,
   });
-
-  // live：新请求事件 → 仅在第 1 页时刷新，避免打断翻页浏览
-  useEffect(() => {
-    if (mode !== "live") return;
-    let un: (() => void) | undefined;
-    statsApi
-      .onRequestLogged(() => {
-        if (page === 1) {
-          qc.invalidateQueries({ queryKey: ["request-logs", "live"] });
-        }
-      })
-      .then((u) => {
-        un = u;
-      });
-    return () => un?.();
-  }, [mode, page, qc]);
 
   const items = data?.items ?? [];
   const total = data?.total ?? 0;

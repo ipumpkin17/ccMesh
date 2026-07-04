@@ -20,17 +20,28 @@ export function Logs() {
 
   useEffect(() => {
     let unlisten: (() => void) | undefined;
+    let cancelled = false;
     logsApi.recent().then(setLines).catch(() => undefined);
     logsApi
       .onLine((l) => setLines((prev) => [...prev.slice(-499), l]))
       .then((u) => {
-        unlisten = u;
-      });
+        // StrictMode 双 mount 竞态：首次订阅 resolve 前 cleanup 已运行，
+        // 此时立即取消本次订阅，避免泄漏 listener 导致同条日志被追加两次。
+        if (cancelled) {
+          u();
+        } else {
+          unlisten = u;
+        }
+      })
+      .catch(() => undefined);
     configApi
       .getConfig()
       .then((c) => setCaptureLevel(c.logLevel || "info"))
       .catch(() => undefined);
-    return () => unlisten?.();
+    return () => {
+      cancelled = true;
+      unlisten?.();
+    };
   }, []);
 
   // 贴底自动滚动：仅当用户停留在底部时跟随新日志
@@ -128,23 +139,28 @@ export function Logs() {
         captureLevel={captureLevel}
         onCaptureLevel={changeCapture}
         onCopy={copyAll}
-        onClear={() => setLines([])}
+        onClear={() => {
+          logsApi.clear().catch(() => undefined);
+          setLines([]);
+        }}
       />
 
       <div className="relative flex-1 overflow-hidden">
         <div
           ref={scrollRef}
           onScroll={onScroll}
-          className="h-full overflow-y-auto rounded-lg border border-edge bg-surface-raised p-3 font-mono text-xs"
+          className="h-full overflow-y-auto px-1 py-2"
         >
           {filtered.length === 0 ? (
-            <p className="text-ink-mute">
+            <p className="px-2 text-sm text-ink-mute">
               {lines.length === 0 ? "暂无日志" : "无匹配日志"}
             </p>
           ) : (
-            filtered.map((l, i) => (
-              <LogRow key={`${l.time}-${i}`} line={l} keyword={keyword} />
-            ))
+            <div className="flex flex-col gap-1">
+              {filtered.map((l, i) => (
+                <LogRow key={`${l.time}-${i}`} line={l} keyword={keyword} />
+              ))}
+            </div>
           )}
         </div>
         {!atBottom && (

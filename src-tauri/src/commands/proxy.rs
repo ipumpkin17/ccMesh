@@ -72,12 +72,18 @@ pub async fn start_proxy(app: AppHandle, state: State<'_, AppState>) -> AppResul
     Ok(status)
 }
 
-#[tauri::command]
-pub async fn stop_proxy(app: AppHandle, state: State<'_, AppState>) -> AppResult<ProxyStatus> {
+/// 更新/退出前停止代理，不推送状态事件。
+pub(crate) async fn stop_proxy_for_update(state: &AppState) {
     let handle = { state.proxy.lock().unwrap().take() };
     if let Some(h) = handle {
         h.stop().await;
+        tracing::debug!("更新前已停止代理");
     }
+}
+
+#[tauri::command]
+pub async fn stop_proxy(app: AppHandle, state: State<'_, AppState>) -> AppResult<ProxyStatus> {
+    stop_proxy_for_update(&state).await;
     let status = build_status(&state);
     emit_status(&app, &status);
     Ok(status)

@@ -18,6 +18,7 @@ export interface LogLine {
 export const logsApi = {
   recent: () => request<LogLine[]>("get_recent_logs"),
   setLevel: (level: string) => request<void>("set_log_level", { level }),
+  clear: () => request<void>("clear_logs"),
   onLine: (cb: (line: LogLine) => void): Promise<UnlistenFn> =>
     subscribe<LogLine>(Events.logLine, (e) => cb(e.payload)),
 };

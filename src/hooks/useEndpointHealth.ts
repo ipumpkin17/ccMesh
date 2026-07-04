@@ -4,21 +4,21 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { endpointApi } from "@/services/modules/endpoint";
 import { healthApi } from "@/services/modules/health";
 
-/** 端点状态相关查询：健康事件/端点变更事件到达时全部失效，保证跨页面同步。 */
-const RELATED_KEYS = [["endpoints"], ["health"], ["endpoint-health"]];
-
 /**
  * 订阅 `endpoint-health-changed`（熔断状态转换）与 `endpoints-changed`（启停/编辑/手动测试），
- * 统一失效端点相关查询。页级挂载一次即可，替代各组件内联的重复订阅。
+ * 按事件精确失效：配置变更只失效 `["endpoints"]`，熔断变更只失效 `["endpoint-health"]`，
+ * 避免互相触发不必要的重请求。页级挂载一次即可，替代各组件内联的重复订阅。
  */
 export function useEndpointHealthEvents() {
   const qc = useQueryClient();
   useEffect(() => {
     const unlistens: Array<() => void> = [];
-    const invalidateAll = () =>
-      RELATED_KEYS.forEach((queryKey) => qc.invalidateQueries({ queryKey }));
-    healthApi.onHealthChanged(invalidateAll).then((un) => unlistens.push(un));
-    endpointApi.onChanged(invalidateAll).then((un) => unlistens.push(un));
+    endpointApi
+      .onChanged(() => qc.invalidateQueries({ queryKey: ["endpoints"] }))
+      .then((un) => unlistens.push(un));
+    healthApi
+      .onHealthChanged(() => qc.invalidateQueries({ queryKey: ["endpoint-health"] }))
+      .then((un) => unlistens.push(un));
     return () => unlistens.forEach((un) => un());
   }, [qc]);
 }

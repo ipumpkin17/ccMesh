@@ -203,6 +203,20 @@ pub async fn test_endpoint(
     }
     let _ = app.emit(ENDPOINTS_CHANGED_EVENT, ());
 
+    // 测试成功且代理运行中：强制闭合该端点熔断器（用户已确认可用），
+    // 转换则通知前端刷新健康态，让卡片即时显示可用、熔断 Badge 消失。
+    if success {
+        let health_changed = {
+            let guard = state.proxy.lock().unwrap();
+            guard
+                .as_ref()
+                .is_some_and(|h| h.state.breakers.force_close(&ep.name))
+        };
+        if health_changed {
+            state.stats.emit_health_changed();
+        }
+    }
+
     Ok(TestResult {
         success,
         status: status.to_string(),

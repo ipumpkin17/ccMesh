@@ -137,9 +137,14 @@ export function EndpointCard({
   const test = useMutation({
     mutationFn: (model?: string) => endpointApi.test(endpoint.id, model),
     onSuccess: (r) => {
-      r.success
-        ? toast.success(`${endpoint.name}：${r.message} (${r.latencyMs}ms)`)
-        : toast.error(`${endpoint.name}：${r.message}`);
+      if (r.success) {
+        toast.success(`${endpoint.name}：${r.message} (${r.latencyMs}ms)`);
+        // 测试成功：主动失效健康态，让卡片即时显示可用、熔断 Badge 消失
+        // （后端也会 emit endpoint-health-changed；此处覆盖代理未运行、靠 test_status 回退的场景）
+        qc.invalidateQueries({ queryKey: ["endpoint-health"] });
+      } else {
+        toast.error(`${endpoint.name}：${r.message}`);
+      }
       invalidate();
     },
     onError: onMutateError,

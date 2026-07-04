@@ -11,6 +11,13 @@ pub fn get_recent_logs() -> AppResult<Vec<LogLine>> {
     Ok(logs::recent())
 }
 
+/// 清空日志环形缓冲（前端"清空日志"同步清后端，避免切回页面 recent() 恢复旧日志）。
+#[tauri::command]
+pub fn clear_logs() -> AppResult<()> {
+    logs::clear();
+    Ok(())
+}
+
 /// 动态设置日志级别并持久化（trace/debug/info/warn/error）。
 #[tauri::command]
 pub fn set_log_level(state: State<AppState>, level: String) -> AppResult<()> {

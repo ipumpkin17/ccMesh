@@ -65,7 +65,7 @@ export function CodexWorkspace() {
   const theme = resolvedTheme === "dark" ? "dark" : "light";
 
   const channelsQ = useToolConfigChannels("codex");
-  const cfgQ = useQuery({ queryKey: ["app-config"], queryFn: configApi.getConfig });
+  const cfgQ = useQuery({ queryKey: ["config"], queryFn: configApi.getConfig });
   const epQ = useEndpoints();
 
   const port = cfgQ.data?.port ?? 3000;
