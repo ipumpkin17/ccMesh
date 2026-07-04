@@ -3,7 +3,9 @@ import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { openUrl } from "@tauri-apps/plugin-opener";
 import {
   ActivityIcon,
+  ArchiveIcon,
   CopyIcon,
+  EllipsisVerticalIcon,
   GripVerticalIcon,
   PencilIcon,
   Trash2Icon,
@@ -16,6 +18,19 @@ import type { ComponentType } from "react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
+import {
+  Dialog,
+  DialogContent,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import {
   HoverCard,
   HoverCardContent,
@@ -105,6 +120,7 @@ export function EndpointCard({
   const TransformerIcon = getTransformerIcon(endpoint.transformer);
   const [testOpen, setTestOpen] = useState(false);
   const [mapOpen, setMapOpen] = useState(false);
+  const [deleteOpen, setDeleteOpen] = useState(false);
   // 布局切换后等一帧再启用 transition，避免切换瞬间因 group-hover 触发过渡动画。
   const [toolbarTransition, setToolbarTransition] = useState(false);
   useEffect(() => {
@@ -261,21 +277,74 @@ export function EndpointCard({
       </IconAction>
     );
 
+  const moreMenu = (
+    <>
+      <DropdownMenu>
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <DropdownMenuTrigger asChild>
+              <Button size="icon" variant="ghost" aria-label="更多操作">
+                <EllipsisVerticalIcon className="size-4" />
+              </Button>
+            </DropdownMenuTrigger>
+          </TooltipTrigger>
+          <TooltipContent>更多操作</TooltipContent>
+        </Tooltip>
+        <DropdownMenuContent align="end" className="min-w-40">
+          <DropdownMenuItem
+            disabled={clone.isPending}
+            onClick={() => clone.mutate()}
+          >
+            <CopyIcon />
+            克隆
+          </DropdownMenuItem>
+          <DropdownMenuItem onClick={() => toast.info("归档功能开发中")}>
+            <ArchiveIcon />
+            归档
+          </DropdownMenuItem>
+          <DropdownMenuItem variant="destructive" onClick={() => setDeleteOpen(true)}>
+            <Trash2Icon />
+            删除
+          </DropdownMenuItem>
+        </DropdownMenuContent>
+      </DropdownMenu>
+      <Dialog open={deleteOpen} onOpenChange={setDeleteOpen}>
+        <DialogContent className="max-w-sm">
+          <DialogHeader>
+            <DialogTitle>删除端点</DialogTitle>
+          </DialogHeader>
+          <p className="text-sm text-ink-secondary">
+            确定删除端点「<span className="font-medium">{endpoint.name}</span>」吗？此操作不可撤销。
+          </p>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setDeleteOpen(false)}>
+              取消
+            </Button>
+            <Button
+              variant="destructive"
+              disabled={del.isPending}
+              onClick={() => {
+                del.mutate(undefined, { onSuccess: () => setDeleteOpen(false) });
+              }}
+            >
+              删除
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+    </>
+  );
+
   const actions = (
     <div className="flex gap-0.5">
       {testButton}
       <IconAction label="模型映射" onClick={() => setMapOpen(true)}>
         <WaypointsIcon className="size-4" />
       </IconAction>
-      <IconAction label="克隆" onClick={() => clone.mutate()}>
-        <CopyIcon className="size-4" />
-      </IconAction>
       <IconAction label="编辑" onClick={() => onEdit(endpoint)}>
         <PencilIcon className="size-4" />
       </IconAction>
-      <IconAction label="删除" onClick={() => del.mutate()}>
-        <Trash2Icon className="size-4" />
-      </IconAction>
+      {moreMenu}
       <ModelMappingDialog open={mapOpen} onOpenChange={setMapOpen} endpoint={endpoint} />
     </div>
   );
