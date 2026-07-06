@@ -1,67 +1,107 @@
-import { LayoutGridIcon, ListIcon, PlusIcon } from "lucide-react";
+import {
+  LayoutGridIcon,
+  ListIcon,
+  PlusIcon,
+  SlidersHorizontalIcon,
+} from "lucide-react";
 
+import { SearchBox } from "@/components/common/SearchBox";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover";
 import { Switch } from "@/components/ui/switch";
+import { cn } from "@/lib/utils";
 import { useFilterStore, useLayoutStore } from "@/stores";
+
+import { TypeTabs } from "./TypeTabs";
 
 export function FilterBar({ onCreate }: { onCreate: () => void }) {
   const search = useFilterStore((s) => s.search);
   const enabledOnly = useFilterStore((s) => s.enabledOnly);
-  const transformer = useFilterStore((s) => s.transformer);
   const setSearch = useFilterStore((s) => s.setSearch);
   const setEnabledOnly = useFilterStore((s) => s.setEnabledOnly);
-  const setTransformer = useFilterStore((s) => s.setTransformer);
   const endpointView = useLayoutStore((s) => s.endpointView);
-  const toggleEndpointView = useLayoutStore((s) => s.toggleEndpointView);
+  const setEndpointView = useLayoutStore((s) => s.setEndpointView);
 
   return (
-    <div className="flex items-center gap-3">
-      <Input
-        placeholder="搜索端点…"
-        value={search}
-        onChange={(e) => setSearch(e.target.value)}
-        className="max-w-xs"
-      />
-      <Select value={transformer} onValueChange={setTransformer}>
-        <SelectTrigger className="w-32">
-          <SelectValue />
-        </SelectTrigger>
-        <SelectContent>
-          <SelectItem value="all">全部类型</SelectItem>
-          <SelectItem value="claude">claude</SelectItem>
-          <SelectItem value="openai">openai</SelectItem>
-          <SelectItem value="codex">codex</SelectItem>
-        </SelectContent>
-      </Select>
-      <div className="flex items-center gap-2">
-        <Switch id="enabled-only" checked={enabledOnly} onCheckedChange={setEnabledOnly} />
-        <Label htmlFor="enabled-only" className="text-sm">
-          仅启用
-        </Label>
-      </div>
+    <div className="flex items-stretch gap-3">
+      {/* 左侧：类型 tabs（限宽，宽度由内容决定） */}
+      <TypeTabs />
       <div className="flex-1" />
-      <Button
-        size="icon"
-        variant="ghost"
-        aria-label={endpointView === "list" ? "切换到网格视图" : "切换到列表视图"}
-        onClick={toggleEndpointView}
-      >
-        {endpointView === "list" ? (
-          <LayoutGridIcon className="size-4" />
-        ) : (
-          <ListIcon className="size-4" />
-        )}
-      </Button>
-      <Button onClick={onCreate}>
+      {/* 右侧：搜索 + 设置弹窗（仅启用 / 视图） + 新建 */}
+      <SearchBox
+        value={search}
+        onChange={setSearch}
+        placeholder="搜索端点…"
+        ariaLabel="搜索端点"
+      />
+      <Popover>
+        <PopoverTrigger asChild>
+          <Button
+            variant="ghost"
+            size="icon"
+            aria-label="显示与筛选"
+            className="self-center"
+          >
+            <SlidersHorizontalIcon className="size-4" />
+          </Button>
+        </PopoverTrigger>
+        <PopoverContent
+          align="end"
+          sideOffset={8}
+          className="w-56 rounded-xl p-3"
+        >
+          <div className="grid gap-3">
+            <div className="grid gap-2">
+              <p className="text-xs font-medium text-muted-foreground">筛选</p>
+              <div className="flex items-center justify-between gap-2">
+                <Label htmlFor="enabled-only-pop" className="text-sm">
+                  仅启用
+                </Label>
+                <Switch
+                  id="enabled-only-pop"
+                  checked={enabledOnly}
+                  onCheckedChange={setEnabledOnly}
+                />
+              </div>
+            </div>
+            <div className="grid gap-2">
+              <p className="text-xs font-medium text-muted-foreground">视图</p>
+              <div className="grid grid-cols-2 gap-2">
+                <button
+                  type="button"
+                  onClick={() => setEndpointView("list")}
+                  className={cn(
+                    "inline-flex h-8 items-center justify-center gap-1.5 rounded-lg border text-xs font-medium transition-colors",
+                    endpointView === "list"
+                      ? "border-primary/30 bg-primary text-primary-foreground"
+                      : "border-edge bg-surface hover:bg-surface-raised",
+                  )}
+                >
+                  <ListIcon className="size-3.5" /> 列表
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setEndpointView("grid")}
+                  className={cn(
+                    "inline-flex h-8 items-center justify-center gap-1.5 rounded-lg border text-xs font-medium transition-colors",
+                    endpointView === "grid"
+                      ? "border-primary/30 bg-primary text-primary-foreground"
+                      : "border-edge bg-surface hover:bg-surface-raised",
+                  )}
+                >
+                  <LayoutGridIcon className="size-3.5" /> 网格
+                </button>
+              </div>
+            </div>
+          </div>
+        </PopoverContent>
+      </Popover>
+      <Button onClick={onCreate} className="self-center">
         <PlusIcon className="size-4" /> 新建端点
       </Button>
     </div>
