@@ -4,9 +4,13 @@ export function sameEndpointOrder(a: Pick<Endpoint, "id">[], b: Pick<Endpoint, "
   return a.length === b.length && a.every((item, index) => item.id === b[index]?.id);
 }
 
-export function visibleFromGlobal<T extends Pick<Endpoint, "id">>(
+export function mergeVisibleOrder<T extends Pick<Endpoint, "id">>(
   globalOrder: T[],
   visibleIds: Set<number>,
+  nextVisibleOrder: T[],
 ): T[] {
-  return globalOrder.filter((endpoint) => visibleIds.has(endpoint.id));
+  const nextVisible = [...nextVisibleOrder];
+  return globalOrder.map((endpoint) =>
+    visibleIds.has(endpoint.id) ? nextVisible.shift()! : endpoint,
+  );
 }

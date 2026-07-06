@@ -1,18 +1,17 @@
 import { describe, expect, it } from "vitest";
 
 import {
+  mergeVisibleOrder,
   sameEndpointOrder,
-  visibleFromGlobal,
 } from "@/pages/Endpoints/_components/reorder";
 
 const ep = (id: number) => ({ id });
 
 describe("endpoint filtered reorder", () => {
-  it("keeps visible items derived from global order", () => {
-    expect(visibleFromGlobal([ep(1), ep(2), ep(3), ep(4)], new Set([3, 1]))).toEqual([
-      ep(1),
-      ep(3),
-    ]);
+  it("maps filtered card order back into global slots", () => {
+    expect(
+      mergeVisibleOrder([ep(1), ep(2), ep(3), ep(4)], new Set([1, 3]), [ep(3), ep(1)]),
+    ).toEqual([ep(3), ep(2), ep(1), ep(4)]);
   });
 
   it("compares endpoint order by id", () => {
