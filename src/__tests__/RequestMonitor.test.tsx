@@ -1,7 +1,11 @@
-import { render, screen } from "@testing-library/react";
-import { describe, expect, it } from "vitest";
+import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import { invoke } from "@tauri-apps/api/core";
+import { describe, expect, it, vi } from "vitest";
+import type { ReactNode } from "react";
 
 import { ErrorDetail, fmtDateTime, fmtTime, RequestLogTable, TokenDetail } from "@/components/business/RequestMonitor";
+import { RequestLogsCleanupDialog } from "@/components/business/RequestLogsCleanupDialog";
 import type { RequestLog } from "@/services/modules/stats";
 
 const log: RequestLog = {
@@ -25,6 +29,15 @@ const log: RequestLog = {
   actualModel: null,
   errorBody: null,
 };
+
+const mockedInvoke = vi.mocked(invoke);
+
+function renderWithQuery(ui: ReactNode, qc = new QueryClient()) {
+  return {
+    qc,
+    ...render(<QueryClientProvider client={qc}>{ui}</QueryClientProvider>),
+  };
+}
 
 describe("RequestLogTable", () => {
   it("渲染请求行、状态码与 Token 合计", () => {
@@ -89,6 +102,52 @@ describe("RequestLogTable", () => {
   it("空数据显示占位", () => {
     render(<RequestLogTable items={[]} />);
     expect(screen.getByText("暂无请求记录")).toBeInTheDocument();
+  });
+});
+
+describe("RequestLogsCleanupDialog", () => {
+  it("清理过期记录调用后端命令并刷新请求明细查询", async () => {
+    mockedInvoke.mockReset();
+    mockedInvoke.mockResolvedValueOnce(3);
+    const onCleaned = vi.fn();
+    const qc = new QueryClient();
+    const invalidate = vi.spyOn(qc, "invalidateQueries");
+
+    renderWithQuery(
+      <RequestLogsCleanupDialog
+        open
+        onOpenChange={() => {}}
+        retentionDays={90}
+        onCleaned={onCleaned}
+      />,
+      qc,
+    );
+
+    fireEvent.click(screen.getByRole("button", { name: "清理过期记录" }));
+
+    await waitFor(() => expect(mockedInvoke).toHaveBeenCalledWith("prune_request_logs", undefined));
+    expect(invalidate).toHaveBeenCalledWith({ queryKey: ["request-logs"] });
+    expect(onCleaned).toHaveBeenCalled();
+  });
+
+  it("清空全部明细使用 destructive 按钮并调用清空命令", async () => {
+    mockedInvoke.mockReset();
+    mockedInvoke.mockResolvedValueOnce(2);
+
+    renderWithQuery(
+      <RequestLogsCleanupDialog
+        open
+        onOpenChange={() => {}}
+        retentionDays={90}
+        onCleaned={() => {}}
+      />,
+    );
+
+    const clear = screen.getByRole("button", { name: "清空全部明细" });
+    expect(clear).toHaveAttribute("data-variant", "destructive");
+    fireEvent.click(clear);
+
+    await waitFor(() => expect(mockedInvoke).toHaveBeenCalledWith("clear_request_logs", undefined));
   });
 });
 

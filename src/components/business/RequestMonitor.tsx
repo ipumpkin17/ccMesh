@@ -1,4 +1,5 @@
 import { useMemo, useState } from "react";
+import { useQuery } from "@tanstack/react-query";
 import { InfoIcon, TriangleAlertIcon } from "lucide-react";
 import { Anthropic, Codex, OpenAI } from "@lobehub/icons";
 import type { ComponentType } from "react";
@@ -17,10 +18,12 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { Button } from "@/components/ui/button";
 import { useRequestLogs } from "@/hooks/useRequestLogs";
+import { RequestLogsCleanupDialog } from "@/components/business/RequestLogsCleanupDialog";
 import { RANGE_OPTIONS, rangeMs, startOfTodayMs, type RangeKey } from "@/lib/range";
 import { formatDuration, formatTokenK } from "@/lib/format";
-import { type RequestLog } from "@/services/modules/stats";
+import { statsApi, type RequestLog } from "@/services/modules/stats";
 
 type Mode = "live" | "ranged";
 
@@ -41,6 +44,7 @@ interface Props {
 export function RequestMonitor({ mode, endpointFilter, pageSize = 20, title }: Props) {
   const [page, setPage] = useState(1);
   const [rangeKey, setRangeKey] = useState<RangeKey>("today");
+  const [cleanupOpen, setCleanupOpen] = useState(false);
   // 按天对齐的稳定锚点：同一天内多次渲染得到相同区间，避免 queryKey 逐帧漂移导致无限重取。
   const todayStart = startOfTodayMs();
   const range = useMemo(
@@ -56,37 +60,58 @@ export function RequestMonitor({ mode, endpointFilter, pageSize = 20, title }: P
     page,
     pageSize,
   });
+  const { data: retentionDays } = useQuery({
+    queryKey: ["request-log-retention-days"],
+    queryFn: statsApi.getRetentionDays,
+  });
 
   const items = data?.items ?? [];
   const total = data?.total ?? 0;
 
   return (
     <section className="flex flex-col gap-3">
-      <div className="flex items-center justify-between">
-        <h2 className="text-sm font-medium text-ink-secondary">
-          {title ?? (mode === "live" ? "实时请求监控" : "端点请求记录")}
-        </h2>
-        {mode === "ranged" && (
-          <Select
-            value={rangeKey}
-            onValueChange={(v) => {
-              setRangeKey(v as RangeKey);
-              setPage(1);
-            }}
-          >
-            <SelectTrigger className="w-32">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              {RANGE_OPTIONS.map((r) => (
-                <SelectItem key={r.key} value={r.key}>
-                  {r.label}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        )}
+      <div className="flex items-start justify-between gap-3">
+        <div className="flex flex-col gap-1">
+          <h2 className="text-sm font-medium text-ink-secondary">
+            {title ?? (mode === "live" ? "实时请求监控" : "端点请求记录")}
+          </h2>
+          <p className="text-xs text-ink-mute">
+            {retentionDays ? `请求明细保留 ${retentionDays} 天，超期自动清理。` : "请求明细超期自动清理。"}
+          </p>
+        </div>
+        <div className="flex shrink-0 items-center gap-2">
+          {mode === "ranged" && (
+            <Select
+              value={rangeKey}
+              onValueChange={(v) => {
+                setRangeKey(v as RangeKey);
+                setPage(1);
+              }}
+            >
+              <SelectTrigger className="w-32">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {RANGE_OPTIONS.map((r) => (
+                  <SelectItem key={r.key} value={r.key}>
+                    {r.label}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          )}
+          <Button size="sm" variant="outline" onClick={() => setCleanupOpen(true)}>
+            清理
+          </Button>
+        </div>
       </div>
+
+      <RequestLogsCleanupDialog
+        open={cleanupOpen}
+        onOpenChange={setCleanupOpen}
+        retentionDays={retentionDays}
+        onCleaned={() => setPage(1)}
+      />
 
       {isLoading ? (
         <p className="text-sm text-ink-mute">加载中…</p>

@@ -106,6 +106,12 @@ export const statsApi = {
       page: q.page,
       pageSize: q.pageSize,
     }),
+  /** 请求明细保留天数。 */
+  getRetentionDays: () => request<number>("get_retention_days"),
+  /** 立即清理超过保留期限的请求明细。 */
+  pruneRequestLogs: () => request<number>("prune_request_logs"),
+  /** 清空全部请求明细，不影响 daily_stats 聚合统计。 */
+  clearRequestLogs: () => request<number>("clear_request_logs"),
   /** 历史记录分页（跨全时间，按端点×日聚合行）。 */
   getStatsHistory: (page: number, pageSize: number) =>
     request<StatsHistoryPage>("get_stats_history", { page, pageSize }),
