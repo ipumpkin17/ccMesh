@@ -1,5 +1,6 @@
-use rusqlite::{params, Connection, OptionalExtension, Row};
 use std::collections::HashSet;
+
+use rusqlite::{params, Connection, OptionalExtension, Row};
 
 use crate::error::{AppError, AppResult};
 use crate::models::endpoint::{CreateEndpointRequest, Endpoint, UpdateEndpointRequest};
@@ -217,39 +218,23 @@ pub fn reorder(conn: &mut Connection, ordered_ids: &[i64]) -> AppResult<()> {
         let rows = stmt.query_map([], |row| row.get::<_, i64>(0))?;
         rows.collect::<rusqlite::Result<Vec<_>>>()?
     };
+    if ordered_ids.len() != existing_ids.len() {
+        return Err(AppError::InvalidArgument("排序列表必须包含全部端点".into()));
+    }
 
-    let mut ordered_set = HashSet::with_capacity(ordered_ids.len());
+    let existing_set: HashSet<i64> = existing_ids.into_iter().collect();
+    let mut seen = HashSet::with_capacity(ordered_ids.len());
     for id in ordered_ids {
-        if !ordered_set.insert(*id) {
+        if !seen.insert(*id) {
             return Err(AppError::InvalidArgument(format!(
                 "排序列表包含重复端点: {id}"
             )));
         }
-    }
-
-    let existing_set: HashSet<i64> = existing_ids.iter().copied().collect();
-    let unknown: Vec<i64> = ordered_ids
-        .iter()
-        .copied()
-        .filter(|id| !existing_set.contains(id))
-        .collect();
-    if !unknown.is_empty() {
-        return Err(AppError::InvalidArgument(format!(
-            "排序列表包含不存在端点: {:?}",
-            unknown
-        )));
-    }
-
-    let missing: Vec<i64> = existing_ids
-        .iter()
-        .copied()
-        .filter(|id| !ordered_set.contains(id))
-        .collect();
-    if !missing.is_empty() {
-        return Err(AppError::InvalidArgument(format!(
-            "排序列表缺少端点: {:?}",
-            missing
-        )));
+        if !existing_set.contains(id) {
+            return Err(AppError::InvalidArgument(format!(
+                "排序列表包含不存在端点: {id}"
+            )));
+        }
     }
 
     let tx = conn.transaction()?;
