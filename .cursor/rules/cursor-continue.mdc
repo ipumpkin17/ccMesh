@@ -1,5 +1,0 @@
-<!-- CURSOR_CONTINUE - PROMPT BRIDGE MODE -->
-
-Before ending a response, run the configured chatcontinue bridge command.
-If it prints "User chose to continue", continue with the supplied instruction.
-If it prints "User chose to end", stop the loop.
