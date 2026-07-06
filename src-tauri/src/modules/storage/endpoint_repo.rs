@@ -1,4 +1,5 @@
 use rusqlite::{params, Connection, OptionalExtension, Row};
+use std::collections::HashSet;
 
 use crate::error::{AppError, AppResult};
 use crate::models::endpoint::{CreateEndpointRequest, Endpoint, UpdateEndpointRequest};
@@ -203,7 +204,54 @@ pub fn delete(conn: &Connection, id: i64) -> AppResult<()> {
 }
 
 /// 按给定 id 顺序重写 sort_order（用于拖拽排序持久化）。
+///
+/// ordered_ids 必须是当前全部端点 id 的完整排列；拒绝局部、重复或未知 id，
+/// 避免筛选视角误提交局部列表破坏全局轮询顺序。
 pub fn reorder(conn: &mut Connection, ordered_ids: &[i64]) -> AppResult<()> {
+    if ordered_ids.is_empty() {
+        return Err(AppError::InvalidArgument("排序列表不能为空".into()));
+    }
+
+    let existing_ids = {
+        let mut stmt = conn.prepare("SELECT id FROM endpoints ORDER BY id ASC")?;
+        let rows = stmt.query_map([], |row| row.get::<_, i64>(0))?;
+        rows.collect::<rusqlite::Result<Vec<_>>>()?
+    };
+
+    let mut ordered_set = HashSet::with_capacity(ordered_ids.len());
+    for id in ordered_ids {
+        if !ordered_set.insert(*id) {
+            return Err(AppError::InvalidArgument(format!(
+                "排序列表包含重复端点: {id}"
+            )));
+        }
+    }
+
+    let existing_set: HashSet<i64> = existing_ids.iter().copied().collect();
+    let unknown: Vec<i64> = ordered_ids
+        .iter()
+        .copied()
+        .filter(|id| !existing_set.contains(id))
+        .collect();
+    if !unknown.is_empty() {
+        return Err(AppError::InvalidArgument(format!(
+            "排序列表包含不存在端点: {:?}",
+            unknown
+        )));
+    }
+
+    let missing: Vec<i64> = existing_ids
+        .iter()
+        .copied()
+        .filter(|id| !ordered_set.contains(id))
+        .collect();
+    if !missing.is_empty() {
+        return Err(AppError::InvalidArgument(format!(
+            "排序列表缺少端点: {:?}",
+            missing
+        )));
+    }
+
     let tx = conn.transaction()?;
     for (idx, id) in ordered_ids.iter().enumerate() {
         tx.execute(
@@ -281,6 +329,25 @@ mod tests {
         let list = list_all(&c).unwrap();
         assert_eq!(list[0].name, "b");
         assert_eq!(list[1].name, "a");
+    }
+
+    #[test]
+    fn reorder_rejects_partial_duplicate_unknown_ids_without_changing_order() {
+        let mut c = db();
+        let a = create(&c, &req("a")).unwrap();
+        let b = create(&c, &req("b")).unwrap();
+        let c_ep = create(&c, &req("c")).unwrap();
+
+        assert!(reorder(&mut c, &[b.id, a.id]).is_err());
+        assert!(reorder(&mut c, &[b.id, b.id, c_ep.id]).is_err());
+        assert!(reorder(&mut c, &[b.id, a.id, 999]).is_err());
+        assert!(reorder(&mut c, &[]).is_err());
+
+        let list = list_all(&c).unwrap();
+        assert_eq!(
+            list.iter().map(|e| e.name.as_str()).collect::<Vec<_>>(),
+            vec!["a", "b", "c"]
+        );
     }
 
     #[test]
