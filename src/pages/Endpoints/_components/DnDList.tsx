@@ -14,7 +14,7 @@ interface Props {
   endpoints: Endpoint[];
   allEndpoints: Endpoint[];
   draggable: boolean;
-  filteredTransformer: string | null;
+  typeFilterActive: boolean;
   view: EndpointView;
   onEdit: (e: Endpoint) => void;
 }
@@ -82,7 +82,7 @@ export function DnDList({
   endpoints,
   allEndpoints,
   draggable,
-  filteredTransformer,
+  typeFilterActive,
   view,
   onEdit,
 }: Props) {
@@ -103,7 +103,7 @@ export function DnDList({
     () => new Set(endpoints.map((endpoint) => endpoint.id)),
     [endpoints],
   );
-  const showGlobalPreview = draggable && isDragging && filteredTransformer !== null;
+  const showGlobalPreview = draggable && isDragging && typeFilterActive;
   const order = showGlobalPreview ? globalOrder : visibleOrder;
 
   const reorder = useMutation({
@@ -151,7 +151,7 @@ export function DnDList({
         });
       }}
     >
-      {filteredTransformer !== null && (
+      {typeFilterActive && (
         <p className="mb-2 rounded-md border border-dashed border-edge/70 bg-surface-raised/40 px-3 py-2 text-xs text-muted-foreground">
           拖拽时显示全局排序位置；灰色占位为筛选外端点，不可编辑。
         </p>

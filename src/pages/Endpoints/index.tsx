@@ -74,7 +74,7 @@ export function Endpoints() {
               endpoints={filtered}
               allEndpoints={endpoints ?? []}
               draggable={dragEnabled}
-              filteredTransformer={typeFilterActive ? transformer : null}
+              typeFilterActive={typeFilterActive}
               view={view}
               onEdit={openEdit}
             />
