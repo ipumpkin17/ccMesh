@@ -2,6 +2,7 @@ use tauri::State;
 
 use crate::error::AppResult;
 use crate::models::stats::{RequestLogPage, StatsHistoryPage, StatsOverview};
+use crate::modules::stats::aggregator;
 use crate::modules::storage::{request_logs_repo, stats_repo};
 use crate::state::AppState;
 
@@ -28,6 +29,28 @@ pub fn get_request_logs(
     let (items, total) =
         request_logs_repo::query_page(&conn, start_ms, end_ms, endpoint.as_deref(), limit, offset)?;
     Ok(RequestLogPage { items, total })
+}
+
+/// 请求明细保留天数。前端展示用，避免 UI 文案与后端清理策略漂移。
+#[tauri::command]
+pub fn get_retention_days() -> i64 {
+    aggregator::retention_days()
+}
+
+/// 立即清理超过保留期限的请求明细，返回删除行数。
+#[tauri::command]
+pub fn prune_request_logs(state: State<AppState>) -> AppResult<usize> {
+    state.stats.flush()?;
+    let conn = state.db_pool.get()?;
+    request_logs_repo::prune_older_than(&conn, aggregator::retention_cutoff_ms())
+}
+
+/// 清空全部请求明细，返回删除行数；不影响 daily_stats 聚合统计。
+#[tauri::command]
+pub fn clear_request_logs(state: State<AppState>) -> AppResult<usize> {
+    state.stats.flush()?;
+    let conn = state.db_pool.get()?;
+    request_logs_repo::clear_all(&conn)
 }
 
 /// 历史记录分页（跨全时间，按端点×日聚合行，date 倒序）。

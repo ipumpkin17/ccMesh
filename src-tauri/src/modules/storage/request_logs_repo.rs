@@ -126,6 +126,12 @@ pub fn prune_older_than(conn: &Connection, cutoff_ms: i64) -> AppResult<usize> {
     Ok(n)
 }
 
+/// 清空全部请求明细，保留表结构，返回删除行数。
+pub fn clear_all(conn: &Connection) -> AppResult<usize> {
+    let n = conn.execute("DELETE FROM request_logs", [])?;
+    Ok(n)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -230,6 +236,17 @@ mod tests {
         let (items, total) = query_page(&c, None, None, None, 50, 0).unwrap();
         assert_eq!(total, 1);
         assert_eq!(items[0].ts, 500);
+    }
+
+    #[test]
+    fn clear_all_removes_every_row() {
+        let mut c = db();
+        insert_batch(&mut c, &[log(100, "a", false), log(200, "b", true)], "dev").unwrap();
+        let removed = clear_all(&c).unwrap();
+        assert_eq!(removed, 2);
+        let (items, total) = query_page(&c, None, None, None, 50, 0).unwrap();
+        assert_eq!(total, 0);
+        assert!(items.is_empty());
     }
 
     #[test]

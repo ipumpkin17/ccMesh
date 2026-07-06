@@ -15,7 +15,17 @@ const REQUEST_LOG_EVENT: &str = "request-logged";
 const ENDPOINT_HEALTH_EVENT: &str = "endpoint-health-changed";
 const FLUSH_INTERVAL: Duration = Duration::from_secs(2);
 /// 请求明细保留窗口：90 天。
-const RETENTION_MS: i64 = 90 * 24 * 60 * 60 * 1000;
+pub const RETENTION_DAYS: i64 = 90;
+const RETENTION_MS: i64 = RETENTION_DAYS * 24 * 60 * 60 * 1000;
+
+/// ponytail: 当前产品只要求固定 90 天；未来配置化时从这里改为读取 app_config。
+pub fn retention_days() -> i64 {
+    RETENTION_DAYS
+}
+
+pub fn retention_cutoff_ms() -> i64 {
+    chrono::Utc::now().timestamp_millis() - RETENTION_MS
+}
 /// 明细清理最小间隔：每小时至多一次。
 const PRUNE_INTERVAL: Duration = Duration::from_secs(3600);
 
@@ -187,7 +197,7 @@ impl StatsAggregator {
             request_logs_repo::insert_batch(&mut conn, &drained_logs, &self.device_id)?;
         }
         if prune {
-            let cutoff = chrono::Utc::now().timestamp_millis() - RETENTION_MS;
+            let cutoff = retention_cutoff_ms();
             if let Err(e) = request_logs_repo::prune_older_than(&conn, cutoff) {
                 tracing::warn!("请求明细清理失败: {e}");
             }
