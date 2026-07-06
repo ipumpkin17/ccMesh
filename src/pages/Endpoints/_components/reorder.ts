@@ -1,12 +1,15 @@
-import type { Endpoint } from "@/services/modules/endpoint";
-
-export function sameEndpointOrder(a: Pick<Endpoint, "id">[], b: Pick<Endpoint, "id">[]) {
-  return a.length === b.length && a.every((item, index) => item.id === b[index]?.id);
-}
-
-export function visibleFromGlobal<T extends Pick<Endpoint, "id">>(
-  globalOrder: T[],
-  visibleIds: Set<number>,
+export function moveBeforeEndpoint<T extends { id: number }>(
+  order: T[],
+  activeId: number,
+  targetId: number,
 ): T[] {
-  return globalOrder.filter((endpoint) => visibleIds.has(endpoint.id));
+  if (activeId === targetId) return order;
+  const activeIndex = order.findIndex((endpoint) => endpoint.id === activeId);
+  const targetIndex = order.findIndex((endpoint) => endpoint.id === targetId);
+  if (activeIndex < 0 || targetIndex < 0) return order;
+
+  const next = [...order];
+  const [active] = next.splice(activeIndex, 1);
+  next.splice(targetIndex > activeIndex ? targetIndex - 1 : targetIndex, 0, active);
+  return next;
 }

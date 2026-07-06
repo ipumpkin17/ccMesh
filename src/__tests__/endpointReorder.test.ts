@@ -1,22 +1,22 @@
 import { describe, expect, it } from "vitest";
 
-import {
-  sameEndpointOrder,
-  visibleFromGlobal,
-} from "@/pages/Endpoints/_components/reorder";
+import { moveBeforeEndpoint } from "@/pages/Endpoints/_components/reorder";
 
 const ep = (id: number) => ({ id });
 
 describe("endpoint filtered reorder", () => {
-  it("keeps visible card order derived from global preview", () => {
-    expect(visibleFromGlobal([ep(1), ep(2), ep(3), ep(4)], new Set([3, 1]))).toEqual([
+  it("moves the active card before the preview target", () => {
+    expect(moveBeforeEndpoint([ep(1), ep(2), ep(3), ep(4)], 1, 3)).toEqual([
+      ep(2),
       ep(1),
       ep(3),
+      ep(4),
     ]);
-  });
-
-  it("compares endpoint order by id", () => {
-    expect(sameEndpointOrder([ep(1), ep(2)], [ep(1), ep(2)])).toBe(true);
-    expect(sameEndpointOrder([ep(1), ep(2)], [ep(2), ep(1)])).toBe(false);
+    expect(moveBeforeEndpoint([ep(1), ep(2), ep(3), ep(4)], 4, 2)).toEqual([
+      ep(1),
+      ep(4),
+      ep(2),
+      ep(3),
+    ]);
   });
 });
