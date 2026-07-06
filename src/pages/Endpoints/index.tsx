@@ -14,7 +14,7 @@ export function Endpoints() {
   const search = useFilterStore((s) => s.search);
   const enabledOnly = useFilterStore((s) => s.enabledOnly);
   const transformer = useFilterStore((s) => s.transformer);
-  const isActive = useFilterStore((s) => s.isActive);
+  const typeFilterActive = transformer !== "all";
   const view = useLayoutStore((s) => s.endpointView);
 
   // 熔断/端点变更事件 → 刷新各卡片的实时健康态与列表（共享 hook 统一订阅）。
@@ -36,7 +36,7 @@ export function Endpoints() {
     [endpoints, search, enabledOnly, transformer],
   );
 
-  const dragEnabled = !isActive();
+  const dragEnabled = search === "" && !enabledOnly;
 
   const openCreate = () => {
     setEditing(null);
@@ -70,7 +70,14 @@ export function Endpoints() {
           ) : filtered.length === 0 ? (
             <p className="text-sm text-ink-mute">暂无端点，点击「新建端点」添加。</p>
           ) : (
-            <DnDList endpoints={filtered} draggable={dragEnabled} view={view} onEdit={openEdit} />
+            <DnDList
+              endpoints={filtered}
+              allEndpoints={endpoints ?? []}
+              draggable={dragEnabled}
+              filteredTransformer={typeFilterActive ? transformer : null}
+              view={view}
+              onEdit={openEdit}
+            />
           )}
         </div>
 
