@@ -64,7 +64,7 @@ const TRANSFORMER_ICON: Record<string, ComponentType<{ size?: number; className?
   openai: OpenAI,
   codex: Codex.Color,
 };
-const getTransformerIcon = (transformer: string) => TRANSFORMER_ICON[transformer] ?? OpenAI;
+export const getTransformerIcon = (transformer: string) => TRANSFORMER_ICON[transformer] ?? OpenAI;
 
 function IconAction({
   label,
@@ -181,6 +181,14 @@ export function EndpointCard({
     },
     onError: onMutateError,
   });
+  const archive = useMutation({
+    mutationFn: () => endpointApi.archive(endpoint.id),
+    onSuccess: () => {
+      toast.success("已归档");
+      invalidate();
+    },
+    onError: onMutateError,
+  });
 
   const grip =
     draggable && dragHandleRef ? (
@@ -201,18 +209,13 @@ export function EndpointCard({
     );
 
   const enableSwitch = (
-    <Tooltip>
-      <TooltipTrigger asChild>
-        <span className="inline-flex">
-          <Switch
-            checked={endpoint.enabled}
-            onCheckedChange={(v) => toggle.mutate(v)}
-            aria-label={endpoint.enabled ? "禁用端点" : "启用端点"}
-          />
-        </span>
-      </TooltipTrigger>
-      <TooltipContent>{endpoint.enabled ? "禁用端点" : "启用端点"}</TooltipContent>
-    </Tooltip>
+    <span className="inline-flex items-center mt-1">
+      <Switch
+        checked={endpoint.enabled}
+        onCheckedChange={(v) => toggle.mutate(v)}
+        aria-label={endpoint.enabled ? "禁用端点" : "启用端点"}
+      />
+    </span>
   );
 
   const handleOpenUrl = () => {
@@ -280,16 +283,11 @@ export function EndpointCard({
   const moreMenu = (
     <>
       <DropdownMenu>
-        <Tooltip>
-          <TooltipTrigger asChild>
-            <DropdownMenuTrigger asChild>
-              <Button size="icon" variant="ghost" aria-label="更多操作">
-                <EllipsisVerticalIcon className="size-4" />
-              </Button>
-            </DropdownMenuTrigger>
-          </TooltipTrigger>
-          <TooltipContent>更多操作</TooltipContent>
-        </Tooltip>
+        <DropdownMenuTrigger asChild>
+          <Button size="icon" variant="ghost" aria-label="更多操作">
+            <EllipsisVerticalIcon className="size-4" />
+          </Button>
+        </DropdownMenuTrigger>
         <DropdownMenuContent align="end" className="min-w-40">
           <DropdownMenuItem
             disabled={clone.isPending}
@@ -298,7 +296,10 @@ export function EndpointCard({
             <CopyIcon />
             克隆
           </DropdownMenuItem>
-          <DropdownMenuItem onClick={() => toast.info("归档功能开发中")}>
+          <DropdownMenuItem
+            disabled={archive.isPending}
+            onClick={() => archive.mutate()}
+          >
             <ArchiveIcon />
             归档
           </DropdownMenuItem>
