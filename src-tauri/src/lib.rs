@@ -77,7 +77,7 @@ pub fn run() {
                 let conn = pool.get()?;
                 modules::storage::device::get_or_create_device_id(&conn)?
             };
-            tracing::info!(%device_id, "存储与设备标识初始化完成");
+            tracing::info!("ccMesh 初始化完成");
 
             // 统计聚合器（内存累加 + 2s 防抖落库 + 零延迟事件）
             let stats = modules::stats::aggregator::StatsAggregator::new(
@@ -170,7 +170,7 @@ pub fn run() {
                             *state.proxy.lock().unwrap() = Some(handle);
                             let status = commands::proxy::build_status(&state);
                             let _ = run_handle.emit(commands::proxy::PROXY_STATUS_EVENT, status);
-                            tracing::debug!("自动运行：代理已启动");
+                            // 自动启动成功，不记录日志（避免噪音，用户可在前端看到状态）
                         }
                         Err(e) => tracing::warn!("自动运行：代理启动失败: {e}"),
                     }
@@ -208,6 +208,9 @@ pub fn run() {
             commands::endpoint::create_endpoint,
             commands::endpoint::update_endpoint,
             commands::endpoint::delete_endpoint,
+            commands::endpoint::archive_endpoint,
+            commands::endpoint::unarchive_endpoint,
+            commands::endpoint::list_archived_endpoints,
             commands::endpoint::reorder_endpoints,
             commands::endpoint::reorder_fast_endpoints,
             commands::endpoint::clone_endpoint,

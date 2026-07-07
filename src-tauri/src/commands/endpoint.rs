@@ -47,6 +47,28 @@ pub fn delete_endpoint(state: State<AppState>, id: i64) -> AppResult<()> {
 }
 
 #[tauri::command]
+pub fn archive_endpoint(app: AppHandle, state: State<AppState>, id: i64) -> AppResult<()> {
+    let conn = state.db_pool.get()?;
+    endpoint_repo::archive(&conn, id)?;
+    let _ = app.emit(ENDPOINTS_CHANGED_EVENT, ());
+    Ok(())
+}
+
+#[tauri::command]
+pub fn unarchive_endpoint(app: AppHandle, state: State<AppState>, id: i64) -> AppResult<()> {
+    let conn = state.db_pool.get()?;
+    endpoint_repo::unarchive(&conn, id)?;
+    let _ = app.emit(ENDPOINTS_CHANGED_EVENT, ());
+    Ok(())
+}
+
+#[tauri::command]
+pub fn list_archived_endpoints(state: State<AppState>) -> AppResult<Vec<Endpoint>> {
+    let conn = state.db_pool.get()?;
+    endpoint_repo::list_archived(&conn)
+}
+
+#[tauri::command]
 pub fn reorder_endpoints(
     app: AppHandle,
     state: State<AppState>,
