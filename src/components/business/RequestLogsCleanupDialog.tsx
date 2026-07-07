@@ -52,8 +52,7 @@ export function RequestLogsCleanupDialog({
         </DialogHeader>
 
         <div className="flex flex-col gap-3 text-sm text-ink-secondary">
-          <p>请求明细仅影响监控列表，不影响端点统计汇总。</p>
-          <p>系统会自动清理超过 {retentionLabel} 的记录，你也可以立即执行清理。</p>
+          <p>系统自动清理超过 {retentionLabel} 的记录，你也可以立即执行清理。</p>
 
           <div className="rounded-lg border border-edge p-3">
             <div className="font-medium text-foreground">清理过期记录</div>
