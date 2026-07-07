@@ -148,7 +148,7 @@ pub async fn start_proxy(
         }
     });
 
-    tracing::info!(port = actual_port, "代理服务已启动");
+    tracing::info!(port = actual_port, "代理服务启动");
     Ok(ProxyHandle {
         port: actual_port,
         shutdown: Some(tx),

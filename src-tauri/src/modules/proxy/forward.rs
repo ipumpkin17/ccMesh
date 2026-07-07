@@ -193,12 +193,22 @@ fn error_body_from_bytes(bytes: &Bytes) -> Option<String> {
     Some(truncate_error_body(&text))
 }
 
-fn empty_candidates_message(model: Option<&str>, breaker_exhausted: bool) -> String {
+fn empty_candidates_message(
+    model: Option<&str>,
+    breaker_exhausted: bool,
+    using_fast_queue: bool,
+) -> String {
     if breaker_exhausted {
         return "所有候选端点均熔断或无可用端点".to_string();
     }
     match model.map(str::trim).filter(|m| !m.is_empty()) {
-        Some(m) => format!("所有候选端点均不支持模型 '{m}'"),
+        Some(m) => {
+            if using_fast_queue {
+                format!("快速队列中的端点均不支持模型 '{m}'，请检查快速队列配置或在端点管理中调整")
+            } else {
+                format!("所有候选端点均不支持模型 '{m}'")
+            }
+        }
         None => "所有候选端点均熔断或无可用端点".to_string(),
     }
 }
@@ -272,9 +282,20 @@ pub async fn handle_proxy(
     }
 
     // 当前启用端点（每请求读取，反映 CRUD 实时变更）
-    let enabled = match st.db_pool.get() {
+    let (enabled, using_fast_queue) = match st.db_pool.get() {
         Ok(conn) => match endpoint_repo::list_routable(&conn) {
-            Ok(list) => list,
+            Ok(list) => {
+                // 判断是否使用了快速队列：查询快速端点数量
+                let has_fast = conn
+                    .query_row(
+                        "SELECT COUNT(*) FROM endpoints WHERE enabled = 1 AND fast = 1",
+                        [],
+                        |row| row.get::<_, i64>(0),
+                    )
+                    .unwrap_or(0)
+                    > 0;
+                (list, has_fast)
+            }
             Err(e) => {
                 return json_error(
                     StatusCode::INTERNAL_SERVER_ERROR,
@@ -343,13 +364,14 @@ pub async fn handle_proxy(
     } else {
         "claude"
     };
-    tracing::info!(
+    tracing::debug!(
         path = %path,
         inbound = inbound_label,
         model = model.as_deref().unwrap_or("-"),
         stream = client_wants_stream,
         candidates = enabled.len(),
-        "入站请求"
+        using_fast_queue = using_fast_queue,
+        "请求"
     );
 
     let resolution = resolver::resolve_endpoint(&hmap, model.as_deref(), &qmap, &enabled);
@@ -364,23 +386,14 @@ pub async fn handle_proxy(
     } else {
         let filtered = resolver::filter_by_model(&enabled, model.as_deref());
 
-        // 模型过滤后日志：仅在数量变化或回退全量时记录（正常路径降噪）
+        // 模型过滤：只在出现异常（过滤后为空）时记录日志
         if let Some(m) = model.as_deref() {
-            let before_count = enabled.len();
             let after_count = filtered.len();
-            if after_count < before_count {
+            if after_count == 0 {
                 tracing::debug!(
                     model = m,
-                    before = before_count,
-                    after = after_count,
-                    filtered_out = before_count - after_count,
-                    "模型过滤完成"
-                );
-            } else if after_count == before_count && before_count > 0 {
-                tracing::debug!(
-                    model = m,
-                    candidates = after_count,
-                    "模型过滤：无端点声明该模型，回退全量（向后兼容）"
+                    before = enabled.len(),
+                    "模型过滤：无端点声明支持该模型"
                 );
             }
         }
@@ -398,15 +411,7 @@ pub async fn handle_proxy(
         // 数量不变 → 无 Open 或全 Open 兜底，均不 gate。
         let gate = cands.len() < enabled.len();
 
-        // 熔断选路后日志：仅在剔除 Open 端点时记录（正常路径降噪）
-        if gate {
-            tracing::debug!(
-                before = enabled_before_breaker.len(),
-                after = cands.len(),
-                "熔断过滤完成（存在 Open 端点）"
-            );
-        }
-
+        // 熔断选路：正常流程不记录日志
         (cands, gate)
     };
     let breaker_exhausted =
@@ -439,19 +444,19 @@ pub async fn handle_proxy(
                 .map(|e| e.name.clone())
                 .collect();
             if after_count == 0 {
+                let log_msg = if using_fast_queue {
+                    "快速队列中的端点均不支持请求的模型"
+                } else {
+                    "所有候选端点均不支持请求的模型"
+                };
                 tracing::warn!(
                     model = model.as_deref().unwrap_or("-"),
                     filtered_endpoints = ?filtered_names,
-                    "所有候选端点均不支持请求的模型"
-                );
-            } else {
-                tracing::debug!(
-                    model = model.as_deref().unwrap_or("-"),
-                    before = before_count,
-                    after = after_count,
-                    "熔断兜底后按模型过滤"
+                    using_fast_queue = using_fast_queue,
+                    "{}", log_msg
                 );
             }
+            // 正常过滤流程不记录日志
         }
         model_filtered
     } else {
@@ -459,7 +464,7 @@ pub async fn handle_proxy(
     };
     let n = enabled.len();
     if n == 0 {
-        let msg = empty_candidates_message(model.as_deref(), breaker_exhausted);
+        let msg = empty_candidates_message(model.as_deref(), breaker_exhausted, using_fast_queue);
         return json_error(StatusCode::BAD_GATEWAY, &msg);
     }
     let max = if use_specific {
@@ -1082,14 +1087,23 @@ mod tests {
 
     #[test]
     fn empty_candidates_message_prefers_breaker_reason_over_model() {
-        let msg = empty_candidates_message(Some("gpt-5.5"), true);
+        let msg = empty_candidates_message(Some("gpt-5.5"), true, false);
         assert_eq!(msg, "所有候选端点均熔断或无可用端点");
     }
 
     #[test]
     fn empty_candidates_message_reports_unsupported_model_when_not_breaker_exhausted() {
-        let msg = empty_candidates_message(Some("gpt-5.5"), false);
+        let msg = empty_candidates_message(Some("gpt-5.5"), false, false);
         assert_eq!(msg, "所有候选端点均不支持模型 'gpt-5.5'");
+    }
+
+    #[test]
+    fn empty_candidates_message_mentions_fast_queue_when_using_it() {
+        let msg = empty_candidates_message(Some("gpt-5.5"), false, true);
+        assert_eq!(
+            msg,
+            "快速队列中的端点均不支持模型 'gpt-5.5'，请检查快速队列配置或在端点管理中调整"
+        );
     }
 
     #[test]
