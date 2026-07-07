@@ -1,6 +1,6 @@
 import { useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { InfoIcon, TriangleAlertIcon } from "lucide-react";
+import { InfoIcon, TriangleAlertIcon, Trash2Icon } from "lucide-react";
 import { Anthropic, Codex, OpenAI } from "@lobehub/icons";
 import type { ComponentType } from "react";
 
@@ -71,14 +71,9 @@ export function RequestMonitor({ mode, endpointFilter, pageSize = 20, title }: P
   return (
     <section className="flex flex-col gap-3">
       <div className="flex items-start justify-between gap-3">
-        <div className="flex flex-col gap-1">
-          <h2 className="text-sm font-medium text-ink-secondary">
-            {title ?? (mode === "live" ? "实时请求监控" : "端点请求记录")}
-          </h2>
-          <p className="text-xs text-ink-mute">
-            {retentionDays ? `请求明细保留 ${retentionDays} 天，超期自动清理。` : "请求明细超期自动清理。"}
-          </p>
-        </div>
+        <h2 className="text-sm font-medium text-ink-secondary">
+          {title ?? (mode === "live" ? "实时请求监控" : "端点请求记录")}
+        </h2>
         <div className="flex shrink-0 items-center gap-2">
           {mode === "ranged" && (
             <Select
@@ -100,8 +95,14 @@ export function RequestMonitor({ mode, endpointFilter, pageSize = 20, title }: P
               </SelectContent>
             </Select>
           )}
-          <Button size="sm" variant="outline" onClick={() => setCleanupOpen(true)}>
-            清理
+          <Button
+            size="sm"
+            variant="ghost"
+            onClick={() => setCleanupOpen(true)}
+            className="h-8 w-8 p-0 hover:text-destructive"
+            aria-label="清理请求明细"
+          >
+            <Trash2Icon className="size-4" />
           </Button>
         </div>
       </div>

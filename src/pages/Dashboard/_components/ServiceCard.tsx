@@ -1,4 +1,4 @@
-import { CopyIcon, XIcon, ZapIcon } from "lucide-react";
+import { CopyIcon, HelpCircleIcon, XIcon, ZapIcon } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { useTheme } from "next-themes";
@@ -8,7 +8,6 @@ import { useSortable } from "@dnd-kit/react/sortable";
 import { move } from "@dnd-kit/helpers";
 
 import { StatusDot, TabularText } from "@/components/ui";
-import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import {
@@ -17,6 +16,11 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover";
 import { Switch } from "@/components/ui/switch";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { useEndpoints } from "@/hooks/useEndpoints";
@@ -61,10 +65,19 @@ function endpointStatus(
   return { active, status: active && running ? "info" : "success" };
 }
 
-function FastMark({ status }: { status: QueueStatus }) {
+function FastMark({ status, pulse }: { status: QueueStatus; pulse?: boolean }) {
+  // 快速队列专属色：成功态用金色（VIP 感），其他状态保持原色
+  const fastColor = status === "success" ? "text-amber-500" : statusText[status];
   return (
-    <span className={cn("inline-flex items-center", statusText[status])} aria-label="快速队列">
-      <ZapIcon className="size-3" />
+    <span
+      className={cn(
+        "inline-flex items-center",
+        fastColor,
+        pulse && "animate-pulse"
+      )}
+      aria-label="快速队列"
+    >
+      <ZapIcon className="size-3" fill="currentColor" />
     </span>
   );
 }
@@ -84,38 +97,42 @@ function QueueItem({
 }) {
   const { status, active, title } = endpointStatus(endpoint, current, running, healthByName);
   return (
-    <li title={title} className="flex items-center gap-1.5 rounded-md px-2 py-1 text-sm">
-      {fast ? <FastMark status={status} /> : <StatusDot status={status} pulse={active && running} />}
-      {active ? <Badge variant="info">{endpoint.name}</Badge> : <span>{endpoint.name}</span>}
+    <li title={title} className="inline-flex items-center gap-1.5">
+      {fast ? (
+        <FastMark status={status} pulse={active && running} />
+      ) : (
+        <StatusDot status={status} pulse={active && running} />
+      )}
+      <span
+        className={cn(
+          "rounded-full px-2.5 py-0.5 text-sm transition-all",
+          active ? "font-medium" : "text-ink-primary",
+        )}
+        style={active ? { backgroundColor: '#E3E9FA', color: '#2756D9' } : undefined}
+      >
+        {endpoint.name}
+      </span>
     </li>
   );
 }
 
 function QueueSection({
-  title,
   endpoints,
   empty,
   current,
   running,
   healthByName,
-  fast,
 }: {
-  title: string;
   endpoints: Endpoint[];
   empty: string;
   current: string | null;
   running: boolean;
   healthByName: Map<string, EndpointHealth>;
-  fast?: boolean;
 }) {
   return (
-    <section className="flex min-h-0 flex-col gap-2 rounded-lg border border-edge-subtle bg-surface/40 p-3">
-      <div className="flex items-center justify-between text-xs text-ink-secondary">
-        <span>{title}</span>
-        <TabularText>{endpoints.length}</TabularText>
-      </div>
+    <div className="flex flex-col gap-2">
       {endpoints.length === 0 ? (
-        <span className="text-sm text-ink-mute">{empty}</span>
+        <p className="text-sm text-ink-mute">{empty}</p>
       ) : (
         <ul className="flex flex-wrap gap-2">
           {endpoints.map((endpoint) => (
@@ -125,12 +142,12 @@ function QueueSection({
               current={current}
               running={running}
               healthByName={healthByName}
-              fast={fast}
+              fast={endpoint.fast}
             />
           ))}
         </ul>
       )}
-    </section>
+    </div>
   );
 }
 
@@ -155,8 +172,8 @@ function DraggableEndpointCard({
       ref={ref}
       onDoubleClick={onDoubleClick}
       className={cn(
-        "flex cursor-grab select-none items-center gap-2 rounded-md border border-edge bg-card px-3 py-2 text-sm active:cursor-grabbing",
-        isDragging && "opacity-50",
+        "flex cursor-grab select-none items-center gap-2.5 rounded-lg border border-edge bg-card px-3 py-2.5 text-sm shadow-sm transition-all active:cursor-grabbing",
+        isDragging ? "opacity-40 shadow-lg" : "hover:border-edge-strong hover:shadow-md",
       )}
       title={
         fast
@@ -165,13 +182,13 @@ function DraggableEndpointCard({
       }
     >
       {fast ? <FastMark status="success" /> : null}
-      <span className="min-w-0 flex-1 truncate">{endpoint.name}</span>
+      <span className="min-w-0 flex-1 truncate font-medium">{endpoint.name}</span>
       {onRemove ? (
         <button
           type="button"
           onClick={onRemove}
           onDoubleClick={(event) => event.stopPropagation()}
-          className="rounded p-0.5 text-ink-mute hover:text-destructive"
+          className="rounded p-1 text-ink-mute transition-colors hover:bg-destructive/10 hover:text-destructive"
           aria-label={`移出快速队列 ${endpoint.name}`}
         >
           <XIcon className="size-4" />
@@ -199,19 +216,20 @@ function FastSortableEndpointCard({
       ref={ref}
       onDoubleClick={onDoubleClick}
       className={cn(
-        "flex cursor-grab select-none items-center gap-2 rounded-md border border-edge bg-card px-3 py-2 text-sm active:cursor-grabbing",
-        isDragging && "opacity-50",
+        "flex cursor-grab select-none items-center gap-2.5 rounded-lg border border-edge bg-card px-3 py-2.5 text-sm shadow-sm transition-all active:cursor-grabbing",
+        isDragging && "opacity-40 shadow-lg",
         isDropTarget && "ring-2 ring-primary/50",
+        !isDragging && "hover:border-edge-strong hover:shadow-md",
       )}
       title="拖动排序或拖到启用队列；双击移出快速队列"
     >
       <FastMark status="success" />
-      <span className="min-w-0 flex-1 truncate">{endpoint.name}</span>
+      <span className="min-w-0 flex-1 truncate font-medium">{endpoint.name}</span>
       <button
         type="button"
         onClick={onRemove}
         onDoubleClick={(event) => event.stopPropagation()}
-        className="rounded p-0.5 text-ink-mute hover:text-destructive"
+        className="rounded p-1 text-ink-mute transition-colors hover:bg-destructive/10 hover:text-destructive"
         aria-label={`移出快速队列 ${endpoint.name}`}
       >
         <XIcon className="size-4" />
@@ -235,57 +253,102 @@ function FastQueueTransfer({
   const enabledDrop = useDroppable({ id: ENABLED_QUEUE_DROP_ID });
 
   return (
-    <div className="grid gap-4 md:grid-cols-2">
+    <div className="grid gap-6 md:grid-cols-2">
       <section
         ref={fastDrop.ref}
         className={cn(
-          "flex min-h-80 flex-col gap-2 rounded-lg border border-edge bg-surface p-3",
-          fastDrop.isDropTarget && "ring-2 ring-primary/50",
+          "flex h-[45vh] flex-col rounded-lg border bg-surface-card transition-all",
+          fastDrop.isDropTarget
+            ? "border-primary/50 bg-primary-glow ring-2 ring-primary/30"
+            : "border-edge",
         )}
       >
-        <div className="flex items-center justify-between">
-          <h3 className="text-sm font-medium">快速队列</h3>
+        <div className="sticky top-0 z-10 flex items-center gap-2 rounded-t-lg border-b border-edge-subtle bg-surface-card px-4 py-3">
+          <h3 className="text-sm font-medium text-ink-primary">快速队列</h3>
+          <Popover>
+            <PopoverTrigger asChild>
+              <button
+                type="button"
+                className="inline-flex text-ink-mute transition-colors hover:text-ink-secondary"
+                aria-label="快速队列用法说明"
+              >
+                <HelpCircleIcon className="size-3.5" />
+              </button>
+            </PopoverTrigger>
+            <PopoverContent side="right" className="w-80">
+              <div className="flex flex-col gap-1.5 text-xs">
+                <p className="font-medium">快速队列用法</p>
+                <p>• 快速队列中的端点会优先轮询</p>
+                <p>• 双击端点卡片可快速切换队列</p>
+                <p>• 在快速队列内拖动可调整优先级顺序</p>
+              </div>
+            </PopoverContent>
+          </Popover>
+          <span className="ml-auto rounded-md bg-surface-raised px-2 py-0.5 text-xs">
+            <TabularText>{fastQueue.length}</TabularText>
+          </span>
         </div>
-        {fastQueue.length === 0 ? (
-          <p className="rounded-md border border-dashed border-edge p-3 text-sm text-ink-mute">
-            从右侧拖入启用端点，或双击右侧端点加入快速队列。
-          </p>
-        ) : (
-          fastQueue.map((endpoint, index) => (
-            <FastSortableEndpointCard
-              key={endpoint.id}
-              endpoint={endpoint}
-              index={index}
-              onDoubleClick={() => remove(endpoint.id)}
-              onRemove={() => remove(endpoint.id)}
-            />
-          ))
-        )}
+        <div className="flex-1 overflow-y-auto p-4 scrollbar-none">
+          {fastQueue.length === 0 ? (
+            <div className="flex h-full items-center justify-center rounded-lg border-2 border-dashed border-edge-subtle bg-surface/40 p-6">
+              <p className="text-center text-sm text-ink-mute">
+                从右侧拖入启用端点
+                <br />
+                或双击右侧端点加入快速队列
+              </p>
+            </div>
+          ) : (
+            <div className="flex flex-col gap-2">
+              {fastQueue.map((endpoint, index) => (
+                <FastSortableEndpointCard
+                  key={endpoint.id}
+                  endpoint={endpoint}
+                  index={index}
+                  onDoubleClick={() => remove(endpoint.id)}
+                  onRemove={() => remove(endpoint.id)}
+                />
+              ))}
+            </div>
+          )}
+        </div>
       </section>
 
       <section
         ref={enabledDrop.ref}
         className={cn(
-          "flex min-h-80 flex-col gap-2 rounded-lg border border-edge bg-surface p-3",
-          enabledDrop.isDropTarget && "ring-2 ring-primary/50",
+          "flex h-[45vh] flex-col rounded-lg border bg-surface-card transition-all",
+          enabledDrop.isDropTarget
+            ? "border-primary/50 bg-primary-glow ring-2 ring-primary/30"
+            : "border-edge",
         )}
       >
-        <div className="flex items-center justify-between">
-          <h3 className="text-sm font-medium">启用队列</h3>
+        <div className="sticky top-0 z-10 flex items-center gap-2 rounded-t-lg border-b border-edge-subtle bg-surface-card px-4 py-3">
+          <h3 className="text-sm font-medium text-ink-primary">启用队列</h3>
+          <span className="ml-auto rounded-md bg-surface-raised px-2 py-0.5 text-xs">
+            <TabularText>{enabledQueue.length}</TabularText>
+          </span>
         </div>
-        {enabledQueue.length === 0 ? (
-          <p className="rounded-md border border-dashed border-edge p-3 text-sm text-ink-mute">
-            启用队列暂无可加入快速队列的端点。
-          </p>
-        ) : (
-          enabledQueue.map((endpoint) => (
-            <DraggableEndpointCard
-              key={endpoint.id}
-              endpoint={endpoint}
-              onDoubleClick={() => moveIntoFast(endpoint.id)}
-            />
-          ))
-        )}
+        <div className="flex-1 overflow-y-auto p-4 scrollbar-none">
+          {enabledQueue.length === 0 ? (
+            <div className="flex h-full items-center justify-center rounded-lg border-2 border-dashed border-edge-subtle bg-surface/40 p-6">
+              <p className="text-center text-sm text-ink-mute">
+                启用队列暂无可加入
+                <br />
+                快速队列的端点
+              </p>
+            </div>
+          ) : (
+            <div className="flex flex-col gap-2">
+              {enabledQueue.map((endpoint) => (
+                <DraggableEndpointCard
+                  key={endpoint.id}
+                  endpoint={endpoint}
+                  onDoubleClick={() => moveIntoFast(endpoint.id)}
+                />
+              ))}
+            </div>
+          )}
+        </div>
       </section>
     </div>
   );
@@ -329,44 +392,46 @@ function FastQueueDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-3xl">
+      <DialogContent className="max-h-[80vh] max-w-3xl overflow-hidden">
         <DialogHeader>
           <DialogTitle>编辑快速队列</DialogTitle>
         </DialogHeader>
-        <DragDropProvider
-          onDragEnd={(event) => {
-            if (event.canceled) return;
-            const sourceId = event.operation.source?.id;
-            const targetId = event.operation.target?.id;
-            if (typeof sourceId !== "number") return;
-            if (targetId === ENABLED_QUEUE_DROP_ID && fastIds.includes(sourceId)) {
-              remove(sourceId);
-              return;
-            }
-            const sourceIsFast = fastIds.includes(sourceId);
-            const targetFastId =
-              typeof targetId === "number" && fastIds.includes(targetId) ? targetId : undefined;
-            if (sourceIsFast && targetFastId !== undefined) {
-              const next = move(fastQueue, event).map((endpoint) => endpoint.id);
-              if (next.some((id, index) => id !== fastIds[index])) save.mutate(next);
-              return;
-            }
-            if (targetId === FAST_QUEUE_DROP_ID || targetFastId !== undefined) {
-              const withSource = appendFastId(fastIds, sourceId);
-              const next = targetFastId
-                ? reorderFastIds(withSource, sourceId, targetFastId)
-                : withSource;
-              setFast.mutate({ id: sourceId, fast: true, order: next });
-            }
-          }}
-        >
-          <FastQueueTransfer
-            fastQueue={fastQueue}
-            enabledQueue={enabledQueue}
-            moveIntoFast={moveIntoFast}
-            remove={remove}
-          />
-        </DragDropProvider>
+        <div className="overflow-y-auto">
+          <DragDropProvider
+            onDragEnd={(event) => {
+              if (event.canceled) return;
+              const sourceId = event.operation.source?.id;
+              const targetId = event.operation.target?.id;
+              if (typeof sourceId !== "number") return;
+              if (targetId === ENABLED_QUEUE_DROP_ID && fastIds.includes(sourceId)) {
+                remove(sourceId);
+                return;
+              }
+              const sourceIsFast = fastIds.includes(sourceId);
+              const targetFastId =
+                typeof targetId === "number" && fastIds.includes(targetId) ? targetId : undefined;
+              if (sourceIsFast && targetFastId !== undefined) {
+                const next = move(fastQueue, event).map((endpoint) => endpoint.id);
+                if (next.some((id, index) => id !== fastIds[index])) save.mutate(next);
+                return;
+              }
+              if (targetId === FAST_QUEUE_DROP_ID || targetFastId !== undefined) {
+                const withSource = appendFastId(fastIds, sourceId);
+                const next = targetFastId
+                  ? reorderFastIds(withSource, sourceId, targetFastId)
+                  : withSource;
+                setFast.mutate({ id: sourceId, fast: true, order: next });
+              }
+            }}
+          >
+            <FastQueueTransfer
+              fastQueue={fastQueue}
+              enabledQueue={enabledQueue}
+              moveIntoFast={moveIntoFast}
+              remove={remove}
+            />
+          </DragDropProvider>
+        </div>
       </DialogContent>
     </Dialog>
   );
@@ -395,15 +460,14 @@ export function ServiceCard() {
     for (const health of epHealth ?? []) byName.set(health.name, health);
     return byName;
   }, [epHealth]);
-  const enabledEndpoints = useMemo(
-    () => (endpointList ?? []).filter((e) => e.enabled),
-    [endpointList],
-  );
   const { fastQueue, enabledQueue } = useMemo(
     () => splitEndpointQueues(endpointList ?? []),
     [endpointList],
   );
-  const hasFastQueue = fastQueue.length > 0;
+  const allQueueEndpoints = useMemo(
+    () => [...fastQueue, ...enabledQueue],
+    [fastQueue, enabledQueue],
+  );
 
   // 实时高亮：新请求明细到达即更新当前工作端点（与下方实时监控同一事件源）。
   useEffect(() => {
@@ -458,55 +522,36 @@ export function ServiceCard() {
 
   return (
     <>
-      <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
+      <div className="grid grid-cols-1 gap-4 md:grid-cols-3 md:items-stretch">
         {/* 左 2/3：端点队列 */}
-        <Card className="md:col-span-2">
+        <Card className="md:col-span-2 md:min-h-full">
           <CardContent className="flex flex-col gap-3 px-5 py-4">
             <div className="flex items-center justify-between gap-2">
-              <span className="text-xs text-ink-secondary">
-                端点队列 <TabularText>{enabledEndpoints.length}</TabularText>
-              </span>
+              <div className="flex items-center gap-2">
+                <h3 className="text-sm font-medium text-ink-primary">端点队列</h3>
+                <span className="text-xs text-ink-mute">
+                  <TabularText>{allQueueEndpoints.length}</TabularText>
+                </span>
+              </div>
               <Button
                 type="button"
                 size="xs"
-                variant="outline"
+                variant="ghost"
                 onClick={() => setFastEditorOpen(true)}
+                className="h-auto p-1"
+                aria-label="编辑快速队列"
               >
-                <ZapIcon className="size-3" />
-                快速队列
+                <ZapIcon className="size-4" />
               </Button>
             </div>
 
-            {hasFastQueue ? (
-              <div className="grid gap-3 md:grid-cols-2">
-                <QueueSection
-                  title="快速队列"
-                  endpoints={fastQueue}
-                  empty="暂无快速端点"
-                  current={current}
-                  running={running}
-                  healthByName={healthByName}
-                  fast
-                />
-                <QueueSection
-                  title="启用队列"
-                  endpoints={enabledQueue}
-                  empty="启用端点均已在快速队列"
-                  current={current}
-                  running={running}
-                  healthByName={healthByName}
-                />
-              </div>
-            ) : (
-              <QueueSection
-                title="启用队列"
-                endpoints={enabledEndpoints}
-                empty="暂无启用端点"
-                current={current}
-                running={running}
-                healthByName={healthByName}
-              />
-            )}
+            <QueueSection
+              endpoints={allQueueEndpoints}
+              empty="暂无启用端点"
+              current={current}
+              running={running}
+              healthByName={healthByName}
+            />
           </CardContent>
         </Card>
 
