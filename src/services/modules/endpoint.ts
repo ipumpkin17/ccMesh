@@ -29,6 +29,7 @@ export interface Endpoint {
   testStatus: string;
   createdAt: string;
   updatedAt: string;
+  archived: boolean;
 }
 
 export interface CreateEndpointRequest {
@@ -110,6 +111,9 @@ export const endpointApi = {
   update: (id: number, req: UpdateEndpointRequest) =>
     request<Endpoint>("update_endpoint", { id, req }),
   remove: (id: number) => request<void>("delete_endpoint", { id }),
+  archive: (id: number) => request<void>("archive_endpoint", { id }),
+  unarchive: (id: number) => request<void>("unarchive_endpoint", { id }),
+  listArchived: () => request<Endpoint[]>("list_archived_endpoints"),
   reorder: (orderedIds: number[]) =>
     request<void>("reorder_endpoints", { orderedIds }),
   reorderFast: (orderedIds: number[]) =>
