@@ -40,6 +40,7 @@ interface FormState {
   /** 点亮（对外公布）的模型子集：models 的子集。空数组=全部公布（兼容旧端点）。 */
   activeModels: string[];
   useProxy: boolean;
+  fast: boolean;
   remark: string;
 }
 
@@ -52,6 +53,7 @@ const EMPTY: FormState = {
   models: [],
   activeModels: [],
   useProxy: false,
+  fast: false,
   remark: "",
 };
 
@@ -92,6 +94,7 @@ export function EndpointForm({ open, onOpenChange, editing }: Props) {
           models: editing.models ?? [],
           activeModels: editing.activeModels ?? [],
           useProxy: editing.useProxy ?? false,
+          fast: editing.fast ?? false,
           remark: editing.remark,
         }
       : EMPTY;
@@ -377,6 +380,20 @@ export function EndpointForm({ open, onOpenChange, editing }: Props) {
                 onCheckedChange={(v) => update({ useProxy: v })}
               />
             </div>
+
+            {editing?.enabled ? (
+              <div className="flex items-center justify-between rounded-md border border-edge px-3 py-2">
+                <div className="flex flex-col gap-0.5">
+                  <Label>加入快速队列</Label>
+                  <span className="text-xs text-ink-mute">快速队列存在时代理只轮询快速端点</span>
+                </div>
+                <Switch
+                  checked={form.fast}
+                  onCheckedChange={(v) => update({ fast: v })}
+                  aria-label="加入快速队列"
+                />
+              </div>
+            ) : null}
           </TabsContent>
 
           <TabsContent value="json" className="w-full min-w-0 overflow-hidden">

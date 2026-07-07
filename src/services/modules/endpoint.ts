@@ -24,6 +24,8 @@ export interface Endpoint {
   modelMappings: ModelMapping[];
   remark: string;
   sortOrder: number;
+  fast: boolean;
+  fastSortOrder: number;
   testStatus: string;
   createdAt: string;
   updatedAt: string;
@@ -42,6 +44,7 @@ export interface CreateEndpointRequest {
   activeModels?: string[];
   modelMappings?: ModelMapping[];
   remark?: string;
+  fast?: boolean;
 }
 
 export type UpdateEndpointRequest = Partial<CreateEndpointRequest>;
@@ -63,7 +66,9 @@ export function litOutboundModels(
   if (ep.model) return [ep.model];
   const models = ep.models ?? [];
   const active = ep.activeModels ?? [];
-  return active.length > 0 ? models.filter((m) => active.includes(m)) : models;
+  if (active.length === 0) return models;
+  const activeSet = new Set(active);
+  return models.filter((m) => activeSet.has(m));
 }
 
 /**
@@ -80,12 +85,14 @@ export function advertisedModels(
       : ep.models ?? [];
   const out: string[] = [];
   const seen = new Set<string>();
-  for (const m of [...base, ...(ep.modelMappings ?? []).map((x) => x.from)]) {
+  const add = (m: string) => {
     const key = m.trim().toLowerCase();
-    if (!key || seen.has(key)) continue;
+    if (!key || seen.has(key)) return;
     seen.add(key);
     out.push(m);
-  }
+  };
+  for (const m of base) add(m);
+  for (const { from } of ep.modelMappings ?? []) add(from);
   return out;
 }
 
@@ -105,6 +112,8 @@ export const endpointApi = {
   remove: (id: number) => request<void>("delete_endpoint", { id }),
   reorder: (orderedIds: number[]) =>
     request<void>("reorder_endpoints", { orderedIds }),
+  reorderFast: (orderedIds: number[]) =>
+    request<void>("reorder_fast_endpoints", { orderedIds }),
   clone: (id: number) => request<Endpoint>("clone_endpoint", { id }),
   test: (id: number, model?: string) =>
     request<EndpointTestResult>("test_endpoint", { id, model }),
