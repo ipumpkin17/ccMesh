@@ -53,15 +53,11 @@ pub fn normalize_api_url_for_ccmesh(raw: &str) -> AppResult<String> {
     }
 
     if s.is_empty() {
-        return Err(AppError::InvalidArgument(format!(
-            "无效的上游地址: {raw}"
-        )));
+        return Err(AppError::InvalidArgument(format!("无效的上游地址: {raw}")));
     }
     let lower = s.to_ascii_lowercase();
     if !(lower.starts_with("http://") || lower.starts_with("https://")) {
-        return Err(AppError::InvalidArgument(format!(
-            "无效的上游地址: {raw}"
-        )));
+        return Err(AppError::InvalidArgument(format!("无效的上游地址: {raw}")));
     }
     Ok(s.to_string())
 }

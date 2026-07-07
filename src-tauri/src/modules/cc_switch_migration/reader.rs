@@ -45,18 +45,15 @@ pub fn read_providers(db_path: &Path) -> AppResult<Vec<ProviderRow>> {
     );
 
     let mut stmt = conn.prepare(&sql)?;
-    let rows = stmt.query_map(
-        rusqlite::params_from_iter(APP_TYPES.iter()),
-        |row| {
-            Ok(ProviderRow {
-                id: row.get(0)?,
-                app_type: row.get(1)?,
-                name: row.get(2)?,
-                settings_config: row.get(3)?,
-                meta: row.get(4)?,
-                notes: row.get(5)?,
-            })
-        },
-    )?;
+    let rows = stmt.query_map(rusqlite::params_from_iter(APP_TYPES.iter()), |row| {
+        Ok(ProviderRow {
+            id: row.get(0)?,
+            app_type: row.get(1)?,
+            name: row.get(2)?,
+            settings_config: row.get(3)?,
+            meta: row.get(4)?,
+            notes: row.get(5)?,
+        })
+    })?;
     Ok(rows.collect::<rusqlite::Result<Vec<_>>>()?)
 }

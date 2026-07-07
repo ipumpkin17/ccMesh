@@ -166,29 +166,27 @@ pub fn map_row(row: &ProviderRow) -> AppResult<MappedProvider> {
                 if !top.trim().is_empty() {
                     top.to_string()
                 } else {
-                    first_non_empty(
-                        env,
-                        &["ANTHROPIC_AUTH_TOKEN", "ANTHROPIC_API_KEY"],
-                    )
+                    first_non_empty(env, &["ANTHROPIC_AUTH_TOKEN", "ANTHROPIC_API_KEY"])
                 }
             };
-            let hints = ["ANTHROPIC_DEFAULT_SONNET_MODEL", "ANTHROPIC_DEFAULT_OPUS_MODEL",
-                         "ANTHROPIC_DEFAULT_HAIKU_MODEL", "ANTHROPIC_MODEL"]
-                .iter()
-                .filter_map(|k| {
-                    env.and_then(|e| e.get(*k))
-                        .and_then(|v| v.as_str())
-                        .filter(|s| !s.trim().is_empty())
-                        .map(String::from)
-                })
-                .collect::<Vec<_>>();
+            let hints = [
+                "ANTHROPIC_DEFAULT_SONNET_MODEL",
+                "ANTHROPIC_DEFAULT_OPUS_MODEL",
+                "ANTHROPIC_DEFAULT_HAIKU_MODEL",
+                "ANTHROPIC_MODEL",
+            ]
+            .iter()
+            .filter_map(|k| {
+                env.and_then(|e| e.get(*k))
+                    .and_then(|v| v.as_str())
+                    .filter(|s| !s.trim().is_empty())
+                    .map(String::from)
+            })
+            .collect::<Vec<_>>();
             (url, key, hints)
         }
         "codex" => {
-            let key = first_non_empty(
-                settings.get("auth"),
-                &["OPENAI_API_KEY"],
-            );
+            let key = first_non_empty(settings.get("auth"), &["OPENAI_API_KEY"]);
             let config = settings
                 .get("config")
                 .and_then(|v| v.as_str())
@@ -299,7 +297,8 @@ mod tests {
 
     #[test]
     fn claude_falls_back_to_api_key() {
-        let settings = r#"{"env":{"ANTHROPIC_BASE_URL":"https://api.x.com","ANTHROPIC_API_KEY":"sk-key"}}"#;
+        let settings =
+            r#"{"env":{"ANTHROPIC_BASE_URL":"https://api.x.com","ANTHROPIC_API_KEY":"sk-key"}}"#;
         let m = map_row(&row("claude", settings, "{}")).unwrap();
         assert_eq!(m.api_key, "sk-key");
         assert_eq!(m.transformer, "claude"); // 缺省 claude→claude
@@ -315,7 +314,12 @@ mod tests {
     #[test]
     fn codex_parses_toml_active_provider() {
         let settings = r#"{"auth":{"OPENAI_API_KEY":"sk-or"},"config":"model_provider = \"OpenRouter\"\nmodel = \"gpt-5-codex\"\n[model_providers.OpenRouter]\nbase_url = \"https://openrouter.ai/api/v1\""}"#;
-        let m = map_row(&row("codex", settings, r#"{"apiFormat":"openai_responses"}"#)).unwrap();
+        let m = map_row(&row(
+            "codex",
+            settings,
+            r#"{"apiFormat":"openai_responses"}"#,
+        ))
+        .unwrap();
         assert_eq!(m.status, "ok");
         assert_eq!(m.api_key, "sk-or");
         assert_eq!(m.raw_url, "https://openrouter.ai/api/v1");
@@ -325,7 +329,8 @@ mod tests {
 
     #[test]
     fn codex_base_url_top_level_fallback() {
-        let settings = r#"{"auth":{"OPENAI_API_KEY":"sk"},"config":"base_url = \"https://api.o.com/v1\""}"#;
+        let settings =
+            r#"{"auth":{"OPENAI_API_KEY":"sk"},"config":"base_url = \"https://api.o.com/v1\""}"#;
         let m = map_row(&row("codex", settings, "{}")).unwrap();
         assert_eq!(m.raw_url, "https://api.o.com/v1");
         assert_eq!(m.transformer, "openai"); // 缺省 codex→openai
@@ -340,7 +345,12 @@ mod tests {
 
     #[test]
     fn skip_managed_account() {
-        let m = map_row(&row("claude", "{}", r#"{"authBinding":{"source":"managed_account"}}"#)).unwrap();
+        let m = map_row(&row(
+            "claude",
+            "{}",
+            r#"{"authBinding":{"source":"managed_account"}}"#,
+        ))
+        .unwrap();
         assert_eq!(m.status, "skipped");
         assert_eq!(m.skip_reason.as_deref(), Some("managed_account"));
     }
@@ -355,7 +365,8 @@ mod tests {
 
     #[test]
     fn skip_placeholder_key() {
-        let settings = r#"{"env":{"ANTHROPIC_BASE_URL":"https://x.com","ANTHROPIC_API_KEY":"PROXY_MANAGED"}}"#;
+        let settings =
+            r#"{"env":{"ANTHROPIC_BASE_URL":"https://x.com","ANTHROPIC_API_KEY":"PROXY_MANAGED"}}"#;
         let m = map_row(&row("claude", settings, "{}")).unwrap();
         assert_eq!(m.status, "skipped");
         assert_eq!(m.skip_reason.as_deref(), Some("no_key"));
@@ -371,8 +382,16 @@ mod tests {
 
     #[test]
     fn selection_id_is_app_type_scoped() {
-        let claude = row("claude", r#"{"env":{"ANTHROPIC_BASE_URL":"https://a.com","ANTHROPIC_API_KEY":"sk-a"}}"#, "{}");
-        let codex = row("codex", r#"{"auth":{"OPENAI_API_KEY":"sk-b"},"config":"base_url = \"https://b.com/v1\""}"#, "{}");
+        let claude = row(
+            "claude",
+            r#"{"env":{"ANTHROPIC_BASE_URL":"https://a.com","ANTHROPIC_API_KEY":"sk-a"}}"#,
+            "{}",
+        );
+        let codex = row(
+            "codex",
+            r#"{"auth":{"OPENAI_API_KEY":"sk-b"},"config":"base_url = \"https://b.com/v1\""}"#,
+            "{}",
+        );
         let m1 = map_row(&claude).unwrap();
         let m2 = map_row(&codex).unwrap();
         assert_eq!(m1.cc_switch_id, "claude:p1");
@@ -388,12 +407,18 @@ mod tests {
     #[test]
     fn unique_name_one_conflict() {
         let taken = ["A".to_string()];
-        assert_eq!(unique_name("A", |n| taken.contains(&n.to_string())), "A (cc-switch)");
+        assert_eq!(
+            unique_name("A", |n| taken.contains(&n.to_string())),
+            "A (cc-switch)"
+        );
     }
 
     #[test]
     fn unique_name_two_conflicts() {
         let taken = ["A".to_string(), "A (cc-switch)".to_string()];
-        assert_eq!(unique_name("A", |n| taken.contains(&n.to_string())), "A (cc-switch)-2");
+        assert_eq!(
+            unique_name("A", |n| taken.contains(&n.to_string())),
+            "A (cc-switch)-2"
+        );
     }
 }

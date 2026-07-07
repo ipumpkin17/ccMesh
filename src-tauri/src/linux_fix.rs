@@ -62,7 +62,10 @@ pub(crate) fn nudge_main_window<R: Runtime>(window: WebviewWindow<R>) {
                         if after.width != original.width || after.height != original.height {
                             tracing::info!(
                                 "Linux nudge 尺寸 drift: expected={}x{}, got={}x{}，已补偿",
-                                original.width, original.height, after.width, after.height
+                                original.width,
+                                original.height,
+                                after.width,
+                                after.height
                             );
                             let _ = window.set_size(original);
                             // 补偿后仍不一致则告警，窗口会停在非预期尺寸（通常 +1px）。
