@@ -34,6 +34,10 @@ pub struct Endpoint {
     pub model_mappings: Vec<ModelMapping>,
     pub remark: String,
     pub sort_order: i64,
+    /// 是否属于快速队列。仅启用端点可为 true；禁用端点保存时会被清除。
+    pub fast: bool,
+    /// 快速队列内独立排序，不影响全局 sort_order。
+    pub fast_sort_order: i64,
     /// 测试状态：unknown / available / unavailable。
     pub test_status: String,
     pub created_at: String,
@@ -65,6 +69,8 @@ pub struct CreateEndpointRequest {
     pub model_mappings: Vec<ModelMapping>,
     #[serde(default)]
     pub remark: String,
+    #[serde(default)]
+    pub fast: bool,
 }
 
 #[derive(Debug, Clone, Default, Deserialize)]
@@ -82,6 +88,7 @@ pub struct UpdateEndpointRequest {
     pub active_models: Option<Vec<String>>,
     pub model_mappings: Option<Vec<ModelMapping>>,
     pub remark: Option<String>,
+    pub fast: Option<bool>,
 }
 
 fn default_true() -> bool {

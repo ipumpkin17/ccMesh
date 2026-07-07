@@ -126,6 +126,9 @@ const MIGRATIONS: &[&str] = &[
     // v11：request_logs 记录端点 transformer 快照（claude/openai/codex 等），用于前端按端点类型显示品牌图标。
     // 旧行为 NULL，前端回退 inbound_format 兜底。
     "ALTER TABLE request_logs ADD COLUMN transformer TEXT;",
+    // v12：快速队列标记与快速队列独立排序。旧端点默认不进入快速队列。
+    "ALTER TABLE endpoints ADD COLUMN fast INTEGER NOT NULL DEFAULT 0;
+     ALTER TABLE endpoints ADD COLUMN fast_sort_order INTEGER NOT NULL DEFAULT 0;",
 ];
 
 /// 幂等执行迁移：读取 `schema_version` 当前版本，仅应用尚未执行的脚本。
@@ -296,5 +299,18 @@ mod tests {
             rows.filter_map(Result::ok).collect()
         };
         assert!(cols.contains(&"transformer".to_string()));
+    }
+
+    #[test]
+    fn v12_adds_fast_queue_columns() {
+        let c = Connection::open_in_memory().unwrap();
+        run_migrations(&c).unwrap();
+        let cols: Vec<String> = {
+            let mut stmt = c.prepare("PRAGMA table_info(endpoints)").unwrap();
+            let rows = stmt.query_map([], |r| r.get::<_, String>(1)).unwrap();
+            rows.filter_map(Result::ok).collect()
+        };
+        assert!(cols.contains(&"fast".to_string()));
+        assert!(cols.contains(&"fast_sort_order".to_string()));
     }
 }

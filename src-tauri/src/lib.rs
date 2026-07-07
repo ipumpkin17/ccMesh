@@ -209,6 +209,7 @@ pub fn run() {
             commands::endpoint::update_endpoint,
             commands::endpoint::delete_endpoint,
             commands::endpoint::reorder_endpoints,
+            commands::endpoint::reorder_fast_endpoints,
             commands::endpoint::clone_endpoint,
             commands::endpoint::test_endpoint,
             commands::endpoint::test_proxy,

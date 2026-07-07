@@ -5,7 +5,7 @@ use rusqlite::{params, Connection, OptionalExtension, Row};
 use crate::error::{AppError, AppResult};
 use crate::models::endpoint::{CreateEndpointRequest, Endpoint, UpdateEndpointRequest};
 
-const COLS: &str = "id, name, api_url, api_key, auth_mode, enabled, use_proxy, transformer, model, models, active_models, model_mappings, remark, sort_order, test_status, created_at, updated_at";
+const COLS: &str = "id, name, api_url, api_key, auth_mode, enabled, use_proxy, transformer, model, models, active_models, model_mappings, remark, sort_order, fast, fast_sort_order, test_status, created_at, updated_at";
 
 fn row_to_endpoint(row: &Row) -> rusqlite::Result<Endpoint> {
     Ok(Endpoint {
@@ -32,6 +32,8 @@ fn row_to_endpoint(row: &Row) -> rusqlite::Result<Endpoint> {
         },
         remark: row.get("remark")?,
         sort_order: row.get("sort_order")?,
+        fast: row.get::<_, i64>("fast")? != 0,
+        fast_sort_order: row.get("fast_sort_order")?,
         test_status: row.get("test_status")?,
         created_at: row.get("created_at")?,
         updated_at: row.get("updated_at")?,
@@ -51,6 +53,21 @@ pub fn list_enabled(conn: &Connection) -> AppResult<Vec<Endpoint>> {
     let mut stmt = conn.prepare(&sql)?;
     let rows = stmt.query_map([], row_to_endpoint)?;
     Ok(rows.collect::<rusqlite::Result<Vec<_>>>()?)
+}
+
+/// 代理实际轮询候选：存在启用快速端点时只返回快速端点，否则回退全部启用端点。
+pub fn list_routable(conn: &Connection) -> AppResult<Vec<Endpoint>> {
+    let fast_sql = format!(
+        "SELECT {COLS} FROM endpoints WHERE enabled = 1 AND fast = 1 ORDER BY fast_sort_order ASC, sort_order ASC, id ASC"
+    );
+    let mut stmt = conn.prepare(&fast_sql)?;
+    let fast = stmt
+        .query_map([], row_to_endpoint)?
+        .collect::<rusqlite::Result<Vec<_>>>()?;
+    if !fast.is_empty() {
+        return Ok(fast);
+    }
+    list_enabled(conn)
 }
 
 pub fn get_by_id(conn: &Connection, id: i64) -> AppResult<Option<Endpoint>> {
@@ -100,8 +117,8 @@ pub fn create(conn: &Connection, req: &CreateEndpointRequest) -> AppResult<Endpo
     let active = sanitize_active(&req.models, &req.active_models);
     conn.execute(
         "INSERT INTO endpoints
-            (name, api_url, api_key, auth_mode, enabled, use_proxy, transformer, model, models, active_models, model_mappings, remark, sort_order)
-         VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13)",
+            (name, api_url, api_key, auth_mode, enabled, use_proxy, transformer, model, models, active_models, model_mappings, remark, sort_order, fast, fast_sort_order)
+         VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14, ?15)",
         params![
             req.name,
             req.api_url,
@@ -115,6 +132,8 @@ pub fn create(conn: &Connection, req: &CreateEndpointRequest) -> AppResult<Endpo
             serde_json::to_string(&active).unwrap_or_else(|_| "[]".into()),
             serde_json::to_string(&req.model_mappings).unwrap_or_else(|_| "[]".into()),
             req.remark,
+            next_order,
+            (req.enabled && req.fast) as i64,
             next_order,
         ],
     )?;
@@ -168,6 +187,12 @@ pub fn update(conn: &Connection, id: i64, req: &UpdateEndpointRequest) -> AppRes
     if let Some(ref v) = req.remark {
         e.remark = v.clone();
     }
+    if let Some(v) = req.fast {
+        e.fast = v;
+    }
+    if !e.enabled {
+        e.fast = false;
+    }
     // models 或 active_models 任一变更后，重新规整点亮子集为 models 的子集。
     e.active_models = sanitize_active(&e.models, &e.active_models);
 
@@ -175,8 +200,8 @@ pub fn update(conn: &Connection, id: i64, req: &UpdateEndpointRequest) -> AppRes
         "UPDATE endpoints SET
             name = ?1, api_url = ?2, api_key = ?3, auth_mode = ?4, enabled = ?5,
             use_proxy = ?6, transformer = ?7, model = ?8, models = ?9, active_models = ?10,
-            model_mappings = ?11, remark = ?12, updated_at = datetime('now')
-         WHERE id = ?13",
+            model_mappings = ?11, remark = ?12, fast = ?13, updated_at = datetime('now')
+         WHERE id = ?14",
         params![
             e.name,
             e.api_url,
@@ -190,6 +215,7 @@ pub fn update(conn: &Connection, id: i64, req: &UpdateEndpointRequest) -> AppRes
             serde_json::to_string(&e.active_models).unwrap_or_else(|_| "[]".into()),
             serde_json::to_string(&e.model_mappings).unwrap_or_else(|_| "[]".into()),
             e.remark,
+            e.fast as i64,
             id,
         ],
     )?;
@@ -248,6 +274,46 @@ pub fn reorder(conn: &mut Connection, ordered_ids: &[i64]) -> AppResult<()> {
     Ok(())
 }
 
+/// 按给定 id 顺序重写快速队列排序。ordered_ids 必须是当前启用快速端点的完整排列。
+pub fn reorder_fast(conn: &mut Connection, ordered_ids: &[i64]) -> AppResult<()> {
+    let existing_ids = {
+        let mut stmt = conn
+            .prepare("SELECT id FROM endpoints WHERE enabled = 1 AND fast = 1 ORDER BY id ASC")?;
+        let rows = stmt.query_map([], |row| row.get::<_, i64>(0))?;
+        rows.collect::<rusqlite::Result<Vec<_>>>()?
+    };
+    if ordered_ids.len() != existing_ids.len() {
+        return Err(AppError::InvalidArgument(
+            "快速排序列表必须包含全部快速端点".into(),
+        ));
+    }
+
+    let existing_set: HashSet<i64> = existing_ids.into_iter().collect();
+    let mut seen = HashSet::with_capacity(ordered_ids.len());
+    for id in ordered_ids {
+        if !seen.insert(*id) {
+            return Err(AppError::InvalidArgument(format!(
+                "快速排序列表包含重复端点: {id}"
+            )));
+        }
+        if !existing_set.contains(id) {
+            return Err(AppError::InvalidArgument(format!(
+                "快速排序列表包含非快速端点: {id}"
+            )));
+        }
+    }
+
+    let tx = conn.transaction()?;
+    for (idx, id) in ordered_ids.iter().enumerate() {
+        tx.execute(
+            "UPDATE endpoints SET fast_sort_order = ?1, updated_at = datetime('now') WHERE id = ?2",
+            params![idx as i64, id],
+        )?;
+    }
+    tx.commit()?;
+    Ok(())
+}
+
 /// 持久化测试状态：available / unavailable / unknown。
 pub fn set_test_status(conn: &Connection, id: i64, status: &str) -> AppResult<()> {
     conn.execute(
@@ -282,6 +348,7 @@ mod tests {
             active_models: Vec::new(),
             model_mappings: Vec::new(),
             remark: String::new(),
+            fast: false,
         }
     }
 
@@ -492,5 +559,83 @@ mod tests {
         .unwrap();
         let got = get_by_id(&c, created.id).unwrap().unwrap();
         assert_eq!(got.model_mappings.len(), 2);
+    }
+
+    #[test]
+    fn fast_queue_roundtrip_routing_and_reorder() {
+        let mut c = db();
+        let a = create(&c, &req("a")).unwrap();
+        let b = create(&c, &req("b")).unwrap();
+        let disabled = create(&c, &req("disabled")).unwrap();
+
+        for id in [a.id, b.id] {
+            update(
+                &c,
+                id,
+                &UpdateEndpointRequest {
+                    fast: Some(true),
+                    ..Default::default()
+                },
+            )
+            .unwrap();
+        }
+        update(
+            &c,
+            disabled.id,
+            &UpdateEndpointRequest {
+                enabled: Some(false),
+                fast: Some(true),
+                ..Default::default()
+            },
+        )
+        .unwrap();
+
+        let disabled = get_by_id(&c, disabled.id).unwrap().unwrap();
+        assert!(!disabled.enabled);
+        assert!(!disabled.fast);
+
+        reorder_fast(&mut c, &[b.id, a.id]).unwrap();
+        let routable = list_routable(&c).unwrap();
+        assert_eq!(
+            routable.iter().map(|e| e.name.as_str()).collect::<Vec<_>>(),
+            vec!["b", "a"]
+        );
+        let global = list_all(&c).unwrap();
+        assert_eq!(
+            global.iter().map(|e| e.name.as_str()).collect::<Vec<_>>(),
+            vec!["a", "b", "disabled"]
+        );
+    }
+
+    #[test]
+    fn list_routable_falls_back_when_no_fast_endpoint() {
+        let c = db();
+        create(&c, &req("a")).unwrap();
+        create(&c, &req("b")).unwrap();
+
+        assert_eq!(list_routable(&c).unwrap().len(), 2);
+    }
+
+    #[test]
+    fn reorder_fast_rejects_partial_duplicate_or_non_fast_ids() {
+        let mut c = db();
+        let a = create(&c, &req("a")).unwrap();
+        let b = create(&c, &req("b")).unwrap();
+        let c_ep = create(&c, &req("c")).unwrap();
+        for id in [a.id, b.id] {
+            update(
+                &c,
+                id,
+                &UpdateEndpointRequest {
+                    fast: Some(true),
+                    ..Default::default()
+                },
+            )
+            .unwrap();
+        }
+
+        assert!(reorder_fast(&mut c, &[a.id]).is_err());
+        assert!(reorder_fast(&mut c, &[a.id, a.id]).is_err());
+        assert!(reorder_fast(&mut c, &[a.id, c_ep.id]).is_err());
     }
 }

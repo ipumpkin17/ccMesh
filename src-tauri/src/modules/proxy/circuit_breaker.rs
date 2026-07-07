@@ -379,6 +379,8 @@ mod tests {
             model_mappings: Vec::new(),
             remark: "".into(),
             sort_order: 0,
+            fast: false,
+            fast_sort_order: 0,
             test_status: "unknown".into(),
             created_at: "".into(),
             updated_at: "".into(),
@@ -493,7 +495,7 @@ mod tests {
             reg.record_failure("a", false, now, "boom");
         }
         assert!(!reg.is_available("a", now)); // Open 未到期 → 选路跳过
-        // force_close → Closed，返回 true；计数清零、health 反映 healthy/closed
+                                              // force_close → Closed，返回 true；计数清零、health 反映 healthy/closed
         assert!(reg.force_close("a"));
         let h = reg.health_of("a").unwrap();
         assert_eq!(h.circuit, "closed");

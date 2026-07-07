@@ -131,6 +131,7 @@ pub async fn import(
             active_models: vec![],
             model_mappings: vec![],
             remark: p.remark.clone(),
+            fast: false,
         };
         endpoint_repo::create(conn, &req)?;
 

@@ -273,7 +273,7 @@ pub async fn handle_proxy(
 
     // 当前启用端点（每请求读取，反映 CRUD 实时变更）
     let enabled = match st.db_pool.get() {
-        Ok(conn) => match endpoint_repo::list_enabled(&conn) {
+        Ok(conn) => match endpoint_repo::list_routable(&conn) {
             Ok(list) => list,
             Err(e) => {
                 return json_error(
