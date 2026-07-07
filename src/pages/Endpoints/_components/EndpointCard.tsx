@@ -186,6 +186,7 @@ export function EndpointCard({
     onSuccess: () => {
       toast.success("已归档");
       invalidate();
+      qc.invalidateQueries({ queryKey: ["archived-endpoints"] });
     },
     onError: onMutateError,
   });

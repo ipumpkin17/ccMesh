@@ -64,7 +64,7 @@ export function ArchivedEndpointsDialog({ open, onOpenChange }: Props) {
             <DialogTitle>归档端点</DialogTitle>
           </DialogHeader>
 
-          <div className="max-h-[60vh] overflow-y-auto">
+          <div className="scrollbar-none max-h-[60vh] overflow-y-auto">
             {isLoading ? (
               <p className="py-8 text-center text-sm text-ink-mute">加载中…</p>
             ) : !archived || archived.length === 0 ? (

@@ -18,13 +18,13 @@ export function EndpointSidebar() {
   const { data: endpoints } = useEndpoints();
   const [archivedOpen, setArchivedOpen] = useState(false);
 
-  const { data: archivedCount = 0 } = useQuery({
-    queryKey: ["archived-count"],
-    queryFn: async () => {
-      const archived = await endpointApi.listArchived();
-      return archived.length;
-    },
+  // 复用弹窗的 ["archived-endpoints"] 查询：归档数量即归档列表长度，
+  // 同源后任意归档/还原/删除操作 invalidate 该 key 即可同步按钮数字与弹窗列表。
+  const { data: archived } = useQuery({
+    queryKey: ["archived-endpoints"],
+    queryFn: endpointApi.listArchived,
   });
+  const archivedCount = archived?.length ?? 0;
 
   const stats = useMemo(() => {
     const all = endpoints ?? [];
