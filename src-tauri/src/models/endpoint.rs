@@ -42,6 +42,8 @@ pub struct Endpoint {
     pub test_status: String,
     pub created_at: String,
     pub updated_at: String,
+    /// 是否已归档。归档端点从主列表隐藏，可还原或删除。
+    pub archived: bool,
 }
 
 #[derive(Debug, Clone, Deserialize)]

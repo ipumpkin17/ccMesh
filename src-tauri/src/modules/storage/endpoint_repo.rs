@@ -5,7 +5,7 @@ use rusqlite::{params, Connection, OptionalExtension, Row};
 use crate::error::{AppError, AppResult};
 use crate::models::endpoint::{CreateEndpointRequest, Endpoint, UpdateEndpointRequest};
 
-const COLS: &str = "id, name, api_url, api_key, auth_mode, enabled, use_proxy, transformer, model, models, active_models, model_mappings, remark, sort_order, fast, fast_sort_order, test_status, created_at, updated_at";
+const COLS: &str = "id, name, api_url, api_key, auth_mode, enabled, use_proxy, transformer, model, models, active_models, model_mappings, remark, sort_order, fast, fast_sort_order, test_status, created_at, updated_at, archived";
 
 fn row_to_endpoint(row: &Row) -> rusqlite::Result<Endpoint> {
     Ok(Endpoint {
@@ -37,11 +37,13 @@ fn row_to_endpoint(row: &Row) -> rusqlite::Result<Endpoint> {
         test_status: row.get("test_status")?,
         created_at: row.get("created_at")?,
         updated_at: row.get("updated_at")?,
+        archived: row.get::<_, i64>("archived")? != 0,
     })
 }
 
 pub fn list_all(conn: &Connection) -> AppResult<Vec<Endpoint>> {
-    let sql = format!("SELECT {COLS} FROM endpoints ORDER BY sort_order ASC, id ASC");
+    let sql =
+        format!("SELECT {COLS} FROM endpoints WHERE archived = 0 ORDER BY sort_order ASC, id ASC");
     let mut stmt = conn.prepare(&sql)?;
     let rows = stmt.query_map([], row_to_endpoint)?;
     Ok(rows.collect::<rusqlite::Result<Vec<_>>>()?)
@@ -49,7 +51,7 @@ pub fn list_all(conn: &Connection) -> AppResult<Vec<Endpoint>> {
 
 pub fn list_enabled(conn: &Connection) -> AppResult<Vec<Endpoint>> {
     let sql =
-        format!("SELECT {COLS} FROM endpoints WHERE enabled = 1 ORDER BY sort_order ASC, id ASC");
+        format!("SELECT {COLS} FROM endpoints WHERE enabled = 1 AND archived = 0 ORDER BY sort_order ASC, id ASC");
     let mut stmt = conn.prepare(&sql)?;
     let rows = stmt.query_map([], row_to_endpoint)?;
     Ok(rows.collect::<rusqlite::Result<Vec<_>>>()?)
@@ -321,6 +323,46 @@ pub fn set_test_status(conn: &Connection, id: i64, status: &str) -> AppResult<()
         params![status, id],
     )?;
     Ok(())
+}
+
+/// 归档端点：设置 archived=1，从主列表隐藏。
+pub fn archive(conn: &Connection, id: i64) -> AppResult<()> {
+    let rows = conn.execute(
+        "UPDATE endpoints SET archived = 1, updated_at = datetime('now') WHERE id = ?1 AND archived = 0",
+        params![id],
+    )?;
+    if rows == 0 {
+        return Err(AppError::NotFound(format!("端点 {id} 不存在或已归档")));
+    }
+    Ok(())
+}
+
+/// 还原已归档端点：设置 archived=0 + enabled=0 + sort_order 追加到末尾。
+pub fn unarchive(conn: &Connection, id: i64) -> AppResult<()> {
+    let max_order: i64 = conn
+        .query_row(
+            "SELECT COALESCE(MAX(sort_order), 0) FROM endpoints WHERE archived = 0",
+            [],
+            |row| row.get(0),
+        )
+        .unwrap_or(0);
+
+    let rows = conn.execute(
+        "UPDATE endpoints SET archived = 0, enabled = 0, sort_order = ?1, updated_at = datetime('now') WHERE id = ?2 AND archived = 1",
+        params![max_order + 1, id],
+    )?;
+    if rows == 0 {
+        return Err(AppError::NotFound(format!("端点 {id} 不存在或未归档")));
+    }
+    Ok(())
+}
+
+/// 列出所有已归档端点。
+pub fn list_archived(conn: &Connection) -> AppResult<Vec<Endpoint>> {
+    let sql = format!("SELECT {COLS} FROM endpoints WHERE archived = 1 ORDER BY updated_at DESC");
+    let mut stmt = conn.prepare(&sql)?;
+    let rows = stmt.query_map([], row_to_endpoint)?;
+    Ok(rows.collect::<rusqlite::Result<Vec<_>>>()?)
 }
 
 #[cfg(test)]
@@ -637,5 +679,57 @@ mod tests {
         assert!(reorder_fast(&mut c, &[a.id]).is_err());
         assert!(reorder_fast(&mut c, &[a.id, a.id]).is_err());
         assert!(reorder_fast(&mut c, &[a.id, c_ep.id]).is_err());
+    }
+
+    #[test]
+    fn archive_and_unarchive() {
+        let c = db();
+        let ep = create(&c, &req("test")).unwrap();
+
+        // 归档后主列表不显示
+        archive(&c, ep.id).unwrap();
+        assert_eq!(list_all(&c).unwrap().len(), 0);
+        assert_eq!(list_archived(&c).unwrap().len(), 1);
+
+        // 重复归档报错
+        assert!(archive(&c, ep.id).is_err());
+
+        // 还原后出现在末尾，状态为禁用
+        unarchive(&c, ep.id).unwrap();
+        let restored = list_all(&c).unwrap();
+        assert_eq!(restored.len(), 1);
+        assert!(!restored[0].enabled);
+        assert_eq!(restored[0].sort_order, 1);
+
+        // 归档列表为空
+        assert_eq!(list_archived(&c).unwrap().len(), 0);
+    }
+
+    #[test]
+    fn unarchive_appends_to_end() {
+        let c = db();
+        let a = create(&c, &req("a")).unwrap();
+        let b = create(&c, &req("b")).unwrap();
+        archive(&c, b.id).unwrap();
+
+        // 还原后追加到末尾
+        unarchive(&c, b.id).unwrap();
+        let all = list_all(&c).unwrap();
+        assert_eq!(all.len(), 2);
+        assert_eq!(all[0].name, "a");
+        assert_eq!(all[1].name, "b");
+        assert!(all[1].sort_order > all[0].sort_order);
+    }
+
+    #[test]
+    fn list_enabled_excludes_archived() {
+        let c = db();
+        create(&c, &req("enabled")).unwrap();
+        let archived = create(&c, &req("archived")).unwrap();
+        archive(&c, archived.id).unwrap();
+
+        let enabled = list_enabled(&c).unwrap();
+        assert_eq!(enabled.len(), 1);
+        assert_eq!(enabled[0].name, "enabled");
     }
 }

@@ -129,6 +129,8 @@ const MIGRATIONS: &[&str] = &[
     // v12：快速队列标记与快速队列独立排序。旧端点默认不进入快速队列。
     "ALTER TABLE endpoints ADD COLUMN fast INTEGER NOT NULL DEFAULT 0;
      ALTER TABLE endpoints ADD COLUMN fast_sort_order INTEGER NOT NULL DEFAULT 0;",
+    // v13：归档标记。归档端点从主列表隐藏但保留配置，可还原或删除。
+    "ALTER TABLE endpoints ADD COLUMN archived INTEGER NOT NULL DEFAULT 0;",
 ];
 
 /// 幂等执行迁移：读取 `schema_version` 当前版本，仅应用尚未执行的脚本。
@@ -312,5 +314,17 @@ mod tests {
         };
         assert!(cols.contains(&"fast".to_string()));
         assert!(cols.contains(&"fast_sort_order".to_string()));
+    }
+
+    #[test]
+    fn v13_adds_archived_column() {
+        let c = Connection::open_in_memory().unwrap();
+        run_migrations(&c).unwrap();
+        let cols: Vec<String> = {
+            let mut stmt = c.prepare("PRAGMA table_info(endpoints)").unwrap();
+            let rows = stmt.query_map([], |r| r.get::<_, String>(1)).unwrap();
+            rows.filter_map(Result::ok).collect()
+        };
+        assert!(cols.contains(&"archived".to_string()));
     }
 }
