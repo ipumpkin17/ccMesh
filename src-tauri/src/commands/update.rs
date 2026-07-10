@@ -89,7 +89,7 @@ pub async fn check_for_updates(
 ///
 /// Windows: `install()` 内部 `ShellExecuteW` + `exit(0)`，托盘与单实例锁的清理
 /// 走 `on_before_exit` 钩子在 exit 前执行，install 失败则不清理，避免应用丢托盘/丢锁降级。
-/// macOS: install 原地替换 bundle 后由 `restart_process` 清理并重启。
+/// macOS/Linux: 先停代理释放端口与后台任务，再 install 原地替换 bundle，最后重启。
 #[tauri::command]
 pub async fn install_update_and_restart(
     app: AppHandle,
@@ -139,16 +139,15 @@ pub async fn install_update_and_restart(
 
     #[cfg(not(target_os = "windows"))]
     {
+        stop_proxy_for_update(&state).await;
+
+        // 等 proxy 句柄释放/日志落盘后再替换 bundle，避免 macOS 安装阶段仍持有旧进程资源。
+        tokio::time::sleep(Duration::from_millis(100)).await;
         update
             .install(bytes)
             .map_err(|e| AppError::Unknown(format!("安装更新失败: {e}")))?;
 
-        stop_proxy_for_update(&state).await;
-
         tracing::info!("应用更新安装完成，正在重启应用");
-        // ponytail: 100ms 等 proxy 句柄释放/日志落盘再 restart；非确定性，OS 调度慢时仍可能抢跑。
-        //   升级路径：让 proxy.stop() 返回完成信号后 await，再去掉 sleep。
-        tokio::time::sleep(Duration::from_millis(100)).await;
         lifecycle::restart_process(&app);
     }
 }
