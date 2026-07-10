@@ -22,10 +22,11 @@ import {
 } from "@/services/modules/update";
 import { useUpdateStore } from "@/stores/modules/update";
 import { useLayoutStore } from "@/stores";
+import { cn } from "@/lib/utils";
 
 const errMsg = (e: unknown) => (e instanceof Error ? e.message : String(e));
 
-export function VersionPopover() {
+export function VersionPopover({ compact = false }: { compact?: boolean }) {
   const [version, setVersion] = useState("");
   const [info, setInfo] = useState<UpdateInfo | null>(null);
   const [checking, setChecking] = useState(false);
@@ -33,7 +34,10 @@ export function VersionPopover() {
 
   const updateAvailable = useUpdateStore((s) => s.available);
   const updateVersion = useUpdateStore((s) => s.version);
+  const setUpdateFromInfo = useUpdateStore((s) => s.setFromInfo);
   const setActiveView = useLayoutStore((s) => s.setActiveView);
+  const available = info?.available ?? updateAvailable;
+  const availableVersion = info?.available ? info.version : updateVersion;
 
   useEffect(() => {
     getAppVersion()
@@ -58,6 +62,7 @@ export function VersionPopover() {
     try {
       const i = await updateApi.check();
       setInfo(i);
+      setUpdateFromInfo(i);
       if (!i.available) toast.success("已是最新版本");
     } catch (e) {
       toast.error(`检查失败：${errMsg(e)}`);
@@ -76,20 +81,30 @@ export function VersionPopover() {
     }
   };
 
-  if (!version) return null;
+  if (!version || (compact && !available)) return null;
 
   return (
     <Popover>
       <PopoverTrigger asChild>
         <button
           type="button"
-          className="inline-flex items-center gap-1 text-xs text-accent-foreground/70 hover:text-accent-foreground transition-colors"
+          className={cn(
+            "inline-flex items-center gap-1 text-xs text-accent-foreground/70 transition-colors hover:text-accent-foreground",
+            compact && "relative size-7 justify-center rounded-md hover:bg-surface-hover"
+          )}
+          aria-label={compact ? `版本 v${version}` : undefined}
         >
-          <span>v{version}</span>
-          {updateAvailable && (
+          <span className={compact ? "sr-only" : undefined}>v{version}</span>
+          {available && (
             <DownloadIcon
-              className="size-3.5 text-primary animate-pulse cursor-pointer"
-              aria-label="下载更新"
+              className={cn(
+                "size-3.5 cursor-pointer text-primary animate-pulse",
+                compact &&
+                  "absolute -right-0.5 -top-0.5 rounded-full bg-surface p-0.5 ring-1 ring-edge"
+              )}
+              aria-label={
+                availableVersion ? `下载更新 v${availableVersion}` : "下载更新"
+              }
               onClick={handleDownload}
             />
           )}
@@ -154,7 +169,7 @@ export function VersionPopover() {
         )}
 
         {/* 下载安装按钮 */}
-        {(info?.available || updateAvailable) && progress === null && (
+        {available && progress === null && (
           <Button
             size="sm"
             className="mb-3 w-full"

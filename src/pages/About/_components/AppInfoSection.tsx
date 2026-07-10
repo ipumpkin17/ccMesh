@@ -23,7 +23,8 @@ export function AppInfoSection() {
   const [info, setInfo] = useState<UpdateInfo | null>(null);
   const [checking, setChecking] = useState(false);
   const [progress, setProgress] = useState<number | null>(null);
-  const clearBadge = useUpdateStore((s) => s.set);
+  const setUpdate = useUpdateStore((s) => s.set);
+  const setUpdateFromInfo = useUpdateStore((s) => s.setFromInfo);
 
   useEffect(() => {
     getAppVersion()
@@ -48,6 +49,7 @@ export function AppInfoSection() {
     try {
       const i = await updateApi.check();
       setInfo(i);
+      setUpdateFromInfo(i);
       if (!i.available) toast.success("已是最新版本");
     } catch (e) {
       toast.error(`检查失败：${errMsg(e)}`);
@@ -68,7 +70,7 @@ export function AppInfoSection() {
   const skip = async () => {
     if (!info) return;
     await updateApi.skipVersion(info.version).catch(() => undefined);
-    clearBadge(false, "");
+    setUpdate(false, "");
     setInfo(null);
     toast.success(`已跳过 ${info.version}`);
   };

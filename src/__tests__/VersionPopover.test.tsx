@@ -7,6 +7,21 @@ const mockCheck = vi.fn();
 const mockInstallUpdateAndRestart = vi.fn().mockResolvedValue(undefined);
 const mockOnProgress = vi.fn().mockResolvedValue(() => {});
 
+const createStoreState = (
+  overrides: Partial<{
+    available: boolean;
+    version: string;
+    set: ReturnType<typeof vi.fn>;
+    setFromInfo: ReturnType<typeof vi.fn>;
+  }> = {},
+) => ({
+  available: false,
+  version: "",
+  set: vi.fn(),
+  setFromInfo: vi.fn(),
+  ...overrides,
+});
+
 vi.mock("@/services/modules/update", () => ({
   getAppVersion: (...args: unknown[]) => mockGetAppVersion(...args),
   openReleases: (...args: unknown[]) => mockOpenReleases(...args),
@@ -19,7 +34,7 @@ vi.mock("@/services/modules/update", () => ({
   },
 }));
 
-let storeState = { available: false, version: "", set: vi.fn() };
+let storeState = createStoreState();
 vi.mock("@/stores/modules/update", () => ({
   useUpdateStore: (sel: (s: typeof storeState) => unknown) => sel(storeState),
 }));
@@ -29,7 +44,7 @@ import { VersionPopover } from "@/components/business/VersionPopover";
 describe("VersionPopover", () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    storeState = { available: false, version: "", set: vi.fn() };
+    storeState = createStoreState();
     mockGetAppVersion.mockResolvedValue("0.1.2");
   });
 
@@ -49,15 +64,37 @@ describe("VersionPopover", () => {
   });
 
   it("available=true 时渲染更新图标，点击调用 installUpdateAndRestart", async () => {
-    storeState = { available: true, version: "0.2.0", set: vi.fn() };
+    storeState = createStoreState({ available: true, version: "0.2.0" });
     render(<VersionPopover />);
     await waitFor(() => {
       expect(screen.getByText("v0.1.2")).toBeInTheDocument();
     });
-    const icon = screen.getByLabelText("下载更新");
+    const icon = screen.getByLabelText(/下载更新/);
     expect(icon).toBeInTheDocument();
     fireEvent.click(icon);
     expect(mockInstallUpdateAndRestart).toHaveBeenCalled();
+  });
+
+  it("手动检查发现新版本时回写全局更新状态", async () => {
+    const info = {
+      available: true,
+      version: "0.2.0",
+      currentVersion: "0.1.2",
+      notes: "更新日志",
+    };
+    mockCheck.mockResolvedValue(info);
+    render(<VersionPopover />);
+    await waitFor(() => {
+      expect(screen.getByText("v0.1.2")).toBeInTheDocument();
+    });
+    fireEvent.click(screen.getByText("v0.1.2"));
+    await waitFor(() => {
+      expect(screen.getByLabelText("手动检查更新")).toBeInTheDocument();
+    });
+    fireEvent.click(screen.getByLabelText("手动检查更新"));
+    await waitFor(() => {
+      expect(storeState.setFromInfo).toHaveBeenCalledWith(info);
+    });
   });
 
   it("打开 Popover 后点「查看发布」调用 openReleases", async () => {

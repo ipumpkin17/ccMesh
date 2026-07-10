@@ -30,11 +30,16 @@ export function SideNav() {
         collapsed ? "w-14" : "w-[220px]"
       )}
     >
-      <div className="flex h-14 shrink-0 items-center border-b border-edge-subtle px-4">
+      <div className="relative flex h-14 shrink-0 items-center border-b border-edge-subtle px-4">
         <Logo
           iconOnly={collapsed}
           extra={!collapsed ? <VersionPopover /> : undefined}
         />
+        {collapsed && (
+          <span className="absolute right-2 top-2">
+            <VersionPopover compact />
+          </span>
+        )}
       </div>
 
       <div className="flex-1 overflow-y-auto px-2 py-2">
