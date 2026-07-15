@@ -125,7 +125,7 @@ export function Logs() {
   };
 
   return (
-    <div className="mx-auto flex h-full max-w-4xl flex-col gap-4">
+    <div className="flex h-full flex-col gap-4">
       <h1 className="text-2xl font-light tracking-tight">日志</h1>
 
       <LogToolbar

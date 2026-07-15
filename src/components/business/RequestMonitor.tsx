@@ -144,6 +144,7 @@ export function RequestLogTable({ items }: { items: RequestLog[] }) {
           <tr className="border-b border-edge text-xs text-ink-secondary">
             <th className="px-3 py-2 text-left font-medium">时间</th>
             <th className="px-3 py-2 text-left font-medium">端点</th>
+            <th className="px-3 py-2 text-left font-medium">模型</th>
             <th className="px-3 py-2 text-left font-medium">入站</th>
             <th className="px-3 py-2 text-left font-medium">出站</th>
             <th className="w-[5.5rem] px-3 py-2 text-left font-medium">状态</th>
@@ -243,6 +244,10 @@ const getEndpointIcon = (
 function RequestRow({ log }: { log: RequestLog }) {
   // 优先 transformer（端点配置类型，更准确），旧行/未记录回退 inboundFormat
   const FormatIcon = getEndpointIcon(log.transformer ?? log.inboundFormat);
+  const displayModel = log.actualModel || log.model || "—";
+  const modelTitle = log.actualModel
+    ? `请求模型：${log.model || "—"}\n实际模型：${log.actualModel}`
+    : log.model || undefined;
   const total =
     log.inputTokens +
     log.outputTokens +
@@ -261,6 +266,12 @@ function RequestRow({ log }: { log: RequestLog }) {
           <FormatIcon size={14} className="shrink-0" />
           <span className="truncate">{log.endpointName}</span>
         </div>
+      </td>
+      <td
+        className="max-w-[12rem] truncate px-3 py-2 font-mono text-xs text-ink-secondary"
+        title={modelTitle}
+      >
+        {displayModel}
       </td>
       <td
         className="px-3 py-2 font-mono text-xs text-ink-secondary"

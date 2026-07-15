@@ -21,7 +21,7 @@ export function TypeTabs() {
 
   return (
     <nav
-      className="flex self-stretch items-stretch gap-1"
+      className="flex shrink-0 self-stretch items-stretch gap-1"
       aria-label="端点类型"
     >
       {TYPE_TABS.map((tab) => {
@@ -34,7 +34,7 @@ export function TypeTabs() {
             onClick={() => setTransformer(tab.value)}
             aria-current={active ? "page" : undefined}
             className={cn(
-              "relative inline-flex items-center gap-1.5 px-3 text-sm transition-colors",
+              "relative inline-flex shrink-0 items-center gap-1.5 px-3 text-sm whitespace-nowrap transition-colors",
               active
                 ? "text-foreground"
                 : "text-muted-foreground hover:text-foreground",

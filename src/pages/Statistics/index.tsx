@@ -15,7 +15,7 @@ export function Statistics() {
   const [tab, setTab] = useState<TopKey>("endpoint");
 
   return (
-    <div className="mx-auto flex max-w-5xl flex-col gap-6">
+    <div className="flex flex-col gap-6">
       <h1 className="text-2xl font-light tracking-tight">统计</h1>
 
       <Tabs value={tab} onValueChange={(v) => setTab(v as TopKey)}>

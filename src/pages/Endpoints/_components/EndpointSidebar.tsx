@@ -12,7 +12,7 @@ import { ModelList } from "./ModelList";
 
 /**
  * 端点管理右侧侧栏：端点统计（总数/启用/禁用 + 可用模型数）+ 可用模型列表。
- * 作为 flex 子项参与中右布局，宽度由调用方通过 flex 比例控制。
+ * 作为固定宽度的 flex 子项，与自适应的端点列表组成左右布局。
  */
 export function EndpointSidebar() {
   const { data: endpoints } = useEndpoints();
@@ -41,7 +41,7 @@ export function EndpointSidebar() {
 
   return (
     <>
-      <aside className="flex min-h-0 min-w-0 flex-[1] flex-col gap-4">
+      <aside className="flex min-h-0 w-64 shrink-0 flex-col gap-4">
         {/* 端点统计 */}
         <section className="shrink-0 rounded-lg border border-edge bg-surface p-4">
           <div className="mb-3 flex items-center justify-between">

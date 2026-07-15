@@ -13,7 +13,7 @@ export function Dashboard() {
     (today?.cacheReadTokens ?? 0);
 
   return (
-    <div className="mx-auto flex max-w-5xl flex-col gap-6">
+    <div className="flex flex-col gap-6">
       <header className="flex flex-col gap-1">
         <span className="text-[10px] font-medium tracking-[0.06em] text-ink-secondary uppercase">
           Dashboard

@@ -49,22 +49,15 @@ export function Endpoints() {
 
   return (
     <div className="flex h-full min-h-0 flex-col gap-4">
-      {/* 第一行：标题 + 筛选控件（仅中栏有内容，左右空白对称占位让中栏居中） */}
-      <div className="flex shrink-0 gap-4">
-        <div className="hidden min-w-0 flex-[1] xl:block" aria-hidden />
-        <div className="flex min-w-0 max-w-4xl flex-[3] flex-col gap-4">
-          <h1 className="shrink-0 text-2xl font-light tracking-tight">端点管理</h1>
-          <FilterBar onCreate={openCreate} />
-        </div>
-        <div className="hidden min-w-0 flex-[1] xl:block" aria-hidden />
+      {/* 第一行：标题与筛选工具栏占满内容区 */}
+      <div className="flex min-w-0 shrink-0 flex-col gap-4">
+        <h1 className="shrink-0 text-2xl font-light tracking-tight">端点管理</h1>
+        <FilterBar onCreate={openCreate} />
       </div>
 
-      {/* 第二行：端点列表（中栏） + 端点统计/可用模型（右栏），三栏顶部水平对齐 */}
+      {/* 第二行：端点列表自适应剩余宽度，右侧统计栏保持固定宽度 */}
       <div className="flex min-h-0 flex-1 gap-4">
-        <div className="hidden min-w-0 flex-[1] xl:block" aria-hidden />
-
-        {/* 中栏：端点列表，限宽 4xl，超出内部滚动 */}
-        <div className="scrollbar-none min-h-0 min-w-0 max-w-4xl flex-[3] overflow-y-auto rounded-lg border border-edge bg-surface p-4">
+        <div className="scrollbar-none min-h-0 min-w-0 flex-1 overflow-y-auto rounded-lg border border-edge bg-surface p-4">
           {isLoading ? (
             <p className="text-sm text-ink-mute">加载中…</p>
           ) : filtered.length === 0 ? (
