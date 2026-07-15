@@ -1,12 +1,12 @@
 name: Release
 
 # 触发方式：
-# 1) 推送形如 v1.2.3 的 tag 时自动构建并创建 Release 草稿
+# 1) 推送形如 v1.2.3-1 的扩展 tag 时自动构建并创建 Release 草稿
 # 2) 手动 workflow_dispatch（方便首次联调，不创建 Release，仅验证三平台能否构建）
 on:
   push:
     tags:
-      - 'v*.*.*'
+      - 'v*.*.*-*'
   workflow_dispatch:
 
 # 创建 Release / 上传产物需要写权限
@@ -121,8 +121,34 @@ jobs:
           # 仅在 tag 触发时创建 Release；手动触发只验证构建
           tagName: ${{ github.ref_type == 'tag' && github.ref_name || '' }}
           releaseName: 'ccMesh ${{ github.ref_name }}'
-          releaseBody: '查看下方 Assets 下载对应平台安装包。'
           releaseDraft: true
           prerelease: false
           # 生成并上传 latest.json（updater 更新源），需配合仓库 Secret TAURI_SIGNING_PRIVATE_KEY
           includeUpdaterJson: true
+
+  changelog:
+    name: 生成发布说明
+    needs: build
+    if: github.ref_type == 'tag'
+    runs-on: ubuntu-latest
+    steps:
+      - name: 检出完整提交历史
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: 设置 Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: lts/*
+
+      # fork 不含上游历史 tag；拉取后，首个扩展版可从对应上游版本起生成说明。
+      - name: 获取上游版本标签
+        run: |
+          git remote add upstream https://github.com/VkRainB/ccMesh.git
+          git fetch --tags upstream
+
+      - name: 生成中文发布说明
+        run: npx --yes changelogithub@14.0.0
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

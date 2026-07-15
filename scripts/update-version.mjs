@@ -1,11 +1,12 @@
 #!/usr/bin/env node
 // 统一版本管理脚本（跨平台）
-// 用法: node scripts/update-version.mjs [new_version | patch | minor | major]
+// 用法: node scripts/update-version.mjs [new_version | patch | minor | major | fork]
 // 示例:
 //   node scripts/update-version.mjs 0.5.0   指定版本号
 //   node scripts/update-version.mjs patch   补丁号 +1（不传参数时的默认行为）
 //   node scripts/update-version.mjs minor    次版本号 +1，补丁号归零
 //   node scripts/update-version.mjs major    主版本号 +1，其余归零
+//   node scripts/update-version.mjs fork     扩展修订号 +1（0.2.1-1 → 0.2.1-2）
 //   node scripts/update-version.mjs          等价于 patch，读取 package.json 自增
 
 import { readFileSync, writeFileSync } from 'node:fs';
@@ -16,7 +17,7 @@ const scriptDir = dirname(fileURLToPath(import.meta.url));
 const projectRoot = resolve(scriptDir, '..');
 
 const VERSION_RE = /^\d+\.\d+\.\d+(?:-[0-9A-Za-z.-]+)?$/;
-const BUMP_TYPES = ['major', 'minor', 'patch'];
+const BUMP_TYPES = ['major', 'minor', 'patch', 'fork'];
 
 /** 从 package.json 读取当前版本号。 */
 function readCurrentVersion() {
@@ -32,9 +33,15 @@ function readCurrentVersion() {
 /**
  * 按 bump 类型对当前版本号自增（忽略预发布后缀）。
  * @param {string} current 形如 0.1.3
- * @param {'major'|'minor'|'patch'} type
+ * @param {'major'|'minor'|'patch'|'fork'} type
  */
 function bumpVersion(current, type) {
+  if (type === 'fork') {
+    const [core, suffix] = current.split('-', 2);
+    const revision = suffix && /^\d+$/.test(suffix) ? Number(suffix) + 1 : 1;
+    return `${core}-${revision}`;
+  }
+
   const core = current.split('-')[0];
   const parts = core.split('.').map(Number);
   if (parts.length !== 3 || parts.some(Number.isNaN)) {
@@ -68,7 +75,7 @@ if (!arg || BUMP_TYPES.includes(arg)) {
   newVersion = arg;
 } else {
   console.error(`✗ 非法参数: ${arg}`);
-  console.error('用法: node scripts/update-version.mjs [new_version | patch | minor | major]');
+  console.error('用法: node scripts/update-version.mjs [new_version | patch | minor | major | fork]');
   console.error('示例: node scripts/update-version.mjs 0.5.0');
   process.exit(1);
 }
