@@ -55,9 +55,9 @@
   "plugins": {
     "updater": {
       "endpoints": [
-        "https://github.com/VkRainB/ccMesh/releases/latest/download/latest.json"
+        "https://github.com/ipumpkin17/ccMesh/releases/latest/download/latest.json"
       ],
-      "pubkey": "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IEE1NUMzNUQyNTc2MjE2N0UKUldSK0ZtSlgwalZjcFkzZXlQNWJja3ZWT216Tm5sOXBoNENuNHIyN3l6KzFURVBEZ21Vc01KbGgK"
+      "pubkey": "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IDc3OTJGMkE4QjMyNzQ4QzAKUldUQVNDZXpxUEtTZDRIWUJPR01XeW9pcGZSV2pyck55ZG9LL2tKcEZtaVZTeG44SHN4dFQveWkK"
     }
   }
 }
