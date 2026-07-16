@@ -193,7 +193,7 @@ export function EndpointForm({ open, onOpenChange, editing }: Props) {
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-lg overflow-x-hidden">
+      <DialogContent className="max-w-2xl overflow-x-hidden sm:max-w-2xl">
         <DialogHeader>
           <DialogTitle>{editing ? "编辑端点" : "新建端点"}</DialogTitle>
         </DialogHeader>
@@ -217,6 +217,10 @@ export function EndpointForm({ open, onOpenChange, editing }: Props) {
                       value={form.apiKey}
                       onChange={(e) => set(f.k, e.target.value)}
                       className="pr-9"
+                      autoComplete="off"
+                      autoCorrect="off"
+                      autoCapitalize="off"
+                      spellCheck={false}
                     />
                     <button
                       type="button"
@@ -238,6 +242,10 @@ export function EndpointForm({ open, onOpenChange, editing }: Props) {
                     placeholder={f.ph}
                     value={form[f.k] as string}
                     onChange={(e) => set(f.k, e.target.value)}
+                    autoComplete="off"
+                    autoCorrect="off"
+                    autoCapitalize="off"
+                    spellCheck={false}
                   />
                 )}
                 {f.k === "apiUrl" &&
@@ -302,6 +310,10 @@ export function EndpointForm({ open, onOpenChange, editing }: Props) {
                       addModel();
                     }
                   }}
+                  autoComplete="off"
+                  autoCorrect="off"
+                  autoCapitalize="off"
+                  spellCheck={false}
                 />
                 <Button
                   type="button"
