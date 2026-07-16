@@ -388,7 +388,7 @@ pub fn chat_response_to_responses(chat: &Value, fallback_model: &str) -> Value {
         "output": output,
         "usage": {
             "input_tokens": input_tokens,
-            "input_tokens_details": { "cached_tokens": cached_usage(usage) },
+            "input_tokens_details": { "cached_tokens": cache_read_usage(usage) },
             "output_tokens": output_tokens,
             "output_tokens_details": { "reasoning_tokens": 0 },
             "total_tokens": total
@@ -410,11 +410,24 @@ fn first_usage(usage: Option<&Value>, keys: &[&str]) -> i64 {
         .unwrap_or(0)
 }
 
-fn cached_usage(usage: Option<&Value>) -> i64 {
+fn cache_read_usage(usage: Option<&Value>) -> i64 {
     usage
         .and_then(|u| {
             u.pointer("/prompt_tokens_details/cached_tokens")
                 .or_else(|| u.pointer("/input_tokens_details/cached_tokens"))
+                .or_else(|| u.get("cache_read_input_tokens"))
+                .or_else(|| u.get("cached_tokens"))
+        })
+        .and_then(|v| v.as_i64())
+        .unwrap_or(0)
+}
+
+fn cache_write_usage(usage: Option<&Value>) -> i64 {
+    usage
+        .and_then(|u| {
+            u.pointer("/prompt_tokens_details/cache_write_tokens")
+                .or_else(|| u.pointer("/input_tokens_details/cache_write_tokens"))
+                .or_else(|| u.get("cache_creation_input_tokens"))
         })
         .and_then(|v| v.as_i64())
         .unwrap_or(0)
@@ -457,6 +470,7 @@ pub struct ResponsesStreamConverter {
     input_tokens: i64,
     output_tokens: i64,
     cache_read: i64,
+    cache_creation: i64,
 }
 
 impl ResponsesStreamConverter {
@@ -478,12 +492,18 @@ impl ResponsesStreamConverter {
             input_tokens,
             output_tokens: 0,
             cache_read: 0,
+            cache_creation: 0,
         }
     }
 
     /// 当前累积 token 用量 `(input, output, cache_creation, cache_read)`，供流结束后统计。
     pub fn usage(&self) -> (i64, i64, i64, i64) {
-        (self.input_tokens, self.output_tokens, 0, self.cache_read)
+        (
+            self.input_tokens,
+            self.output_tokens,
+            self.cache_creation,
+            self.cache_read,
+        )
     }
 
     fn next_seq(&mut self) -> i64 {
@@ -701,23 +721,23 @@ impl ResponsesStreamConverter {
     fn absorb_usage(&mut self, chunk: &Value) {
         if let Some(u) = chunk.get("usage") {
             if !u.is_null() {
-                // 先取 cache_read，再算净输入：OpenAI 的 prompt_tokens/input_tokens
-                // 已含 cached_tokens，需扣除以与 Claude（input_tokens 不含缓存）对齐，
-                // 避免下游合计 input + output + cache_read 双重计算缓存。
-                let cr = u
-                    .pointer("/prompt_tokens_details/cached_tokens")
-                    .or_else(|| u.pointer("/input_tokens_details/cached_tokens"))
-                    .and_then(|v| v.as_i64())
-                    .unwrap_or(0);
+                // 先取缓存读写，再算净输入：OpenAI 的 prompt_tokens/input_tokens
+                // 已含缓存读取/写入，需扣除以与 Claude（input_tokens 不含缓存）对齐，
+                // 避免下游合计 input + output + cache_read + cache_creation 双重计算缓存。
+                let cr = cache_read_usage(Some(u));
                 if cr > 0 {
                     self.cache_read = cr;
+                }
+                let cc = cache_write_usage(Some(u));
+                if cc > 0 {
+                    self.cache_creation = cc;
                 }
                 if let Some(i) = u
                     .get("prompt_tokens")
                     .or_else(|| u.get("input_tokens"))
                     .and_then(|v| v.as_i64())
                 {
-                    self.input_tokens = (i - self.cache_read).max(0);
+                    self.input_tokens = (i - self.cache_read - self.cache_creation).max(0);
                 }
                 if let Some(o) = u
                     .get("completion_tokens")
@@ -817,10 +837,13 @@ impl ResponsesStreamConverter {
             "output": self.output_items.clone(),
             "usage": {
                 "input_tokens": self.input_tokens,
-                "input_tokens_details": { "cached_tokens": self.cache_read },
+                "input_tokens_details": {
+                    "cached_tokens": self.cache_read,
+                    "cache_write_tokens": self.cache_creation
+                },
                 "output_tokens": self.output_tokens,
                 "output_tokens_details": { "reasoning_tokens": 0 },
-                "total_tokens": self.input_tokens + self.output_tokens
+                "total_tokens": self.input_tokens + self.output_tokens + self.cache_read + self.cache_creation
             }
         });
         let etype = if self.incomplete {
@@ -1209,6 +1232,27 @@ mod tests {
         // 合计 = 155 + 279 + 0 + 16832 = 17266，与上游 total_tokens 一致
         let (i, o, cc, cr) = c.usage();
         assert_eq!(i + o + cc + cr, 17266);
+    }
+
+    #[test]
+    fn stream_usage_chunk_deducts_cache_read_and_creation_from_input() {
+        let mut c = ResponsesStreamConverter::new("m".into(), 0);
+        c.process_chunk(&json!({
+            "choices": [],
+            "usage": {
+                "prompt_tokens": 1000,
+                "completion_tokens": 50,
+                "prompt_tokens_details": {
+                    "cached_tokens": 600,
+                    "cache_write_tokens": 300
+                }
+            }
+        }));
+        assert_eq!(c.usage(), (100, 50, 300, 600));
+        let done = c.finish().join("");
+        assert!(done.contains("\"cache_write_tokens\":300"));
+        let (i, o, cc, cr) = c.usage();
+        assert_eq!(i + o + cc + cr, 1050);
     }
 
     #[test]

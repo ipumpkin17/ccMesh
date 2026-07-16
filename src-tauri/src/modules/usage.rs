@@ -13,11 +13,12 @@ pub struct TokenUsage {
 
 /// 从非流式上游响应体解析真实 token 用量，按端点上游格式区分字段名。
 /// Claude: `usage.input_tokens / output_tokens / cache_creation_input_tokens / cache_read_input_tokens`；
-/// OpenAI: `usage.prompt_tokens / completion_tokens / prompt_tokens_details.cached_tokens`。
+/// OpenAI: `usage.prompt_tokens / completion_tokens / prompt_tokens_details.cached_tokens/cache_write_tokens`。
 ///
 /// **`input` 字段统一为"非缓存净输入"语义**：OpenAI 的 `prompt_tokens`/`input_tokens`
-/// 已包含 `cached_tokens`，需扣除 `cache_read` 以与 Claude（`input_tokens` 不含缓存）
-/// 对齐。这样下游合计 `input + output + cache_creation + cache_read` 不会双重计算缓存。
+/// 已包含缓存读取/写入，需扣除 `cache_read/cache_creation` 以与 Claude（`input_tokens`
+/// 不含缓存）对齐。这样下游合计 `input + output + cache_creation + cache_read`
+/// 不会双重计算缓存。
 pub fn from_response(body: &Value, format: UpstreamFormat) -> TokenUsage {
     let usage = body.get("usage");
     match format {
@@ -29,36 +30,40 @@ pub fn from_response(body: &Value, format: UpstreamFormat) -> TokenUsage {
         },
         UpstreamFormat::OpenAiChat => {
             let cache_read = cache_read_tokens(usage);
+            let cache_creation = cache_creation_tokens(usage);
             TokenUsage {
                 input: net_input(
                     first_field(usage, &["prompt_tokens", "input_tokens"]),
                     cache_read,
+                    cache_creation,
                 ),
                 output: first_field(usage, &["completion_tokens", "output_tokens"]),
-                cache_creation: field(usage, "cache_creation_input_tokens"),
+                cache_creation,
                 cache_read,
             }
         }
         // Responses：usage.input_tokens / output_tokens / input_tokens_details.cached_tokens。
         UpstreamFormat::OpenAiResponses => {
             let cache_read = cache_read_tokens(usage);
+            let cache_creation = cache_creation_tokens(usage);
             TokenUsage {
                 input: net_input(
                     first_field(usage, &["input_tokens", "prompt_tokens"]),
                     cache_read,
+                    cache_creation,
                 ),
                 output: first_field(usage, &["output_tokens", "completion_tokens"]),
-                cache_creation: field(usage, "cache_creation_input_tokens"),
+                cache_creation,
                 cache_read,
             }
         }
     }
 }
 
-/// OpenAI 风格的净输入：`prompt_tokens`/`input_tokens` 已含 `cached_tokens`，
-/// 扣除后得到非缓存净输入。扣除后向下截断到 0（上游偶发 cache_read > input 时）。
-fn net_input(raw_input: i64, cache_read: i64) -> i64 {
-    (raw_input - cache_read).max(0)
+/// OpenAI 风格的净输入：`prompt_tokens`/`input_tokens` 已含缓存读取与缓存写入，
+/// 扣除后得到非缓存净输入。扣除后向下截断到 0（上游偶发缓存大于 input 时）。
+fn net_input(raw_input: i64, cache_read: i64, cache_creation: i64) -> i64 {
+    (raw_input - cache_read - cache_creation).max(0)
 }
 
 fn field(usage: Option<&Value>, key: &str) -> i64 {
@@ -89,6 +94,17 @@ fn cache_read_tokens(usage: Option<&Value>) -> i64 {
         nested_field(usage, &["input_tokens_details", "cached_tokens"]),
         nested_field(usage, &["prompt_tokens_details", "cached_tokens"]),
         field(usage, "cached_tokens"),
+    ]
+    .into_iter()
+    .find(|v| *v > 0)
+    .unwrap_or(0)
+}
+
+fn cache_creation_tokens(usage: Option<&Value>) -> i64 {
+    [
+        field(usage, "cache_creation_input_tokens"),
+        nested_field(usage, &["input_tokens_details", "cache_write_tokens"]),
+        nested_field(usage, &["prompt_tokens_details", "cache_write_tokens"]),
     ]
     .into_iter()
     .find(|v| *v > 0)
@@ -193,13 +209,17 @@ impl UsageAccumulator {
                         if cache_read > 0 {
                             self.cache_read = cache_read;
                         }
+                        let cache_creation = cache_creation_tokens(Some(u));
+                        if cache_creation > 0 {
+                            self.cache_creation = cache_creation;
+                        }
                         if let Some(i) = u
                             .get("prompt_tokens")
                             .or_else(|| u.get("input_tokens"))
                             .and_then(|v| v.as_i64())
                         {
-                            // prompt_tokens 已含 cached_tokens，扣除后为净输入
-                            self.input = net_input(i, self.cache_read);
+                            // prompt_tokens 已含缓存读取/写入，扣除后为净输入
+                            self.input = net_input(i, self.cache_read, self.cache_creation);
                         }
                         if let Some(o) = u
                             .get("completion_tokens")
@@ -207,12 +227,6 @@ impl UsageAccumulator {
                             .and_then(|v| v.as_i64())
                         {
                             self.output = o;
-                        }
-                        if let Some(c) = u
-                            .get("cache_creation_input_tokens")
-                            .and_then(|v| v.as_i64())
-                        {
-                            self.cache_creation = c;
                         }
                     }
                 }
@@ -229,9 +243,13 @@ impl UsageAccumulator {
                         if cache_read > 0 {
                             self.cache_read = cache_read;
                         }
+                        let cache_creation = cache_creation_tokens(Some(u));
+                        if cache_creation > 0 {
+                            self.cache_creation = cache_creation;
+                        }
                         if let Some(i) = u.get("input_tokens").and_then(|v| v.as_i64()) {
-                            // input_tokens 已含 cached_tokens，扣除后为净输入
-                            self.input = net_input(i, self.cache_read);
+                            // input_tokens 已含缓存读取/写入，扣除后为净输入
+                            self.input = net_input(i, self.cache_read, self.cache_creation);
                         }
                         if let Some(o) = u.get("output_tokens").and_then(|v| v.as_i64()) {
                             self.output = o;
@@ -302,6 +320,23 @@ mod tests {
     }
 
     #[test]
+    fn openai_non_stream_extracts_cache_write_tokens() {
+        let body = json!({ "usage": {
+            "prompt_tokens": 1000,
+            "completion_tokens": 50,
+            "prompt_tokens_details": {
+                "cached_tokens": 600,
+                "cache_write_tokens": 300
+            }
+        } });
+        // prompt_tokens(1000) 含 cache_read(600) 与 cache_creation(300)，净输入 100。
+        assert_eq!(
+            from_response(&body, UpstreamFormat::OpenAiChat),
+            tu(100, 50, 300, 600)
+        );
+    }
+
+    #[test]
     fn openai_non_stream_uses_responses_and_cached_tokens_fallbacks() {
         let body = json!({ "usage": {
             "input_tokens": 12,
@@ -366,6 +401,15 @@ mod tests {
     }
 
     #[test]
+    fn openai_sse_accumulates_cache_write_tokens() {
+        let mut acc = UsageAccumulator::new(UpstreamFormat::OpenAiChat);
+        acc.feed(
+            b"data: {\"choices\":[],\"usage\":{\"prompt_tokens\":1000,\"completion_tokens\":50,\"prompt_tokens_details\":{\"cached_tokens\":600,\"cache_write_tokens\":300}}}\n\n",
+        );
+        assert_eq!(acc.finish(), tu(100, 50, 300, 600));
+    }
+
+    #[test]
     fn sse_handles_split_chunks() {
         let mut acc = UsageAccumulator::new(UpstreamFormat::OpenAiChat);
         acc.feed(b"data: {\"usage\":{\"prompt_tokens\":5,");
@@ -392,15 +436,15 @@ mod tests {
 
     #[test]
     fn net_input_clamps_to_zero_when_cache_exceeds_input() {
-        // 上游偶发 cache_read > input 时，净输入截断到 0，不出现负数
+        // 上游偶发缓存读写之和大于 input 时，净输入截断到 0，不出现负数
         let body = json!({ "usage": {
             "prompt_tokens": 10,
             "completion_tokens": 5,
-            "prompt_tokens_details": { "cached_tokens": 20 }
+            "prompt_tokens_details": { "cached_tokens": 20, "cache_write_tokens": 7 }
         } });
         assert_eq!(
             from_response(&body, UpstreamFormat::OpenAiChat),
-            tu(0, 5, 0, 20)
+            tu(0, 5, 7, 20)
         );
     }
 }

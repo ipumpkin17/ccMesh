@@ -210,18 +210,22 @@ impl StreamConverter {
 
         if let Some(usage) = chunk.get("usage") {
             if !usage.is_null() {
-                // 先取 cache_read，再算净输入：OpenAI 的 prompt_tokens/input_tokens
-                // 已含 cached_tokens，需扣除以对齐 Claude 语义（input_tokens 不含缓存），
+                // 先取缓存读写，再算净输入：OpenAI 的 prompt_tokens/input_tokens
+                // 已含缓存读取/写入，需扣除以对齐 Claude 语义（input_tokens 不含缓存），
                 // 避免回传给 Claude 客户端的 input_tokens 仍含缓存导致合计双重计算。
                 if let Some(cr) = cache_read_tokens(usage) {
                     self.ctx.cache_read_tokens = cr;
+                }
+                if let Some(cc) = cache_creation_tokens(usage) {
+                    self.ctx.cache_creation_tokens = cc;
                 }
                 if let Some(it) = usage
                     .get("prompt_tokens")
                     .or_else(|| usage.get("input_tokens"))
                     .and_then(|v| v.as_i64())
                 {
-                    self.ctx.input_tokens = (it - self.ctx.cache_read_tokens).max(0);
+                    self.ctx.input_tokens =
+                        (it - self.ctx.cache_read_tokens - self.ctx.cache_creation_tokens).max(0);
                 }
                 if let Some(ot) = usage
                     .get("completion_tokens")
@@ -229,12 +233,6 @@ impl StreamConverter {
                     .and_then(|v| v.as_i64())
                 {
                     self.ctx.output_tokens = ot;
-                }
-                if let Some(cc) = usage
-                    .get("cache_creation_input_tokens")
-                    .and_then(|v| v.as_i64())
-                {
-                    self.ctx.cache_creation_tokens = cc;
                 }
             }
         }
@@ -341,6 +339,15 @@ fn cache_read_tokens(usage: &Value) -> Option<i64> {
         .or_else(|| usage.pointer("/input_tokens_details/cached_tokens"))
         .or_else(|| usage.pointer("/prompt_tokens_details/cached_tokens"))
         .or_else(|| usage.get("cached_tokens"))
+        .and_then(|v| v.as_i64())
+        .filter(|v| *v > 0)
+}
+
+fn cache_creation_tokens(usage: &Value) -> Option<i64> {
+    usage
+        .get("cache_creation_input_tokens")
+        .or_else(|| usage.pointer("/input_tokens_details/cache_write_tokens"))
+        .or_else(|| usage.pointer("/prompt_tokens_details/cache_write_tokens"))
         .and_then(|v| v.as_i64())
         .filter(|v| *v > 0)
 }
@@ -452,6 +459,27 @@ mod tests {
         assert!(done.contains("\"output_tokens\":7"));
         // prompt_tokens(3) 已含 cached_tokens(2)，净输入 3 - 2 = 1
         assert_eq!(c.usage(), (1, 7, 0, 2));
+    }
+
+    #[test]
+    fn usage_chunk_subtracts_cache_read_and_creation() {
+        let mut c = StreamConverter::new("m".into(), 0);
+        c.process_chunk(&json!({
+            "choices": [],
+            "usage": {
+                "prompt_tokens": 1000,
+                "completion_tokens": 50,
+                "prompt_tokens_details": {
+                    "cached_tokens": 600,
+                    "cache_write_tokens": 300
+                }
+            }
+        }));
+        let done = join(c.finish());
+        assert!(done.contains("\"input_tokens\":100"));
+        assert!(done.contains("\"cache_creation_input_tokens\":300"));
+        assert!(done.contains("\"cache_read_input_tokens\":600"));
+        assert_eq!(c.usage(), (100, 50, 300, 600));
     }
 
     #[test]
