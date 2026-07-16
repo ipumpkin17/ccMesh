@@ -14,3 +14,4 @@ pub mod update;
 pub mod usage;
 pub mod webdav;
 pub mod window;
+pub mod icloud;

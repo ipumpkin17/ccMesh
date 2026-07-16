@@ -8,3 +8,4 @@ pub mod stats;
 pub mod tool_config;
 pub mod usage;
 pub mod webdav;
+pub mod icloud;
