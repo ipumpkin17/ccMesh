@@ -22,8 +22,11 @@ export interface DownloadProgress {
   total: number | null;
 }
 
-export const GITHUB_REPO_URL = "https://github.com/VkRainB/ccMesh";
-export const GITHUB_RELEASES_URL = "https://github.com/VkRainB/ccMesh/releases";
+export const GITHUB_REPO_URL = "https://github.com/ipumpkin17/ccMesh";
+export const GITHUB_RELEASES_URL = "https://github.com/ipumpkin17/ccMesh/releases";
+/** 与 tauri.conf.json plugins.updater.endpoints 保持一致，便于排查。 */
+export const UPDATE_LATEST_JSON_URL =
+  "https://github.com/ipumpkin17/ccMesh/releases/latest/download/latest.json";
 
 export async function openGitHubRepo() {
   await openUrl(GITHUB_REPO_URL);

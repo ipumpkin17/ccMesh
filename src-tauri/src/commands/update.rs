@@ -81,7 +81,19 @@ pub async fn check_for_updates(
             current_version: current,
             notes: String::new(),
         }),
-        Err(e) => Err(AppError::Unknown(format!("检查更新失败: {e}"))),
+        Err(e) => {
+            let msg = e.to_string();
+            // latest/download 仅对已正式发布（非草稿）Release 生效；404 通常表示尚未 Publish 或缺少 latest.json。
+            if msg.contains("404")
+                || msg.to_ascii_lowercase().contains("not found")
+                || msg.to_ascii_lowercase().contains("status code")
+            {
+                return Err(AppError::Unknown(format!(
+                    "检查更新失败: 更新源不可用（{msg}）。请确认已在 ipumpkin17/ccMesh 发布正式 Release，并包含 latest.json"
+                )));
+            }
+            Err(AppError::Unknown(format!("检查更新失败: {msg}")))
+        }
     }
 }
 

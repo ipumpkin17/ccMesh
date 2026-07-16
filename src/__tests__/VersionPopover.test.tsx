@@ -25,7 +25,7 @@ const createStoreState = (
 vi.mock("@/services/modules/update", () => ({
   getAppVersion: (...args: unknown[]) => mockGetAppVersion(...args),
   openReleases: (...args: unknown[]) => mockOpenReleases(...args),
-  GITHUB_RELEASES_URL: "https://github.com/VkRainB/ccMesh/releases",
+  GITHUB_RELEASES_URL: "https://github.com/ipumpkin17/ccMesh/releases",
   updateApi: {
     check: (...args: unknown[]) => mockCheck(...args),
     installUpdateAndRestart: (...args: unknown[]) =>
