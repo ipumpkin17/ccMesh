@@ -149,3 +149,6 @@
 实现,导航页显隐,2033.1,layout偏好支持隐藏业务导航页,前端,,,完成,codex,2026-07-16,2026-07-16,hiddenNavIds+normalizeHidden
 实现,导航页显隐,2033.2,设置页导航显示卡片与侧栏过滤,前端,2033.1,,完成,codex,2026-07-16,2026-07-16,SideNav/TopNav/AppLayout
 修复,端点表单体验,2034.1,编辑弹窗加宽并关闭输入自动纠正,前端,,,完成,codex,2026-07-16,2026-07-16,max-w-2xl+autoCorrect off
+实现,UI全局一致性,2035.1,抽取 SurfaceCard 统一页面卡片表面,前端,,,完成,codex,2026-07-16,2026-07-16,surface-card+edge-subtle
+实现,UI全局一致性,2036.1,新增字体层级 token 并统一标题正文,前端,2035.1,,完成,codex,2026-07-16,2026-07-16,typography.ts
+实现,UI全局一致性,2037.1,统一 Input/Select/SearchBox 等表单控件,前端,2035.1;2036.1,,完成,codex,2026-07-16,2026-07-16,h-9 rounded-sm border-input

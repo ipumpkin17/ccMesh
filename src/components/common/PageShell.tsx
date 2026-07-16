@@ -1,5 +1,6 @@
 import type { ReactNode } from "react";
 
+import { pageTitleClass } from "@/lib/typography";
 import { cn } from "@/lib/utils";
 
 interface PageShellProps {
@@ -25,7 +26,7 @@ export function PageShell({
     <section className={cn("flex h-full min-h-0 flex-col gap-4", className)}>
       <header className="flex shrink-0 flex-col gap-4">
         <div className="flex min-w-0 items-center justify-between gap-4">
-          <h1 className="min-w-0 shrink truncate text-2xl font-light tracking-tight text-ink-primary">
+          <h1 className={cn("min-w-0 shrink truncate", pageTitleClass)}>
             {title}
           </h1>
           {actions ? (

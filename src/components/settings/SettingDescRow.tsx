@@ -1,5 +1,7 @@
 import type { ReactNode } from "react";
 
+import { bodyClass, metaClass } from "@/lib/typography";
+
 export function SettingDescRow({
   title,
   desc,
@@ -12,8 +14,8 @@ export function SettingDescRow({
   return (
     <div className="flex items-center justify-between gap-3">
       <div className="flex min-w-0 flex-col gap-0.5">
-        <span className="text-sm text-ink-primary">{title}</span>
-        <span className="text-xs text-ink-mute">{desc}</span>
+        <span className={bodyClass}>{title}</span>
+        <span className={metaClass}>{desc}</span>
       </div>
       {children}
     </div>

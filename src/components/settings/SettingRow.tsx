@@ -1,6 +1,8 @@
 import type { LucideIcon } from "lucide-react";
 import type { ReactNode } from "react";
 
+import { bodyClass } from "@/lib/typography";
+
 export function SettingRow({
   label,
   icon: Icon,
@@ -16,7 +18,7 @@ export function SettingRow({
         {Icon ? (
           <Icon className="h-4 w-4 shrink-0 text-ink-mute" aria-hidden />
         ) : null}
-        <span className="text-sm text-ink-primary">{label}</span>
+        <span className={bodyClass}>{label}</span>
       </div>
       {children}
     </div>
