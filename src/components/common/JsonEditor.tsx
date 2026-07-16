@@ -50,7 +50,7 @@ export default function JsonEditor({
   return (
     <div
       className={
-        "w-full max-w-full min-w-0 overflow-hidden rounded-md border border-edge " +
+        "w-full max-w-full min-w-0 overflow-hidden rounded-sm border border-input bg-surface-raised " +
         "[&_.cm-editor]:w-full [&_.cm-editor]:max-w-full [&_.cm-scroller]:overflow-x-hidden" +
         (fill ? " h-full" : "")
       }

@@ -20,6 +20,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
+import { emptyClass, metaClass } from "@/lib/typography";
 import {
   endpointApi,
   litOutboundModels,
@@ -77,17 +78,17 @@ export function ModelMappingDialog({ open, onOpenChange, endpoint }: Props) {
           <DialogTitle>模型映射 · {endpoint.name}</DialogTitle>
         </DialogHeader>
 
-        <p className="text-xs text-ink-mute">
+        <p className={metaClass}>
           客户端用「入站模型」请求，网关转发上游时改写为「出站模型」。
         </p>
 
         {noModels ? (
-          <p className="rounded-md border border-edge bg-surface-raised px-3 py-2 text-sm text-ink-secondary">
+          <p className="rounded-sm border border-input bg-surface-raised px-3 py-2 text-sm text-ink-secondary">
             该端点暂无可用的点亮模型，请先在端点中配置模型清单（并点亮）或锁定模型，再添加映射。
           </p>
         ) : (
           <div className="flex flex-col gap-2">
-            <div className="flex items-center gap-2 px-1 text-xs text-ink-mute">
+            <div className={`flex items-center gap-2 px-1 ${metaClass}`}>
               <span className="flex-1">入站模型（手动输入）</span>
               <span className="w-5" />
               <span className="flex flex-1 items-center gap-1.5">
@@ -103,7 +104,7 @@ export function ModelMappingDialog({ open, onOpenChange, endpoint }: Props) {
             </div>
 
             {rows.length === 0 ? (
-              <p className="px-1 text-sm text-ink-mute">暂无映射，点击下方「添加映射」。</p>
+              <p className={`px-1 ${emptyClass}`}>暂无映射，点击下方「添加映射」。</p>
             ) : (
               rows.map((row, i) => (
                 <div key={i} className="flex items-center gap-2">

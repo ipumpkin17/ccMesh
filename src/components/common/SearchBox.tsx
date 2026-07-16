@@ -40,7 +40,7 @@ export function SearchBox({
           variant: "ghost",
           size: "icon",
           className:
-            "h-9 w-9 shrink-0 rounded-xl text-muted-foreground transition-none hover:bg-transparent hover:text-foreground",
+            "h-9 w-9 shrink-0 rounded-sm text-ink-mute transition-none hover:bg-transparent hover:text-ink-primary",
         })}
       >
         <motion.span layout="position">
@@ -54,13 +54,13 @@ export function SearchBox({
     <motion.div
       layoutId={layoutId}
       className={cn(
-        "flex h-9 w-64 shrink-0 items-center gap-2 rounded-xl border border-input bg-surface-raised px-3",
+        "flex h-9 w-64 shrink-0 items-center gap-2 rounded-sm border border-input bg-surface-raised px-3",
         className,
       )}
       transition={{ type: "spring", stiffness: 400, damping: 30 }}
     >
       <motion.span layout="position">
-        <Search className="size-4 shrink-0 text-muted-foreground" />
+        <Search className="size-4 shrink-0 text-ink-mute" />
       </motion.span>
       <input
         type="text"
@@ -68,7 +68,7 @@ export function SearchBox({
         value={value}
         onChange={(e) => onChange(e.target.value)}
         autoFocus
-        className="w-full bg-transparent text-sm outline-none placeholder:text-muted-foreground"
+        className="w-full bg-transparent text-sm text-ink-primary outline-none placeholder:text-ink-mute"
       />
       <button
         type="button"
@@ -77,7 +77,7 @@ export function SearchBox({
           onChange("");
           setExpanded(false);
         }}
-        className="shrink-0 rounded p-0.5 text-muted-foreground transition-colors hover:text-foreground"
+        className="shrink-0 rounded p-0.5 text-ink-mute transition-colors hover:text-ink-primary"
       >
         <X className="size-3.5" />
       </button>

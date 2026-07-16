@@ -23,6 +23,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
+import { metaClass } from "@/lib/typography";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { getModelIcon } from "@/lib/model-icons";
@@ -255,7 +256,7 @@ export function EndpointForm({ open, onOpenChange, editing }: Props) {
                       {previewPath}，出现重复的 /v1，请去掉结尾的 /v1
                     </p>
                   ) : (
-                    <p className="px-1 text-xs text-ink-mute">
+                    <p className={`px-1 ${metaClass}`}>
                       完整请求地址：{apiUrlBase || "{url}"}
                       {previewPath}
                     </p>
@@ -266,7 +267,7 @@ export function EndpointForm({ open, onOpenChange, editing }: Props) {
             <div className="flex flex-col gap-1.5">
               <Label>转换器</Label>
               <Select value={form.transformer} onValueChange={(v) => set("transformer", v)}>
-                <SelectTrigger>
+                <SelectTrigger className="w-full">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
@@ -294,7 +295,7 @@ export function EndpointForm({ open, onOpenChange, editing }: Props) {
                     <TooltipContent>通过点亮模型对外公布可用模型</TooltipContent>
                   </Tooltip>
                 </div>
-                <span className="text-xs text-ink-mute">
+                <span className={metaClass}>
                   共 {form.models.length}
                   {form.models.length > 0 && `，点亮 ${form.activeModels.length}`}
                 </span>
@@ -337,7 +338,7 @@ export function EndpointForm({ open, onOpenChange, editing }: Props) {
               </div>
               {form.models.length > 0 && (
                 <>
-                  <div className="flex max-h-40 flex-wrap gap-1.5 overflow-auto rounded-md border border-edge p-2">
+                  <div className="flex max-h-40 flex-wrap gap-1.5 overflow-auto rounded-sm border border-input bg-surface-raised p-2">
                     {form.models.map((m) => {
                       const lit = isLit(m);
                       const ModelIcon = getModelIcon(m);
@@ -370,12 +371,12 @@ export function EndpointForm({ open, onOpenChange, editing }: Props) {
                     })}
                   </div>
                   <div className="flex items-center justify-between">
-                    <span className="text-xs text-ink-mute">
+                    <span className={metaClass}>
                       全部未点亮时默认全部公布
                     </span>
                     <button
                       type="button"
-                      className="text-xs text-ink-mute hover:text-ink-secondary"
+                      className={`${metaClass} hover:text-ink-secondary`}
                       onClick={() => update({ models: [], activeModels: [] })}
                     >
                       清除全部
@@ -394,10 +395,10 @@ export function EndpointForm({ open, onOpenChange, editing }: Props) {
             </div>
 
             {editing?.enabled ? (
-              <div className="flex items-center justify-between rounded-md border border-edge px-3 py-2">
+              <div className="flex items-center justify-between rounded-sm border border-input bg-surface-raised px-3 py-2">
                 <div className="flex flex-col gap-0.5">
                   <Label>加入快速队列</Label>
-                  <span className="text-xs text-ink-mute">快速队列存在时代理只轮询快速端点</span>
+                  <span className={metaClass}>快速队列存在时代理只轮询快速端点</span>
                 </div>
                 <Switch
                   checked={form.fast}

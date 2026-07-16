@@ -18,6 +18,7 @@ import { cn } from "@/lib/utils";
 import { useFilterStore, useLayoutStore } from "@/stores";
 
 import { TypeTabs } from "./TypeTabs";
+import { metaClass } from "@/lib/typography";
 
 export function FilterBar({ onCreate }: { onCreate: () => void }) {
   const search = useFilterStore((s) => s.search);
@@ -48,11 +49,11 @@ export function FilterBar({ onCreate }: { onCreate: () => void }) {
           <PopoverContent
             align="end"
             sideOffset={8}
-            className="w-56 rounded-xl p-3"
+            className="w-56 rounded-md p-3"
           >
             <div className="grid gap-3">
               <div className="grid gap-2">
-                <p className="text-xs font-medium text-muted-foreground">筛选</p>
+                <p className={`font-medium ${metaClass}`}>筛选</p>
                 <div className="flex items-center justify-between gap-2">
                   <Label htmlFor="enabled-only-pop" className="text-sm">
                     仅启用
@@ -65,7 +66,7 @@ export function FilterBar({ onCreate }: { onCreate: () => void }) {
                 </div>
               </div>
               <div className="grid gap-2">
-                <p className="text-xs font-medium text-muted-foreground">视图</p>
+                <p className={`font-medium ${metaClass}`}>视图</p>
                 <div className="grid grid-cols-2 gap-2">
                   <button
                     type="button"
@@ -74,7 +75,7 @@ export function FilterBar({ onCreate }: { onCreate: () => void }) {
                       "inline-flex h-8 items-center justify-center gap-1.5 rounded-lg border text-xs font-medium transition-colors",
                       endpointView === "list"
                         ? "border-primary/30 bg-primary text-primary-foreground"
-                        : "border-edge bg-surface hover:bg-surface-raised",
+                        : "border-input bg-surface-raised hover:bg-surface-hover",
                     )}
                   >
                     <ListIcon className="size-3.5" /> 列表
@@ -86,7 +87,7 @@ export function FilterBar({ onCreate }: { onCreate: () => void }) {
                       "inline-flex h-8 items-center justify-center gap-1.5 rounded-lg border text-xs font-medium transition-colors",
                       endpointView === "grid"
                         ? "border-primary/30 bg-primary text-primary-foreground"
-                        : "border-edge bg-surface hover:bg-surface-raised",
+                        : "border-input bg-surface-raised hover:bg-surface-hover",
                     )}
                   >
                     <LayoutGridIcon className="size-3.5" /> 网格

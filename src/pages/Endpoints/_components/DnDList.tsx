@@ -9,6 +9,7 @@ import { endpointApi, type Endpoint } from "@/services/modules/endpoint";
 import type { EndpointView } from "@/stores";
 import { EndpointCard } from "./EndpointCard";
 import { moveBeforeEndpoint } from "./reorder";
+import { metaClass } from "@/lib/typography";
 
 interface Props {
   endpoints: Endpoint[];
@@ -210,7 +211,7 @@ export function DnDList({
       }}
     >
       {typeFilterActive && (
-        <p className="mb-2 rounded-md border border-dashed border-edge/70 bg-surface-raised/40 px-3 py-2 text-xs text-muted-foreground">
+        <p className={`mb-2 rounded-md border border-dashed border-edge/70 bg-surface-raised/40 px-3 py-2 ${metaClass}`}>
           拖拽时其余端点固定为半透明卡位；松手后按预览位置更新全局轮询顺序。
         </p>
       )}

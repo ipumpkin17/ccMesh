@@ -36,8 +36,8 @@ export function TypeTabs() {
             className={cn(
               "relative inline-flex shrink-0 items-center gap-1.5 px-3 text-sm whitespace-nowrap transition-colors",
               active
-                ? "text-foreground"
-                : "text-muted-foreground hover:text-foreground",
+                ? "text-ink-primary"
+                : "text-ink-mute hover:text-ink-primary",
             )}
           >
             <Icon size={14} className="shrink-0" />

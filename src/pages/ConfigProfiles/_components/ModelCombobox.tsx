@@ -76,7 +76,7 @@ export function ModelCombobox({
         />
       </button>
       {open && (
-        <div className="absolute z-50 mt-1 w-full overflow-hidden rounded-md border border-edge bg-surface shadow-md">
+        <div className="absolute z-50 mt-1 w-full overflow-hidden rounded-md border border-edge bg-popover text-popover-foreground shadow-level-2">
           <div className="flex items-center gap-1.5 border-b border-edge px-2.5 py-1.5">
             <SearchIcon className="size-3.5 shrink-0 text-ink-mute" />
             <input

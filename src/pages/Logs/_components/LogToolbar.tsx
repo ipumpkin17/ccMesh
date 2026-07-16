@@ -66,7 +66,7 @@ export function LogToolbar({
 
         <div className="ml-auto flex items-center gap-2">
           <Select value={captureLevel} onValueChange={onCaptureLevel}>
-            <SelectTrigger className="h-8 w-32" title="捕获等级（低于此级别的日志不记录）">
+            <SelectTrigger size="sm" className="w-32" title="捕获等级（低于此级别的日志不记录）">
               <span className="text-xs text-ink-mute">捕获</span>
               <SelectValue />
             </SelectTrigger>
@@ -93,7 +93,7 @@ export function LogToolbar({
           value={keyword}
           onChange={(e) => onKeyword(e.target.value)}
           placeholder="搜索 message / 来源 / 字段…"
-          className="h-8 w-full rounded-md border border-edge bg-transparent pr-2 pl-8 text-sm outline-none focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50"
+          className="h-8 w-full rounded-sm border border-input bg-surface-raised pr-2 pl-8 text-sm text-ink-primary outline-none placeholder:text-ink-mute focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50"
         />
       </div>
     </div>
