@@ -14,6 +14,7 @@ import {
 } from "@/components/ui/dialog";
 import { Pagination } from "@/components/ui/Pagination";
 import { statsApi } from "@/services/modules/stats";
+import { emptyClass } from "@/lib/typography";
 
 const PAGE_SIZE = 12;
 
@@ -75,15 +76,15 @@ export function HistoryDialog() {
         </DialogHeader>
 
         {isLoading ? (
-          <p className="text-sm text-ink-mute">加载中…</p>
+          <p className={emptyClass}>加载中…</p>
         ) : rows.length === 0 ? (
-          <p className="text-sm text-ink-mute">暂无历史记录</p>
+          <p className={emptyClass}>暂无历史记录</p>
         ) : (
           <div className="flex flex-col gap-3">
-            <div className="max-h-[60vh] overflow-auto rounded-lg border border-edge">
+            <div className="max-h-[60vh] overflow-auto rounded-lg border border-edge-subtle bg-surface-card">
               <table className="w-full text-sm">
                 <thead>
-                  <tr className="sticky top-0 border-b border-edge bg-background text-xs text-ink-secondary">
+                  <tr className="sticky top-0 border-b border-edge-subtle bg-background">
                     <th className="px-3 py-2 text-left font-medium">日期</th>
                     <th className="px-3 py-2 text-left font-medium">端点</th>
                     <th className="px-3 py-2 text-right font-medium whitespace-nowrap">请求</th>

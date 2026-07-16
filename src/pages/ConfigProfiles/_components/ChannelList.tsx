@@ -3,6 +3,7 @@ import { PlusIcon, Trash2Icon } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import type { ChannelMeta } from "@/services/modules/tool_config";
+import { panelTitleClass, metaClass } from "@/lib/typography";
 
 interface Props {
   channels: ChannelMeta[];
@@ -23,9 +24,9 @@ export function ChannelList({
   onDelete,
 }: Props) {
   return (
-    <div className="flex h-full min-h-0 w-56 shrink-0 flex-col rounded-lg border border-edge bg-surface">
-      <div className="flex items-center justify-between border-b border-edge px-3 py-2">
-        <span className="text-sm font-medium text-ink-secondary">渠道</span>
+    <div className="flex h-full min-h-0 w-56 shrink-0 flex-col rounded-lg border border-edge-subtle bg-surface-card">
+      <div className="flex items-center justify-between border-b border-edge-subtle px-3 py-2">
+        <span className={panelTitleClass}>渠道</span>
         <Button
           type="button"
           variant="ghost"
@@ -39,9 +40,9 @@ export function ChannelList({
       </div>
       <div className="min-h-0 flex-1 overflow-y-auto p-2">
         {loading ? (
-          <p className="px-2 py-4 text-center text-xs text-ink-mute">加载中…</p>
+          <p className={`px-2 py-4 text-center ${metaClass}`}>加载中…</p>
         ) : channels.length === 0 ? (
-          <p className="px-2 py-4 text-center text-xs text-ink-mute">
+          <p className={`px-2 py-4 text-center ${metaClass}`}>
             暂无渠道，点击右上角 + 新增
           </p>
         ) : (

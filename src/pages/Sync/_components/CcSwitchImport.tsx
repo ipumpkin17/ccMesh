@@ -10,6 +10,7 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 
+import { emptyClass, metaClass, sectionDescClass, sectionTitleClass, SurfaceCard } from "@/components/common";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -267,13 +268,13 @@ export function CcSwitchImport() {
 
   return (
     <>
-      <section className="flex flex-col gap-3 rounded-lg border border-edge p-5">
+      <SurfaceCard className="flex flex-col gap-3">
         <div className="flex items-center justify-between">
           <div className="flex flex-col gap-1">
-            <h2 className="text-sm font-medium text-ink-secondary">
+            <h2 className={sectionTitleClass}>
               从 cc-switch 迁移配置
             </h2>
-            <p className="text-xs text-ink-mute">
+            <p className={sectionDescClass}>
               读取本机 cc-switch 供应商，识别可迁移端点并勾选导入
             </p>
           </div>
@@ -281,7 +282,7 @@ export function CcSwitchImport() {
             <ArrowDownToLineIcon className="size-4" /> 同步配置
           </Button>
         </div>
-      </section>
+      </SurfaceCard>
 
       <Dialog open={open} onOpenChange={setOpen}>
         <DialogContent className="flex h-[min(80vh,calc(100dvh-2rem))] w-full min-w-2xl max-w-3xl flex-col overflow-hidden sm:max-w-3xl">
@@ -291,13 +292,13 @@ export function CcSwitchImport() {
 
           <div className="flex min-h-0 flex-1 flex-col gap-3 overflow-hidden">
             {preview.isLoading ? (
-              <p className="text-sm text-ink-mute">正在读取 cc-switch 配置…</p>
+              <p className={emptyClass}>正在读取 cc-switch 配置…</p>
             ) : preview.isError ? (
-              <p className="text-sm text-ink-mute">
+              <p className={emptyClass}>
                 读取失败：{errMsg(preview.error)}。请确认已安装 cc-switch 且配置数据库存在。
               </p>
             ) : (preview.data ?? []).length === 0 ? (
-              <p className="text-sm text-ink-mute">
+              <p className={emptyClass}>
                 未在 cc-switch 中找到可识别的 claude / codex 供应商。
               </p>
             ) : (
@@ -341,16 +342,16 @@ export function CcSwitchImport() {
                       </AppTypeFilterButton>
                     </div>
                   </div>
-                  <span className="text-xs text-ink-mute">
+                  <span className={metaClass}>
                     已勾选 {selected.size} / 可迁移 {importable.length}（共{" "}
                     {(preview.data ?? []).length}）
                   </span>
                 </div>
 
-                <div className="min-h-0 flex-1 overflow-y-auto rounded-md border border-edge">
+                <div className="min-h-0 flex-1 overflow-y-auto rounded-sm border border-input bg-surface-raised">
                   <div className="flex flex-col divide-y divide-edge-subtle">
                     {visibleItems.length === 0 ? (
-                      <p className="px-4 py-6 text-center text-xs text-ink-mute">
+                      <p className={`px-4 py-6 text-center ${metaClass}`}>
                         当前筛选下没有可展示的项
                       </p>
                     ) : (
@@ -424,16 +425,16 @@ function PreviewRow({
       <div className="flex min-w-0 flex-1 flex-col gap-0.5">
         <span className="truncate text-sm text-ink-primary">{item.name}</span>
         {item.apiUrl ? (
-          <span className="truncate font-mono text-xs text-ink-mute">
+          <span className={`truncate font-mono ${metaClass}`}>
             {item.apiUrl}
           </span>
         ) : null}
         {skipped ? (
-          <span className="text-xs text-ink-mute">
+          <span className={metaClass}>
             {skipReasonLabel(item.skipReason)}
           </span>
         ) : (
-          <span className="text-xs text-ink-mute">
+          <span className={metaClass}>
             {item.apiKeyMasked || "—"}
           </span>
         )}

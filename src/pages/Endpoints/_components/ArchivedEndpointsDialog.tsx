@@ -15,6 +15,7 @@ import {
 } from "@/components/ui/dialog";
 import { endpointApi, type Endpoint } from "@/services/modules/endpoint";
 import { getTransformerIcon } from "./EndpointCard";
+import { emptyClass, metaClass } from "@/lib/typography";
 
 const errMsg = (e: unknown) => (e instanceof Error ? e.message : String(e));
 
@@ -66,9 +67,9 @@ export function ArchivedEndpointsDialog({ open, onOpenChange }: Props) {
 
           <div className="scrollbar-none max-h-[60vh] overflow-y-auto">
             {isLoading ? (
-              <p className="py-8 text-center text-sm text-ink-mute">加载中…</p>
+              <p className={`py-8 text-center ${emptyClass}`}>加载中…</p>
             ) : !archived || archived.length === 0 ? (
-              <p className="py-8 text-center text-sm text-ink-mute">暂无归档端点</p>
+              <p className={`py-8 text-center ${emptyClass}`}>暂无归档端点</p>
             ) : (
               <div className="flex flex-col gap-3">
                 {archived.map((ep) => {
@@ -82,7 +83,7 @@ export function ArchivedEndpointsDialog({ open, onOpenChange }: Props) {
                             <span className="truncate font-medium">{ep.name}</span>
                             <Badge variant="muted">{ep.transformer}</Badge>
                           </div>
-                          <span className="truncate text-xs text-ink-mute">{ep.apiUrl}</span>
+                          <span className={`truncate ${metaClass}`}>{ep.apiUrl}</span>
                         </div>
                         <div className="flex gap-1">
                           <Button

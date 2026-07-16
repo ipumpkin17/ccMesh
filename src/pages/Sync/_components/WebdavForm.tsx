@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 
+import { sectionTitleClass, SurfaceCard } from "@/components/common";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -75,8 +76,8 @@ export function WebdavForm() {
   };
 
   return (
-    <section className="flex flex-col gap-4 rounded-lg border border-edge p-5">
-      <h2 className="text-sm font-medium text-ink-secondary">WebDAV 配置</h2>
+    <SurfaceCard className="flex flex-col gap-4">
+      <h2 className={sectionTitleClass}>WebDAV 配置</h2>
       <div className="grid grid-cols-2 gap-4">
         {FIELDS.map((f) => (
           <div key={f.k} className="flex flex-col gap-1.5">
@@ -99,6 +100,6 @@ export function WebdavForm() {
           {saving ? "保存中…" : "保存"}
         </Button>
       </div>
-    </section>
+    </SurfaceCard>
   );
 }

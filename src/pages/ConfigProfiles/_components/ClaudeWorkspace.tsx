@@ -274,7 +274,7 @@ export function ClaudeWorkspace() {
         />
 
         {/* 中栏：表单 + 操作字段编辑器 */}
-        <div className="flex min-h-0 min-w-0 flex-[3] flex-col gap-4 overflow-y-auto rounded-lg border border-edge bg-surface p-4">
+        <div className="flex min-h-0 min-w-0 flex-[3] flex-col gap-4 overflow-y-auto rounded-lg border border-edge-subtle bg-surface-card p-4">
           {!loaded ? (
             <div className="flex h-full flex-col items-center justify-center gap-3 text-ink-mute">
               <FileCogIcon className="size-10 opacity-40" />
@@ -435,7 +435,7 @@ export function ClaudeWorkspace() {
         </div>
 
         {/* 右栏：整合配置编辑器 */}
-        <div className="flex min-h-0 min-w-0 flex-[2] flex-col gap-2 rounded-lg border border-edge bg-surface p-4">
+        <div className="flex min-h-0 min-w-0 flex-[2] flex-col gap-2 rounded-lg border border-edge-subtle bg-surface-card p-4">
           <div className="flex items-center justify-between">
             <Label>完整配置</Label>
             <div className="flex items-center gap-3">
@@ -480,7 +480,7 @@ export function ClaudeWorkspace() {
       </div>
 
       {/* 底部固定操作区 */}
-      <div className="relative flex items-center justify-center gap-3 rounded-lg border border-edge bg-surface px-4 py-3">
+      <div className="relative flex items-center justify-center gap-3 rounded-lg border border-edge-subtle bg-surface-card px-4 py-3">
         <span className="absolute left-4 hidden text-xs text-ink-mute md:block">
           应用将先备份再覆写 <code>~/.claude/settings.json</code>
         </span>

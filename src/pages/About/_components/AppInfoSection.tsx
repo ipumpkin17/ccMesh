@@ -3,7 +3,7 @@ import { ExternalLinkIcon, BookOpenIcon, RefreshCwIcon } from "lucide-react";
 import { openUrl } from "@tauri-apps/plugin-opener";
 import { toast } from "sonner";
 
-import { Logo } from "@/components/common";
+import { emptyClass, Logo, SurfaceCard } from "@/components/common";
 import { Button } from "@/components/ui/button";
 import {
   getAppVersion,
@@ -76,7 +76,7 @@ export function AppInfoSection() {
   };
 
   return (
-    <section className="rounded-lg border border-edge-subtle bg-surface-card p-6">
+    <SurfaceCard>
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div className="flex flex-wrap items-center gap-3">
           <Logo
@@ -140,8 +140,8 @@ export function AppInfoSection() {
           </div>
         </div>
       ) : info && !info.available ? (
-        <p className="mt-4 text-sm text-ink-mute">已是最新版本</p>
+        <p className={`mt-4 ${emptyClass}`}>已是最新版本</p>
       ) : null}
-    </section>
+    </SurfaceCard>
   );
 }

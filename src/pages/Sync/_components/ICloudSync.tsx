@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 
+import { sectionDescClass, sectionTitleClass, SurfaceCard } from "@/components/common";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -112,11 +113,11 @@ export function ICloudSync() {
 
   return (
     <>
-      <section className="flex flex-col gap-4 rounded-lg border border-edge p-5">
+      <SurfaceCard className="flex flex-col gap-4">
         <div className="flex items-start justify-between gap-4">
           <div className="min-w-0 flex flex-col gap-1">
-            <h2 className="text-sm font-medium text-ink-secondary">iCloud 同步</h2>
-            <p className="text-xs leading-relaxed text-ink-mute">
+            <h2 className={sectionTitleClass}>iCloud 同步</h2>
+            <p className={sectionDescClass}>
               开启后，端点配置的添加、修改、删除会自动备份到 iCloud；当 iCloud
               文件有更新时，也会提示同步到本地。仅同步端点配置（含可用模型、映射、快速队列与多密钥），不含统计、设置与
               WebDAV 凭证。
@@ -153,7 +154,7 @@ export function ICloudSync() {
             ) : null}
           </div>
         ) : null}
-      </section>
+      </SurfaceCard>
 
       <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
         <DialogContent className="sm:max-w-md">

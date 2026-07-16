@@ -24,6 +24,7 @@ import { RequestLogsCleanupDialog } from "@/components/business/RequestLogsClean
 import { RANGE_OPTIONS, rangeMs, startOfTodayMs, type RangeKey } from "@/lib/range";
 import { formatDuration, formatTokenK } from "@/lib/format";
 import { statsApi, type RequestLog } from "@/services/modules/stats";
+import { sectionTitleClass, emptyClass, tableHeadClass } from "@/lib/typography";
 
 type Mode = "live" | "ranged";
 
@@ -71,7 +72,7 @@ export function RequestMonitor({ mode, endpointFilter, pageSize = 20, title }: P
   return (
     <section className="flex flex-col gap-3">
       <div className="flex items-start justify-between gap-3">
-        <h2 className="text-sm font-medium text-ink-secondary">
+        <h2 className={sectionTitleClass}>
           {title ?? (mode === "live" ? "实时请求监控" : "端点请求记录")}
         </h2>
         <div className="flex shrink-0 items-center gap-2">
@@ -115,7 +116,7 @@ export function RequestMonitor({ mode, endpointFilter, pageSize = 20, title }: P
       />
 
       {isLoading ? (
-        <p className="text-sm text-ink-mute">加载中…</p>
+        <p className={emptyClass}>加载中…</p>
       ) : (
         <RequestLogTable items={items} />
       )}
@@ -135,22 +136,22 @@ export function RequestMonitor({ mode, endpointFilter, pageSize = 20, title }: P
 /** 纯展示：请求明细表（空态自处理），便于复用与单测。 */
 export function RequestLogTable({ items }: { items: RequestLog[] }) {
   if (items.length === 0) {
-    return <p className="text-sm text-ink-mute">暂无请求记录</p>;
+    return <p className={emptyClass}>暂无请求记录</p>;
   }
   return (
-    <div className="overflow-hidden rounded-lg border border-edge">
+    <div className="overflow-hidden rounded-lg border border-edge-subtle bg-surface-card">
       <table className="w-full text-sm">
         <thead>
-          <tr className="border-b border-edge text-xs text-ink-secondary">
-            <th className="px-3 py-2 text-left font-medium">时间</th>
-            <th className="px-3 py-2 text-left font-medium">端点</th>
-            <th className="px-3 py-2 text-left font-medium">模型</th>
-            <th className="px-3 py-2 text-left font-medium">入站</th>
-            <th className="px-3 py-2 text-left font-medium">出站</th>
-            <th className="w-[5.5rem] px-3 py-2 text-left font-medium">状态</th>
-            <th className="px-3 py-2 text-right font-medium">用时</th>
-            <th className="px-3 py-2 text-right font-medium">首字</th>
-            <th className="px-3 py-2 text-right font-medium">Token</th>
+          <tr className="border-b border-edge-subtle">
+            <th className={`px-3 py-2 text-left ${tableHeadClass}`}>时间</th>
+            <th className={`px-3 py-2 text-left ${tableHeadClass}`}>端点</th>
+            <th className={`px-3 py-2 text-left ${tableHeadClass}`}>模型</th>
+            <th className={`px-3 py-2 text-left ${tableHeadClass}`}>入站</th>
+            <th className={`px-3 py-2 text-left ${tableHeadClass}`}>出站</th>
+            <th className={`w-[5.5rem] px-3 py-2 text-left ${tableHeadClass}`}>状态</th>
+            <th className={`px-3 py-2 text-right ${tableHeadClass}`}>用时</th>
+            <th className={`px-3 py-2 text-right ${tableHeadClass}`}>首字</th>
+            <th className={`px-3 py-2 text-right ${tableHeadClass}`}>Token</th>
           </tr>
         </thead>
         <tbody>

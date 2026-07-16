@@ -55,6 +55,7 @@ import {
 import type { EndpointView } from "@/stores";
 import { ModelMappingDialog } from "./ModelMappingDialog";
 import { TestBadge } from "./TestBadge";
+import { emptyClass } from "@/lib/typography";
 
 const errMsg = (e: unknown) => (e instanceof Error ? e.message : String(e));
 
@@ -392,7 +393,7 @@ export function EndpointCard({
       </HoverCardTrigger>
       <HoverCardContent side="top" className="scrollbar-none max-h-60 w-56 overflow-auto">
         {displayModels.length === 0 ? (
-          <span className="text-sm text-ink-mute">无已配置模型</span>
+          <span className={emptyClass}>无已配置模型</span>
         ) : (
           <div className="flex flex-col gap-1">
             <span className="mb-0.5 text-xs text-ink-secondary">模型（{displayModels.length}）</span>

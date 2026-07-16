@@ -2,7 +2,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { ArrowDownIcon } from "lucide-react";
 import { toast } from "sonner";
 
-import { PageShell } from "@/components/common";
+import { emptyClass, PageShell, SurfaceCard } from "@/components/common";
 import { Button } from "@/components/ui/button";
 import { configApi } from "@/services/modules/config";
 import { logsApi, type LogLine } from "@/services/modules/logs";
@@ -149,14 +149,14 @@ export function Logs() {
       contentScrollable={false}
       contentClassName="relative flex flex-col"
     >
-      <div className="relative flex-1 overflow-hidden">
+      <SurfaceCard as="div" padding="none" className="relative min-h-0 flex-1 overflow-hidden">
         <div
           ref={scrollRef}
           onScroll={onScroll}
-          className="h-full overflow-y-auto px-1 py-2"
+          className="h-full overflow-y-auto px-3 py-3"
         >
           {filtered.length === 0 ? (
-            <p className="px-2 text-sm text-ink-mute">
+            <p className={`px-2 ${emptyClass}`}>
               {lines.length === 0 ? "暂无日志" : "无匹配日志"}
             </p>
           ) : (
@@ -177,7 +177,7 @@ export function Logs() {
             <ArrowDownIcon className="size-4" /> 回到底部
           </Button>
         )}
-      </div>
+      </SurfaceCard>
     </PageShell>
   );
 }

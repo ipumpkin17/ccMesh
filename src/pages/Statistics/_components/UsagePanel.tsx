@@ -16,6 +16,7 @@ import {
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { RANGE_OPTIONS, rangeDates, startOfTodayMs, type RangeKey } from "@/lib/range";
 import { usageApi, type DayModelUsage, type UsageAppFilter } from "@/services/modules/usage";
+import { sectionTitleClass, emptyClass, tableHeadClass } from "@/lib/typography";
 
 const APP_TABS: { key: UsageAppFilter; label: string }[] = [
   { key: "all", label: "全部" },
@@ -165,21 +166,21 @@ function DayModelTable({ rows }: { rows: DayModelUsage[] }) {
   const groups = groupByDate(rows);
   return (
     <section className="flex flex-col gap-2">
-      <h2 className="text-sm font-medium text-ink-secondary">按日期 · 模型</h2>
+      <h2 className={sectionTitleClass}>按日期 · 模型</h2>
       {rows.length === 0 ? (
-        <p className="text-sm text-ink-mute">暂无用量数据</p>
+        <p className={emptyClass}>暂无用量数据</p>
       ) : (
-        <div className="overflow-hidden rounded-lg border border-edge">
+        <div className="overflow-hidden rounded-lg border border-edge-subtle bg-surface-card">
           <table className="w-full text-sm">
             <thead>
-              <tr className="border-b border-edge text-xs text-ink-secondary">
-                <th className="px-3 py-2 text-left font-medium">日期</th>
-                <th className="px-3 py-2 text-left font-medium">来源</th>
-                <th className="px-3 py-2 text-left font-medium">模型</th>
-                <th className="px-3 py-2 text-right font-medium">请求</th>
-                <th className="px-3 py-2 text-right font-medium">输入</th>
-                <th className="px-3 py-2 text-right font-medium">输出</th>
-                <th className="px-3 py-2 text-right font-medium">缓存</th>
+              <tr className="border-b border-edge-subtle">
+                <th className={`px-3 py-2 text-left ${tableHeadClass}`}>日期</th>
+                <th className={`px-3 py-2 text-left ${tableHeadClass}`}>来源</th>
+                <th className={`px-3 py-2 text-left ${tableHeadClass}`}>模型</th>
+                <th className={`px-3 py-2 text-right ${tableHeadClass}`}>请求</th>
+                <th className={`px-3 py-2 text-right ${tableHeadClass}`}>输入</th>
+                <th className={`px-3 py-2 text-right ${tableHeadClass}`}>输出</th>
+                <th className={`px-3 py-2 text-right ${tableHeadClass}`}>缓存</th>
               </tr>
             </thead>
             <tbody>

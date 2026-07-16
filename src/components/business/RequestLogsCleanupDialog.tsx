@@ -10,6 +10,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { statsApi } from "@/services/modules/stats";
+import { metaClass } from "@/lib/typography";
 
 const errMsg = (e: unknown) => (e instanceof Error ? e.message : String(e));
 
@@ -54,9 +55,9 @@ export function RequestLogsCleanupDialog({
         <div className="flex flex-col gap-3 text-sm text-ink-secondary">
           <p>系统自动清理超过 {retentionLabel} 的记录，你也可以立即执行清理。</p>
 
-          <div className="rounded-lg border border-edge p-3">
+          <div className="rounded-lg border border-edge-subtle bg-surface-raised p-3">
             <div className="font-medium text-foreground">清理过期记录</div>
-            <p className="mt-1 text-xs text-ink-mute">删除 {expiredLabel} 的请求明细，等价于立即触发自动清理。</p>
+            <p className={`mt-1 ${metaClass}`}>删除 {expiredLabel} 的请求明细，等价于立即触发自动清理。</p>
             <Button
               className="mt-3"
               size="sm"
@@ -70,7 +71,7 @@ export function RequestLogsCleanupDialog({
 
           <div className="rounded-lg border border-destructive/40 p-3">
             <div className="font-medium text-destructive">清空全部明细</div>
-            <p className="mt-1 text-xs text-ink-mute">删除全部请求明细，不可恢复；统计汇总不会归零。</p>
+            <p className={`mt-1 ${metaClass}`}>删除全部请求明细，不可恢复；统计汇总不会归零。</p>
             <Button
               className="mt-3"
               size="sm"

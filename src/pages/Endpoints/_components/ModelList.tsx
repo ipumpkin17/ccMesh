@@ -1,6 +1,8 @@
 import { InfoIcon } from "lucide-react";
 import { toast } from "sonner";
 
+import { emptyClass, metaClass, sectionTitleClass, SurfaceCard } from "@/components/common";
+import { cn } from "@/lib/utils";
 import { Badge } from "@/components/ui/badge";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { useEndpoints } from "@/hooks/useEndpoints";
@@ -40,8 +42,8 @@ export function ModelList() {
       .catch(() => toast.error("复制失败"));
 
   return (
-    <section className="flex h-full flex-col gap-3 rounded-lg border border-edge p-4">
-      <h2 className="flex shrink-0 items-center gap-1.5 text-sm font-medium text-ink-secondary">
+    <SurfaceCard padding="md" className="flex h-full flex-col gap-3">
+      <h2 className={cn(sectionTitleClass, "flex shrink-0 items-center gap-1.5")}>
         可用模型
         <Tooltip>
           <TooltipTrigger asChild>
@@ -51,12 +53,12 @@ export function ModelList() {
         </Tooltip>
       </h2>
       {groups.length === 0 ? (
-        <p className="text-sm text-ink-mute">暂无模型（在端点中配置模型清单或锁定模型）</p>
+        <p className={emptyClass}>暂无模型（在端点中配置模型清单或锁定模型）</p>
       ) : (
         <div className="scrollbar-none flex min-h-0 flex-1 flex-col gap-3 overflow-y-auto pr-1">
           {groups.map((g) => (
             <div key={g.name} className="flex flex-col gap-1.5">
-              <span className="text-xs text-ink-mute">
+              <span className={metaClass}>
                 {g.name} <span className="text-ink-disabled">({g.models.length})</span>
               </span>
               <div className="flex flex-wrap gap-2">
@@ -87,6 +89,6 @@ export function ModelList() {
           ))}
         </div>
       )}
-    </section>
+    </SurfaceCard>
   );
 }

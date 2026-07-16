@@ -4,6 +4,7 @@ import { SettingCard } from "@/components/settings";
 import { Input } from "@/components/ui/input";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import type { AppConfig } from "@/services/modules/config";
+import { bodyClass } from "@/lib/typography";
 
 const OPENAI_UA_HINT = "codex_cli_rs/0.114.0 (Mac OS 14.2.0; x86_64) vscode/1.111.0";
 const CLAUDE_UA_HINT = "claude-cli/2.1.185 (external, sdk-cli)";
@@ -11,7 +12,7 @@ const CLAUDE_UA_HINT = "claude-cli/2.1.185 (external, sdk-cli)";
 function UaFieldLabel({ label, hint }: { label: string; hint: string }) {
   return (
     <div className="flex items-center gap-1.5">
-      <span className="text-sm text-ink-primary">{label}</span>
+      <span className={bodyClass}>{label}</span>
       <Tooltip>
         <TooltipTrigger asChild>
           <button

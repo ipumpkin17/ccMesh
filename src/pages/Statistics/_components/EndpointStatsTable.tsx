@@ -1,5 +1,6 @@
 import { TabularText } from "@/components/ui";
 import type { EndpointStat } from "@/services/modules/stats";
+import { emptyClass, tableHeadClass } from "@/lib/typography";
 
 interface Props {
   rows: EndpointStat[];
@@ -8,20 +9,20 @@ interface Props {
 /** 每端点统计明细表。 */
 export function EndpointStatsTable({ rows }: Props) {
   if (rows.length === 0) {
-    return <p className="text-sm text-ink-mute">该周期暂无数据</p>;
+    return <p className={emptyClass}>该周期暂无数据</p>;
   }
   return (
-    <div className="overflow-hidden rounded-lg border border-edge">
+    <div className="overflow-hidden rounded-lg border border-edge-subtle bg-surface-card">
       <table className="w-full text-sm">
         <thead>
-          <tr className="border-b border-edge text-xs text-ink-secondary">
-            <th className="px-4 py-2 text-left font-medium">端点</th>
-            <th className="px-4 py-2 text-right font-medium">请求</th>
-            <th className="px-4 py-2 text-right font-medium">错误</th>
-            <th className="px-4 py-2 text-right font-medium">输入 Token</th>
-            <th className="px-4 py-2 text-right font-medium">输出 Token</th>
-            <th className="px-4 py-2 text-right font-medium">缓存创建</th>
-            <th className="px-4 py-2 text-right font-medium">缓存读取</th>
+          <tr className="border-b border-edge-subtle">
+            <th className={`px-4 py-2 text-left ${tableHeadClass}`}>端点</th>
+            <th className={`px-4 py-2 text-right ${tableHeadClass}`}>请求</th>
+            <th className={`px-4 py-2 text-right ${tableHeadClass}`}>错误</th>
+            <th className={`px-4 py-2 text-right ${tableHeadClass}`}>输入 Token</th>
+            <th className={`px-4 py-2 text-right ${tableHeadClass}`}>输出 Token</th>
+            <th className={`px-4 py-2 text-right ${tableHeadClass}`}>缓存创建</th>
+            <th className={`px-4 py-2 text-right ${tableHeadClass}`}>缓存读取</th>
           </tr>
         </thead>
         <tbody>

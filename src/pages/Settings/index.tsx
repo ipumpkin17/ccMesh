@@ -3,7 +3,7 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { disable, enable } from "@tauri-apps/plugin-autostart";
 import { toast } from "sonner";
 
-import { PageShell } from "@/components/common";
+import { emptyClass, PageShell } from "@/components/common";
 import { SettingsGrid } from "@/components/settings";
 import { useAutostartEnabled } from "@/hooks/useAutostartEnabled";
 import { configApi } from "@/services/modules/config";
@@ -59,7 +59,7 @@ export function Settings() {
   if (!cfg) {
     return (
       <PageShell title="设置">
-        <p className="text-sm text-ink-mute">加载中…</p>
+        <p className={emptyClass}>加载中…</p>
       </PageShell>
     );
   }

@@ -3,6 +3,7 @@ import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { DownloadIcon, UploadIcon } from "lucide-react";
 import { toast } from "sonner";
 
+import { sectionDescClass, sectionTitleClass, SurfaceCard } from "@/components/common";
 import { Button } from "@/components/ui/button";
 import {
   Select,
@@ -43,9 +44,9 @@ export function LocalBackup() {
   const busy = exportM.isPending || importM.isPending;
 
   return (
-    <section className="flex flex-col gap-3">
-      <h2 className="text-sm font-medium text-ink-secondary">本地备份 / 配置迁移</h2>
-      <p className="text-xs text-ink-mute">
+    <SurfaceCard className="flex flex-col gap-3">
+      <h2 className={sectionTitleClass}>本地备份 / 配置迁移</h2>
+      <p className={sectionDescClass}>
         导出端点(含多密钥)与应用设置为 JSON，用于换机迁移。文件含明文 API Key，请妥善保管；不含 WebDAV 同步密码。
       </p>
       <div className="flex flex-wrap items-center gap-2">
@@ -59,7 +60,7 @@ export function LocalBackup() {
         </Button>
         <div className="flex items-center gap-2">
           <Select value={strategy} onValueChange={(v) => setStrategy(v as ImportStrategy)}>
-            <SelectTrigger className="h-8 w-32">
+            <SelectTrigger size="sm" className="w-32">
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
@@ -77,6 +78,6 @@ export function LocalBackup() {
           </Button>
         </div>
       </div>
-    </section>
+    </SurfaceCard>
   );
 }

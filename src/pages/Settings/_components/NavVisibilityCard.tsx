@@ -3,6 +3,7 @@ import { LayoutList } from "lucide-react";
 import { SettingCard, SettingDescRow } from "@/components/settings";
 import { Switch } from "@/components/ui/switch";
 import { NAV_ITEMS } from "@/layouts/navConfig";
+import { sectionDescClass } from "@/lib/typography";
 import {
   NAV_PAGE_IDS,
   useLayoutStore,
@@ -16,7 +17,7 @@ export function NavVisibilityCard() {
 
   return (
     <SettingCard icon={LayoutList} title="导航显示">
-      <p className="text-xs leading-relaxed text-ink-mute">
+      <p className={sectionDescClass}>
         控制侧边栏/顶部导航中的业务页是否显示。设置与关于始终保留；至少保留一个业务页。
       </p>
       {NAV_ITEMS.map((item) => {

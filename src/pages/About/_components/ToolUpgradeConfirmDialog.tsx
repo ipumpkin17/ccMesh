@@ -31,11 +31,11 @@ export function ToolUpgradeConfirmDialog({
     <Dialog open={open} onOpenChange={(v) => !v && onCancel()}>
       <DialogContent className="max-w-md">
         <DialogHeader>
-          <DialogTitle className="flex items-center gap-2 text-base">
+          <DialogTitle className="flex items-center gap-2">
             <AlertTriangleIcon className="size-5 text-warning" />
             确认升级目标
           </DialogTitle>
-          <DialogDescription className="text-sm leading-relaxed">
+          <DialogDescription className="leading-relaxed">
             检测到多处安装。升级只会写入命令行默认命中的那一处，其余安装不会改动。
           </DialogDescription>
         </DialogHeader>

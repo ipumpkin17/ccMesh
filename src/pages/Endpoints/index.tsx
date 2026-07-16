@@ -1,6 +1,6 @@
 import { useMemo, useState } from "react";
 
-import { PageShell } from "@/components/common";
+import { emptyClass, PageShell, SurfaceCard } from "@/components/common";
 import { useEndpoints } from "@/hooks/useEndpoints";
 import { useEndpointHealthEvents } from "@/hooks/useEndpointHealth";
 import type { Endpoint } from "@/services/modules/endpoint";
@@ -58,11 +58,11 @@ export function Endpoints() {
       >
         {/* 端点列表自适应剩余宽度，右侧统计栏保持固定宽度 */}
         <div className="flex min-h-0 flex-1 gap-4">
-          <div className="scrollbar-none min-h-0 min-w-0 flex-1 overflow-y-auto rounded-lg border border-edge bg-surface p-4">
+          <SurfaceCard as="div" padding="md" className="scrollbar-none min-h-0 min-w-0 flex-1 overflow-y-auto">
             {isLoading ? (
-              <p className="text-sm text-ink-mute">加载中…</p>
+              <p className={emptyClass}>加载中…</p>
             ) : filtered.length === 0 ? (
-              <p className="text-sm text-ink-mute">暂无端点，点击「新建端点」添加。</p>
+              <p className={emptyClass}>暂无端点，点击「新建端点」添加。</p>
             ) : (
               <DnDList
                 endpoints={filtered}
@@ -73,7 +73,7 @@ export function Endpoints() {
                 onEdit={openEdit}
               />
             )}
-          </div>
+          </SurfaceCard>
 
           {/* 右栏：端点统计 + 可用模型，顶部与中栏端点列表卡片对齐 */}
           <EndpointSidebar />

@@ -17,6 +17,7 @@ import { toast } from "sonner";
 import piLogoUrl from "@/assets/svg/about/pi-logo.svg";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
+import { sectionTitleClass } from "@/lib/typography";
 import { isUpdateAvailable } from "@/lib/version";
 import {
   toolEnvApi,
@@ -374,7 +375,7 @@ export function LocalEnvCheck() {
     <section className="flex flex-col gap-4">
       <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <h2 className="text-sm font-medium text-ink-primary">本地环境检查</h2>
+          <h2 className={sectionTitleClass}>本地环境检查</h2>
         </div>
         <div className="flex flex-wrap gap-2">
           <Button

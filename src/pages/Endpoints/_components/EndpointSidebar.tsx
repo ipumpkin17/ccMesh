@@ -2,6 +2,7 @@ import { useMemo, useState } from "react";
 import { ArchiveIcon } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
 
+import { metaClass, sectionTitleClass, SurfaceCard } from "@/components/common";
 import { Button } from "@/components/ui/button";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { useEndpoints } from "@/hooks/useEndpoints";
@@ -43,9 +44,9 @@ export function EndpointSidebar() {
     <>
       <aside className="flex min-h-0 w-64 shrink-0 flex-col gap-4">
         {/* 端点统计 */}
-        <section className="shrink-0 rounded-lg border border-edge bg-surface p-4">
+        <SurfaceCard padding="md" className="shrink-0">
           <div className="mb-3 flex items-center justify-between">
-            <h2 className="text-sm font-medium text-ink-secondary">端点统计</h2>
+            <h2 className={sectionTitleClass}>端点统计</h2>
             <Tooltip>
               <TooltipTrigger asChild>
                 <Button
@@ -66,23 +67,23 @@ export function EndpointSidebar() {
           </div>
           <dl className="grid grid-cols-3 gap-2 text-center">
             <div className="flex flex-col gap-0.5">
-              <dt className="text-xs text-ink-mute">总数</dt>
+              <dt className={metaClass}>总数</dt>
               <dd className="text-lg font-medium tabular text-ink-primary">{stats.total}</dd>
             </div>
             <div className="flex flex-col gap-0.5">
-              <dt className="text-xs text-ink-mute">启用</dt>
+              <dt className={metaClass}>启用</dt>
               <dd className="text-lg font-medium tabular text-success">{stats.enabled}</dd>
             </div>
             <div className="flex flex-col gap-0.5">
-              <dt className="text-xs text-ink-mute">禁用</dt>
+              <dt className={metaClass}>禁用</dt>
               <dd className="text-lg font-medium tabular text-ink-disabled">{stats.disabled}</dd>
             </div>
           </dl>
           <div className="mt-3 flex items-center justify-between border-t border-edge-subtle pt-3 text-xs">
-            <span className="text-ink-mute">可用模型</span>
+            <span className={metaClass}>可用模型</span>
             <span className="tabular font-medium text-ink-secondary">{stats.modelCount}</span>
           </div>
-        </section>
+        </SurfaceCard>
 
         {/* 可用模型（按端点）：标题固定、内容内部滚动 */}
         <div className="flex min-h-0 flex-1 flex-col">

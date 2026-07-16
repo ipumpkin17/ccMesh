@@ -34,6 +34,7 @@ import { statsApi } from "@/services/modules/stats";
 import { useLayoutStore } from "@/stores";
 import { ProxyScene } from "./ProxyScene";
 import { appendFastId, removeFastId, reorderFastIds, splitEndpointQueues } from "./fastQueue";
+import { panelTitleClass, emptyClass, metaClass } from "@/lib/typography";
 
 type QueueStatus = "success" | "danger" | "warning" | "info" | "idle";
 
@@ -132,7 +133,7 @@ function QueueSection({
   return (
     <div className="flex flex-col gap-2">
       {endpoints.length === 0 ? (
-        <p className="text-sm text-ink-mute">{empty}</p>
+        <p className={emptyClass}>{empty}</p>
       ) : (
         <ul className="flex flex-wrap gap-2">
           {endpoints.map((endpoint) => (
@@ -172,7 +173,7 @@ function DraggableEndpointCard({
       ref={ref}
       onDoubleClick={onDoubleClick}
       className={cn(
-        "flex cursor-grab select-none items-center gap-2.5 rounded-lg border border-edge bg-card px-3 py-2.5 text-sm shadow-sm transition-all active:cursor-grabbing",
+        "flex cursor-grab select-none items-center gap-2.5 rounded-lg border border-edge-subtle bg-surface-card px-3 py-2.5 text-sm transition-all active:cursor-grabbing",
         isDragging ? "opacity-40 shadow-lg" : "hover:border-edge-strong hover:shadow-md",
       )}
       title={
@@ -216,7 +217,7 @@ function FastSortableEndpointCard({
       ref={ref}
       onDoubleClick={onDoubleClick}
       className={cn(
-        "flex cursor-grab select-none items-center gap-2.5 rounded-lg border border-edge bg-card px-3 py-2.5 text-sm shadow-sm transition-all active:cursor-grabbing",
+        "flex cursor-grab select-none items-center gap-2.5 rounded-lg border border-edge-subtle bg-surface-card px-3 py-2.5 text-sm transition-all active:cursor-grabbing",
         isDragging && "opacity-40 shadow-lg",
         isDropTarget && "ring-2 ring-primary/50",
         !isDragging && "hover:border-edge-strong hover:shadow-md",
@@ -264,7 +265,7 @@ function FastQueueTransfer({
         )}
       >
         <div className="sticky top-0 z-10 flex items-center gap-2 rounded-t-lg border-b border-edge-subtle bg-surface-card px-4 py-3">
-          <h3 className="text-sm font-medium text-ink-primary">快速队列</h3>
+          <h3 className={panelTitleClass}>快速队列</h3>
           <Popover>
             <PopoverTrigger asChild>
               <button
@@ -291,7 +292,7 @@ function FastQueueTransfer({
         <div className="flex-1 overflow-y-auto p-4 scrollbar-none">
           {fastQueue.length === 0 ? (
             <div className="flex h-full items-center justify-center rounded-lg border-2 border-dashed border-edge-subtle bg-surface/40 p-6">
-              <p className="text-center text-sm text-ink-mute">
+              <p className={`text-center ${emptyClass}`}>
                 从右侧拖入启用端点
                 <br />
                 或双击右侧端点加入快速队列
@@ -323,7 +324,7 @@ function FastQueueTransfer({
         )}
       >
         <div className="sticky top-0 z-10 flex items-center gap-2 rounded-t-lg border-b border-edge-subtle bg-surface-card px-4 py-3">
-          <h3 className="text-sm font-medium text-ink-primary">启用队列</h3>
+          <h3 className={panelTitleClass}>启用队列</h3>
           <span className="ml-auto rounded-md bg-surface-raised px-2 py-0.5 text-xs">
             <TabularText>{enabledQueue.length}</TabularText>
           </span>
@@ -331,7 +332,7 @@ function FastQueueTransfer({
         <div className="flex-1 overflow-y-auto p-4 scrollbar-none">
           {enabledQueue.length === 0 ? (
             <div className="flex h-full items-center justify-center rounded-lg border-2 border-dashed border-edge-subtle bg-surface/40 p-6">
-              <p className="text-center text-sm text-ink-mute">
+              <p className={`text-center ${emptyClass}`}>
                 启用队列暂无可加入
                 <br />
                 快速队列的端点
@@ -528,8 +529,8 @@ export function ServiceCard() {
           <CardContent className="flex flex-col gap-3 px-5 py-4">
             <div className="flex items-center justify-between gap-2">
               <div className="flex items-center gap-2">
-                <h3 className="text-sm font-medium text-ink-primary">端点队列</h3>
-                <span className="text-xs text-ink-mute">
+                <h3 className={panelTitleClass}>端点队列</h3>
+                <span className={metaClass}>
                   <TabularText>{allQueueEndpoints.length}</TabularText>
                 </span>
               </div>

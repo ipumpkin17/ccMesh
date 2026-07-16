@@ -3,6 +3,7 @@ import { CloudUploadIcon, DownloadIcon, Trash2Icon } from "lucide-react";
 import { toast } from "sonner";
 
 import { TabularText } from "@/components/ui";
+import { emptyClass, sectionTitleClass, SurfaceCard, tableHeadClass } from "@/components/common";
 import { Button } from "@/components/ui/button";
 import { webdavApi } from "@/services/modules/webdav";
 
@@ -45,27 +46,27 @@ export function BackupList() {
   const list = backups.data ?? [];
 
   return (
-    <section className="flex flex-col gap-3">
+    <SurfaceCard className="flex flex-col gap-4">
       <div className="flex items-center justify-between">
-        <h2 className="text-sm font-medium text-ink-secondary">云端备份</h2>
+        <h2 className={sectionTitleClass}>云端备份</h2>
         <Button size="sm" onClick={() => backup.mutate()} disabled={backup.isPending}>
           <CloudUploadIcon className="size-4" /> 立即备份
         </Button>
       </div>
 
       {backups.isError ? (
-        <p className="text-sm text-ink-mute">无法连接 WebDAV，请先在上方配置并保存。</p>
+        <p className={emptyClass}>无法连接 WebDAV，请先在上方配置并保存。</p>
       ) : list.length === 0 ? (
-        <p className="text-sm text-ink-mute">暂无备份</p>
+        <p className={emptyClass}>暂无备份</p>
       ) : (
-        <div className="overflow-hidden rounded-lg border border-edge">
+        <div className="overflow-hidden rounded-lg border border-edge-subtle bg-surface-raised">
           <table className="w-full text-sm">
             <thead>
-              <tr className="border-b border-edge text-xs text-ink-secondary">
-                <th className="px-4 py-2 text-left font-medium">文件</th>
-                <th className="px-4 py-2 text-right font-medium">大小</th>
-                <th className="px-4 py-2 text-left font-medium">时间</th>
-                <th className="px-4 py-2 text-right font-medium">操作</th>
+              <tr className="border-b border-edge-subtle">
+                <th className={`px-4 py-2 text-left ${tableHeadClass}`}>文件</th>
+                <th className={`px-4 py-2 text-right ${tableHeadClass}`}>大小</th>
+                <th className={`px-4 py-2 text-left ${tableHeadClass}`}>时间</th>
+                <th className={`px-4 py-2 text-right ${tableHeadClass}`}>操作</th>
               </tr>
             </thead>
             <tbody>
@@ -106,6 +107,6 @@ export function BackupList() {
           </table>
         </div>
       )}
-    </section>
+    </SurfaceCard>
   );
 }

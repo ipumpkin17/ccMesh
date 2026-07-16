@@ -3,6 +3,7 @@ import type { ReactNode } from "react";
 import { TabularText } from "@/components/ui";
 import { Card, CardContent } from "@/components/ui/card";
 import { formatTokenCompact } from "@/lib/format";
+import { metaClass } from "@/lib/typography";
 
 interface Props {
   label: string;
@@ -17,7 +18,7 @@ export function StatCard({ label, value, hint, hintBelow = false }: Props) {
   return (
     <Card>
       <CardContent className="flex flex-col gap-1.5 px-5 py-4">
-        <span className="text-xs text-ink-secondary">{label}</span>
+        <span className={metaClass}>{label}</span>
         <div
           className={
             hintBelow
@@ -40,6 +41,6 @@ export function StatCard({ label, value, hint, hintBelow = false }: Props) {
 export function TokenHint({ value }: { value: number }) {
   if (value < 1e4) return null;
   return (
-    <span className="text-xs text-ink-secondary">{formatTokenCompact(value)}</span>
+    <span className={metaClass}>{formatTokenCompact(value)}</span>
   );
 }
