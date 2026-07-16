@@ -14,12 +14,15 @@ const line: LogLine = {
 
 describe("LogRow", () => {
   it("渲染等级/时间/完整来源/message/字段", () => {
-    render(<LogRow line={line} keyword="" />);
+    const { container } = render(<LogRow line={line} keyword="" />);
     expect(screen.getByText("INFO")).toBeInTheDocument();
     expect(screen.getByText("10:00:00.123")).toBeInTheDocument();
     expect(screen.getByText("已应用数据库迁移")).toBeInTheDocument();
     expect(screen.getByText("4")).toBeInTheDocument();
     expect(screen.getByText(/storage::migration/)).toBeInTheDocument();
+    expect(container.querySelector("article > div")).not.toHaveClass(
+      "line-clamp-2",
+    );
   });
 
   it("关键字命中高亮为 mark", () => {

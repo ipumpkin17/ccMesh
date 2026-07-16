@@ -47,7 +47,7 @@ const MESSAGE_TONE: Record<string, string> = {
   WARN: "text-warning",
 };
 
-/** 两行内 inline 流式展示：meta · target · message · fields（超出 line-clamp-2，title 补全）。 */
+/** inline 流式展示完整日志：meta · target · message · fields。 */
 export function LogRow({ line, keyword }: { line: LogLine; keyword: string }) {
   const variant = LEVEL_VARIANT[line.level] ?? "muted";
   const dot = LEVEL_DOT[line.level] ?? "idle";
@@ -62,7 +62,7 @@ export function LogRow({ line, keyword }: { line: LogLine; keyword: string }) {
         CARD_BORDER[line.level] ?? "border-edge-subtle",
       )}
     >
-      <div className="line-clamp-2 text-[11px] leading-snug break-all">
+      <div className="text-[11px] leading-snug break-all">
         <span className="mr-1 inline-flex items-center gap-1 align-baseline whitespace-nowrap">
           <StatusDot status={dot} className="size-1.5 shrink-0" />
           <Badge
