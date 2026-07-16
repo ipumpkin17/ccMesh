@@ -277,7 +277,7 @@ mod tests {
         let dir = std::env::temp_dir();
         let pid = std::process::id();
         let backup_path = dir.join(format!("ccx_v13_{pid}.db"));
-        let target_path = dir.join(format!("ccx_v15_target_{pid}.db"));
+        let target_path = dir.join(format!("ccx_v16_target_{pid}.db"));
         for path in [&backup_path, &target_path] {
             let _ = std::fs::remove_file(path);
         }

@@ -72,6 +72,8 @@ pub struct ConfigBundle {
     pub kind: String,
     pub version: u32,
     pub app_version: String,
+    /// 仅用于展示导出时间，旧版导出文件可能缺失，不影响导入。
+    #[serde(default)]
     pub exported_at: String,
     pub endpoints: Vec<EndpointExport>,
     /// 仅迁移白名单配置键（不含 device_id / webdav_* 同步凭证）。

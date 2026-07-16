@@ -590,12 +590,11 @@ mod tests {
     }
 
     #[test]
-    fn legacy_v1_import_generates_endpoint_id() {
+    fn legacy_v1_import_without_exported_at_generates_endpoint_id() {
         let bundle: ConfigBundle = serde_json::from_value(serde_json::json!({
             "type": "ccmesh-config",
             "version": 1,
             "appVersion": "0.2.1",
-            "exportedAt": "2026-07-16T09:24:22+08:00",
             "endpoints": [{
                 "name": "UF - grok",
                 "apiUrl": "http://ssss",
@@ -628,6 +627,7 @@ mod tests {
             }]
         }))
         .unwrap();
+        assert!(bundle.exported_at.is_empty());
         let mut dst = db();
 
         import_config_bundle(&mut dst, &bundle, false).unwrap();

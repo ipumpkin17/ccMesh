@@ -168,6 +168,15 @@ const MIGRATIONS: &[&str] = &[
 
     ALTER TABLE request_logs ADD COLUMN endpoint_id TEXT NOT NULL DEFAULT '';
     CREATE INDEX idx_request_logs_endpoint_id ON request_logs(endpoint_id);",
+    // v16：修复历史库结构不完整时缺失的多凭证表，保证旧版 WebDAV 备份可迁移后合并。
+    "CREATE TABLE IF NOT EXISTS endpoint_credentials (
+        id           INTEGER PRIMARY KEY AUTOINCREMENT,
+        endpoint_id  INTEGER NOT NULL,
+        api_key      TEXT    NOT NULL,
+        enabled      INTEGER NOT NULL DEFAULT 1,
+        sort_order   INTEGER NOT NULL DEFAULT 0,
+        FOREIGN KEY(endpoint_id) REFERENCES endpoints(id) ON DELETE CASCADE
+    );",
 ];
 
 fn backfill_endpoint_uids(conn: &Connection) -> AppResult<()> {
@@ -250,6 +259,30 @@ mod tests {
             )
             .unwrap();
         assert_eq!(n, 3);
+    }
+
+    #[test]
+    fn latest_migration_restores_missing_endpoint_credentials_table() {
+        let c = Connection::open_in_memory().unwrap();
+        run_migrations(&c).unwrap();
+        c.execute_batch("DROP TABLE endpoint_credentials;").unwrap();
+        c.execute(
+            "DELETE FROM schema_version WHERE version = ?1",
+            [MIGRATIONS.len() as i64],
+        )
+        .unwrap();
+
+        run_migrations(&c).unwrap();
+
+        let has_table: i64 = c
+            .query_row(
+                "SELECT COUNT(*) FROM sqlite_master
+                 WHERE type = 'table' AND name = 'endpoint_credentials'",
+                [],
+                |r| r.get(0),
+            )
+            .unwrap();
+        assert_eq!(has_table, 1);
     }
 
     #[test]
@@ -435,7 +468,7 @@ mod tests {
                 row.get(0)
             })
             .unwrap();
-        assert_eq!(version, 15);
+        assert_eq!(version, MIGRATIONS.len() as i64);
     }
 
     #[test]
