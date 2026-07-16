@@ -26,7 +26,7 @@ CI 完成后到 GitHub → Releases → 找到 Draft → 点 **Publish release**
 
 - [ ] Release 页面 Assets 里有 msi / dmg / deb / latest.json
 - [ ] 已点 **Publish release**（Draft 状态下 updater 检测不到更新）
-- [ ] 访问 `https://github.com/VkRainB/ccMesh/releases/latest/download/latest.json` 能打开
+- [ ] 访问 `https://github.com/ipumpkin17/ccMesh/releases/latest/download/latest.json` 能打开
 - [ ] 已安装客户端能检测到更新并下载
 
 ---

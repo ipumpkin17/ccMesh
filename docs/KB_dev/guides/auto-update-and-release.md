@@ -9,7 +9,7 @@
 应用内更新已接入，更新源指向 GitHub Releases 的 `latest.json`。
 
 > 更新源：`src-tauri/tauri.conf.json` 中 `plugins.updater.endpoints` 已指向
-> `https://github.com/VkRainB/ccMesh/releases/latest/download/latest.json`。
+> `https://github.com/ipumpkin17/ccMesh/releases/latest/download/latest.json`。
 
 工作机制：CI 构建时生成并上传 `latest.json` 与各平台更新包签名；客户端启动后比对版本拉取更新。
 注意 `latest/download` 仅对**已正式发布**（非草稿、非预发布）的 Release 生效，故需在 GitHub 上手动 Publish 发布草稿后更新才会生效。

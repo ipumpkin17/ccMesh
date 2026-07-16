@@ -1,7 +1,7 @@
 /** @type {import('changelogithub').ChangelogOptions} */
 export default {
-  // 扩展版沿用上游基线，Release 保持草稿，确认说明和安装包后再手动发布。
-  draft: true,
+  // 发布说明写回 tauri-action 创建的 Release；workflow 用 --output，避免再开第二份草稿。
+  draft: false,
   prerelease: false,
   contributors: false,
   emoji: false,

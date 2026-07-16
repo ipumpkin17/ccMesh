@@ -148,7 +148,19 @@ jobs:
           git remote add upstream https://github.com/VkRainB/ccMesh.git
           git fetch --tags upstream
 
+      # changelogithub 默认会再创建一份 Draft Release，导致同 tag 出现两条。
+      # 这里只生成说明文件，再写回 tauri-action 已创建的那条 Release。
       - name: 生成中文发布说明
-        run: npx --yes changelogithub@14.0.0
+        run: npx --yes changelogithub@14.0.0 --output release-notes.md
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: 写回已有 Release 说明
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          if [ ! -s release-notes.md ]; then
+            echo "release-notes.md 为空，跳过写回"
+            exit 0
+          fi
+          gh release edit "${{ github.ref_name }}" --notes-file release-notes.md
