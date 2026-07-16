@@ -9,6 +9,7 @@ import { useAutostartEnabled } from "@/hooks/useAutostartEnabled";
 import { configApi } from "@/services/modules/config";
 import { AdvancedCard } from "./_components/AdvancedCard";
 import { GeneralCard } from "./_components/GeneralCard";
+import { NavVisibilityCard } from "./_components/NavVisibilityCard";
 import { ProxyCard } from "./_components/ProxyCard";
 import { StartupCard } from "./_components/StartupCard";
 
@@ -67,6 +68,7 @@ export function Settings() {
     <PageShell title="设置" contentClassName="flex flex-col gap-6">
       <SettingsGrid>
         <GeneralCard cfg={cfg} save={save} />
+        <NavVisibilityCard />
         <StartupCard
           cfg={cfg}
           save={save}

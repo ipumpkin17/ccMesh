@@ -15,13 +15,15 @@ import {
 } from "@/components/ui/tooltip";
 import { useLayoutStore } from "@/stores";
 import { NavItem } from "./NavItem";
-import { NAV_ITEMS, SETTINGS_ITEM, ABOUT_ITEM } from "./navConfig";
+import { getVisibleNavItems, SETTINGS_ITEM, ABOUT_ITEM } from "./navConfig";
 
 export function SideNav() {
   const sidebarState = useLayoutStore((s) => s.sidebarState);
   const toggleSidebar = useLayoutStore((s) => s.toggleSidebar);
   const setNavMode = useLayoutStore((s) => s.setNavMode);
+  const hiddenNavIds = useLayoutStore((s) => s.hiddenNavIds);
   const collapsed = sidebarState === "collapsed";
+  const navItems = getVisibleNavItems(hiddenNavIds);
 
   return (
     <nav
@@ -44,7 +46,7 @@ export function SideNav() {
 
       <div className="flex-1 overflow-y-auto px-2 py-2">
         <div className="flex flex-col gap-1">
-          {NAV_ITEMS.map((item) => (
+          {navItems.map((item) => (
             <NavItem
               key={item.id}
               item={item}

@@ -6,10 +6,12 @@ import { ThemeToggle, Logo, LangToggle } from "@/components/common";
 import { VersionPopover } from "@/components/business";
 import { useLayoutStore } from "@/stores";
 import { NavItem } from "./NavItem";
-import { NAV_ITEMS, SETTINGS_ITEM, ABOUT_ITEM } from "./navConfig";
+import { getVisibleNavItems, SETTINGS_ITEM, ABOUT_ITEM } from "./navConfig";
 
 export function TopNav() {
   const setNavMode = useLayoutStore((s) => s.setNavMode);
+  const hiddenNavIds = useLayoutStore((s) => s.hiddenNavIds);
+  const navItems = getVisibleNavItems(hiddenNavIds);
   // 顶部导航横向滚动条已隐藏，监听纵向滚轮映射为左右滚动，保持横向列表可操作。
   const navRef = useRef<HTMLElement>(null);
 
@@ -39,7 +41,7 @@ export function TopNav() {
         ref={navRef}
         className="scrollbar-none flex flex-1 items-center gap-1 overflow-x-auto"
       >
-        {NAV_ITEMS.map((item) => (
+        {navItems.map((item) => (
           <NavItem key={item.id} item={item} variant="horizontal" />
         ))}
         <NavItem item={SETTINGS_ITEM} variant="horizontal" />

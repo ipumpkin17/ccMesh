@@ -10,7 +10,7 @@ import {
   InfoIcon,
 } from "lucide-react";
 
-import type { ViewId } from "@/stores";
+import type { NavPageId, ViewId } from "@/stores";
 
 export interface NavItemDef {
   id: ViewId;
@@ -46,3 +46,9 @@ export const ABOUT_ITEM: NavItemDef = {
   labelEn: "About",
   icon: InfoIcon,
 };
+
+/** 按隐藏列表过滤业务导航项。 */
+export function getVisibleNavItems(hiddenNavIds: NavPageId[]): NavItemDef[] {
+  const hidden = new Set(hiddenNavIds);
+  return NAV_ITEMS.filter((item) => !hidden.has(item.id as NavPageId));
+}

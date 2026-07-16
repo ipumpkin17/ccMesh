@@ -1,7 +1,7 @@
 import { lazy, Suspense, useEffect, type ComponentType } from "react";
 
 import { cn } from "@/lib/utils";
-import { useLayoutStore, type ViewId } from "@/stores";
+import { NAV_PAGE_IDS, useLayoutStore, type NavPageId, type ViewId } from "@/stores";
 import { TopNav } from "./TopNav";
 import { SideNav } from "./SideNav";
 import { TitleBar } from "./TitleBar";
@@ -42,6 +42,7 @@ const PAGES: Record<ViewId, ComponentType> = {
 export function AppLayout() {
   const navMode = useLayoutStore((s) => s.navMode);
   const activeView = useLayoutStore((s) => s.activeView);
+  const hiddenNavIds = useLayoutStore((s) => s.hiddenNavIds);
 
   useEffect(() => {
     const mql = window.matchMedia("(max-width: 1024px)");
@@ -54,6 +55,15 @@ export function AppLayout() {
     mql.addEventListener("change", handler);
     return () => mql.removeEventListener("change", handler);
   }, []);
+
+  // 业务页被隐藏后，自动切到第一个可见页
+  useEffect(() => {
+    if (!NAV_PAGE_IDS.includes(activeView as NavPageId)) return;
+    if (!hiddenNavIds.includes(activeView as NavPageId)) return;
+    const fallback =
+      NAV_PAGE_IDS.find((id) => !hiddenNavIds.includes(id)) ?? "settings";
+    useLayoutStore.getState().setActiveView(fallback);
+  }, [activeView, hiddenNavIds]);
 
   const ActivePage = PAGES[activeView];
 
