@@ -95,6 +95,46 @@ pub struct RequestLog {
     pub error_body: Option<String>,
 }
 
+/// 本次代理运行期间的一次上游尝试，仅用于后端按前端所需格数归入时间窗。
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct EndpointQualityAttempt {
+    pub ts: i64,
+    pub success: bool,
+    pub throttled: bool,
+}
+
+/// 按调用方指定格数切分的一格端点质量时间窗。
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct EndpointQualityBlock {
+    pub start_ms: i64,
+    pub total: i64,
+    pub success_count: i64,
+    pub throttled_count: i64,
+    pub failed_count: i64,
+}
+
+/// 单端点最近真实上游尝试的质量概览，供端点卡片展示色块和摘要指标。
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct EndpointQuality {
+    pub endpoint_id: String,
+    pub endpoint_name: String,
+    /// 本次代理成功启动时间（Unix 毫秒）。代理未运行时为空。
+    pub started_at_ms: Option<i64>,
+    /// 最近 1 小时可视时间轴的起止时间与单格时长，单格数由调用方指定。
+    pub window_start_ms: i64,
+    pub window_end_ms: i64,
+    pub bucket_ms: i64,
+    pub total: i64,
+    pub success_count: i64,
+    pub failure_count: i64,
+    pub success_rate: Option<f64>,
+    pub avg_latency_ms: Option<i64>,
+    pub blocks: Vec<EndpointQualityBlock>,
+}
+
 /// 请求明细分页结果。
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]

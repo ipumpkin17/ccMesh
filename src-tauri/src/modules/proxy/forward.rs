@@ -17,7 +17,7 @@ use crate::models::endpoint::Endpoint;
 use crate::modules::proxy::circuit_breaker::{self, BreakerRegistry};
 use crate::modules::proxy::resolver;
 use crate::modules::proxy::rotation::{self, Rotation};
-use crate::modules::stats::aggregator::{RequestRecord, StatsAggregator};
+use crate::modules::stats::aggregator::{EndpointQualityRecord, RequestRecord, StatsAggregator};
 use crate::modules::storage::{db::DbPool, endpoint_repo};
 use crate::modules::transform::claude_openai::openai_response_to_claude;
 use crate::modules::transform::reasoning_effort::{
@@ -649,6 +649,7 @@ pub async fn handle_proxy(
             );
         }
 
+        let attempt_started = Instant::now();
         let token = st.active.start(&ep.uid);
         let result = tokio::select! {
             r = send_upstream(&st, &ep, &method, upstream_path, &headers, &attempt_body) => Some(r),
@@ -668,6 +669,12 @@ pub async fn handle_proxy(
             }
             Some(Ok(resp)) => {
                 let status = resp.status().as_u16();
+                st.stats.record_endpoint_attempt(EndpointQualityRecord {
+                    endpoint_id: ep.uid.clone(),
+                    status_code: Some(status as i64),
+                    success: status == 200,
+                    latency_ms: Some(attempt_started.elapsed().as_millis() as i64),
+                });
                 // 成功响应降噪到 DEBUG；非 200 保留 INFO 以保证上游错误在默认级别可见
                 if status == 200 {
                     tracing::debug!(endpoint = %ep.name, status, "上游响应");
@@ -809,6 +816,12 @@ pub async fn handle_proxy(
             }
             Some(Err(e)) => {
                 let msg = e.to_string();
+                st.stats.record_endpoint_attempt(EndpointQualityRecord {
+                    endpoint_id: ep.uid.clone(),
+                    status_code: None,
+                    success: false,
+                    latency_ms: Some(attempt_started.elapsed().as_millis() as i64),
+                });
                 // 网络错误计入熔断（Retryable）；转换则通知前端
                 if st
                     .breakers

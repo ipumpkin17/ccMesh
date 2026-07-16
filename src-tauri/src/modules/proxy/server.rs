@@ -169,6 +169,9 @@ pub async fn start_proxy(
         .map_err(|e| AppError::Proxy(format!("绑定端口 {port} 失败: {e}")))?;
     let actual_port = listener.local_addr().map(|a| a.port()).unwrap_or(port);
 
+    // 端点质量仅表示本次代理运行态，确认成功绑定端口后再清空上一轮数据。
+    state.stats.reset_endpoint_quality();
+
     let (tx, rx) = oneshot::channel::<()>();
     let join = tokio::spawn(async move {
         let server = axum::serve(listener, app).with_graceful_shutdown(async move {

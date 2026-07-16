@@ -189,6 +189,7 @@ pub fn run() {
             commands::proxy::switch_endpoint,
             commands::stats::get_stats,
             commands::stats::get_request_logs,
+            commands::stats::get_endpoint_quality,
             commands::stats::get_retention_days,
             commands::stats::prune_request_logs,
             commands::stats::clear_request_logs,

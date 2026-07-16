@@ -3,6 +3,7 @@ import { useMemo, useState } from "react";
 import { emptyClass, PageShell, SurfaceCard } from "@/components/common";
 import { useEndpoints } from "@/hooks/useEndpoints";
 import { useEndpointHealthEvents } from "@/hooks/useEndpointHealth";
+import { useEndpointQualityEvents } from "@/hooks/useEndpointQuality";
 import type { Endpoint } from "@/services/modules/endpoint";
 import { useFilterStore, useLayoutStore } from "@/stores";
 import { DnDList } from "./_components/DnDList";
@@ -20,6 +21,7 @@ export function Endpoints() {
 
   // 熔断/端点变更事件 → 刷新各卡片的实时健康态与列表（共享 hook 统一订阅）。
   useEndpointHealthEvents();
+  useEndpointQualityEvents();
 
   const [formOpen, setFormOpen] = useState(false);
   const [editing, setEditing] = useState<Endpoint | null>(null);

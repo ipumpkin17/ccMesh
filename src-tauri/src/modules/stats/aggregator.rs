@@ -1,11 +1,11 @@
-use std::collections::HashMap;
+use std::collections::{HashMap, VecDeque};
 use std::sync::{Arc, Mutex};
 use std::time::{Duration, Instant};
 
 use tauri::{AppHandle, Emitter};
 
 use crate::error::AppResult;
-use crate::models::stats::{RequestLog, StatsOverview, TrendCompare};
+use crate::models::stats::{EndpointQualityAttempt, RequestLog, StatsOverview, TrendCompare};
 use crate::modules::stats::periods;
 use crate::modules::storage::{db::DbPool, request_logs_repo, stats_repo};
 use crate::modules::usage::TokenUsage;
@@ -13,6 +13,7 @@ use crate::modules::usage::TokenUsage;
 const STATS_EVENT: &str = "stats-updated";
 const REQUEST_LOG_EVENT: &str = "request-logged";
 const ENDPOINT_HEALTH_EVENT: &str = "endpoint-health-changed";
+const ENDPOINT_QUALITY_EVENT: &str = "endpoint-quality-updated";
 const FLUSH_INTERVAL: Duration = Duration::from_secs(2);
 /// 请求明细保留窗口：90 天。
 pub const RETENTION_DAYS: i64 = 90;
@@ -39,6 +40,83 @@ struct Delta {
     cache_read_tokens: i64,
 }
 
+/// 端点质量仅保留并展示本次代理运行内最近 1 小时，24 格时每格对应 2 分 30 秒。
+pub const ENDPOINT_QUALITY_WINDOW_MS: i64 = 60 * 60 * 1000;
+
+#[derive(Default)]
+struct EndpointQualityAccumulator {
+    total: i64,
+    success_count: i64,
+    latency_total_ms: i64,
+    latency_count: i64,
+    attempts: VecDeque<EndpointQualityAttempt>,
+}
+
+/// 本次运行的端点质量原始快照。只在后端内部使用，避免把 1 小时原始尝试推送到前端。
+pub struct EndpointQualitySnapshot {
+    pub total: i64,
+    pub success_count: i64,
+    pub success_rate: Option<f64>,
+    pub avg_latency_ms: Option<i64>,
+    pub attempts: Vec<EndpointQualityAttempt>,
+}
+
+impl EndpointQualityAccumulator {
+    fn record(
+        &mut self,
+        now_ms: i64,
+        status_code: Option<i64>,
+        success: bool,
+        latency_ms: Option<i64>,
+    ) {
+        self.total += 1;
+        if success {
+            self.success_count += 1;
+        }
+        if let Some(latency) = latency_ms {
+            self.latency_total_ms += latency;
+            self.latency_count += 1;
+        }
+        self.attempts.push_back(EndpointQualityAttempt {
+            ts: now_ms,
+            success,
+            throttled: !success && status_code == Some(429),
+        });
+        self.prune_attempts(now_ms);
+    }
+
+    fn prune_attempts(&mut self, now_ms: i64) {
+        let visible_cutoff = now_ms - ENDPOINT_QUALITY_WINDOW_MS;
+        while self
+            .attempts
+            .front()
+            .map(|attempt| attempt.ts < visible_cutoff)
+            .unwrap_or(false)
+        {
+            self.attempts.pop_front();
+        }
+    }
+
+    fn snapshot(&mut self, now_ms: i64) -> EndpointQualitySnapshot {
+        self.prune_attempts(now_ms);
+        EndpointQualitySnapshot {
+            total: self.total,
+            success_count: self.success_count,
+            success_rate: if self.total == 0 {
+                None
+            } else {
+                Some(self.success_count as f64 / self.total as f64)
+            },
+            avg_latency_ms: if self.latency_count == 0 {
+                None
+            } else {
+                Some(self.latency_total_ms / self.latency_count)
+            },
+            attempts: self.attempts.iter().cloned().collect(),
+        }
+    }
+}
+
 /// 一次请求结果的完整记录（由代理转发汇聚点构造）。
 pub struct RequestRecord {
     pub endpoint_id: String,
@@ -61,6 +139,14 @@ pub struct RequestRecord {
     pub error_body: Option<String>,
 }
 
+/// 单次发往上游的尝试结果。与 RequestRecord 分开，重试不会放大用户请求统计。
+pub struct EndpointQualityRecord {
+    pub endpoint_id: String,
+    pub status_code: Option<i64>,
+    pub success: bool,
+    pub latency_ms: Option<i64>,
+}
+
 /// 统计聚合器：内存累加 + 2 秒防抖批量落库 + 零延迟事件推送。
 ///
 /// `record` 累加内存（按日聚合 + 明细缓冲）并立即发 `stats-updated` / `request-logged` 事件；
@@ -71,6 +157,8 @@ pub struct StatsAggregator {
     device_id: String,
     pending: Mutex<HashMap<(String, String), (String, Delta)>>,
     pending_logs: Mutex<Vec<RequestLog>>,
+    endpoint_quality: Mutex<HashMap<String, EndpointQualityAccumulator>>,
+    endpoint_quality_started_at: Mutex<Option<i64>>,
     last_prune: Mutex<Option<Instant>>,
 }
 
@@ -82,6 +170,8 @@ impl StatsAggregator {
             device_id,
             pending: Mutex::new(HashMap::new()),
             pending_logs: Mutex::new(Vec::new()),
+            endpoint_quality: Mutex::new(HashMap::new()),
+            endpoint_quality_started_at: Mutex::new(None),
             last_prune: Mutex::new(None),
         });
         // 2 秒防抖刷新循环；聚合器被释放后自动退出
@@ -107,6 +197,40 @@ impl StatsAggregator {
     /// 端点健康/熔断状态变化事件（前端收到后重新拉取 `get_endpoint_health`）。
     pub fn emit_health_changed(&self) {
         let _ = self.app_handle.emit(ENDPOINT_HEALTH_EVENT, ());
+    }
+
+    /// 记录每次真实上游尝试。仅供端点质量展示，不参与用户请求/Token 聚合。
+    pub fn record_endpoint_attempt(&self, rec: EndpointQualityRecord) {
+        let now_ms = chrono::Utc::now().timestamp_millis();
+        self.endpoint_quality
+            .lock()
+            .unwrap()
+            .entry(rec.endpoint_id)
+            .or_default()
+            .record(now_ms, rec.status_code, rec.success, rec.latency_ms);
+        let _ = self.app_handle.emit(ENDPOINT_QUALITY_EVENT, ());
+    }
+
+    /// 代理每次成功启动时重置本轮运行态，停止后数据不落库。
+    pub fn reset_endpoint_quality(&self) {
+        self.endpoint_quality.lock().unwrap().clear();
+        *self.endpoint_quality_started_at.lock().unwrap() = Some(chrono::Utc::now().timestamp_millis());
+        let _ = self.app_handle.emit(ENDPOINT_QUALITY_EVENT, ());
+    }
+
+    /// 返回本次代理运行期间的端点质量原始快照，仅供命令层按显示宽度分桶。
+    pub fn endpoint_quality(&self) -> HashMap<String, EndpointQualitySnapshot> {
+        let now_ms = chrono::Utc::now().timestamp_millis();
+        self.endpoint_quality
+            .lock()
+            .unwrap()
+            .iter_mut()
+            .map(|(endpoint_id, quality)| (endpoint_id.clone(), quality.snapshot(now_ms)))
+            .collect()
+    }
+
+    pub fn endpoint_quality_started_at(&self) -> Option<i64> {
+        *self.endpoint_quality_started_at.lock().unwrap()
     }
 
     /// 记录一次请求结果（累加内存 + 缓冲明细 + 立即发事件）。

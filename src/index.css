@@ -267,3 +267,22 @@
     display: none;
   }
 }
+
+.endpoint-list-card {
+  container-type: inline-size;
+  container-name: endpoint-row;
+}
+
+@container endpoint-row (max-width: 700px) {
+  .endpoint-list-status {
+    width: 1rem;
+  }
+
+  .endpoint-list-quality {
+    display: none;
+  }
+
+  .endpoint-list-card-content {
+    grid-template-columns: minmax(0, 1fr) auto;
+  }
+}

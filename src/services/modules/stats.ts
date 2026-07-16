@@ -85,6 +85,31 @@ export interface RequestLogPage {
   total: number;
 }
 
+/** 后端按调用方指定格数切分的一格端点质量时间窗。 */
+export interface EndpointQualityBlock {
+  startMs: number;
+  total: number;
+  successCount: number;
+  throttledCount: number;
+  failedCount: number;
+}
+
+/** 每端点本次代理运行期间的质量概览。 */
+export interface EndpointQuality {
+  endpointId: string;
+  endpointName: string;
+  startedAtMs: number | null;
+  windowStartMs: number;
+  windowEndMs: number;
+  bucketMs: number;
+  total: number;
+  successCount: number;
+  failureCount: number;
+  successRate: number | null;
+  avgLatencyMs: number | null;
+  blocks: EndpointQualityBlock[];
+}
+
 export interface StatsHistoryPage {
   items: DailyStat[];
   total: number;
@@ -109,6 +134,9 @@ export const statsApi = {
       page: q.page,
       pageSize: q.pageSize,
     }),
+  /** 每端点本次代理运行期间的状态样本，按调用方指定格数分桶，不会触发主动连通性检查。 */
+  getEndpointQuality: (bucketCount: number) =>
+    request<EndpointQuality[]>("get_endpoint_quality", { bucketCount }),
   /** 请求明细保留天数。 */
   getRetentionDays: () => request<number>("get_retention_days"),
   /** 立即清理超过保留期限的请求明细。 */
@@ -130,4 +158,7 @@ export const statsApi = {
   /** 订阅单条请求明细事件（实时监控 live 模式追加）。 */
   onRequestLogged: (cb: (log: RequestLog) => void): Promise<UnlistenFn> =>
     subscribe<RequestLog>(Events.requestLogged, (e) => cb(e.payload)),
+  /** 订阅端点上游尝试样本变化。 */
+  onEndpointQualityUpdated: (cb: () => void): Promise<UnlistenFn> =>
+    subscribe(Events.endpointQualityUpdated, () => cb()),
 };

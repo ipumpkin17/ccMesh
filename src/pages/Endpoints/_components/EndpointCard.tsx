@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useState } from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { openUrl } from "@tauri-apps/plugin-opener";
 import {
@@ -45,7 +45,6 @@ import { Switch } from "@/components/ui/switch";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { useEndpointHealth } from "@/hooks/useEndpointHealth";
 import { getModelIcon } from "@/lib/model-icons";
-import { cn } from "@/lib/utils";
 import {
   advertisedModels,
   endpointApi,
@@ -55,10 +54,10 @@ import {
 import type { EndpointView } from "@/stores";
 import { ModelMappingDialog } from "./ModelMappingDialog";
 import { TestBadge } from "./TestBadge";
+import { EndpointQualityPanel } from "./EndpointQualityStrip";
 import { emptyClass } from "@/lib/typography";
 
 const errMsg = (e: unknown) => (e instanceof Error ? e.message : String(e));
-
 /** 端点 transformer 类型 → 品牌图标（claude→Anthropic、openai→OpenAI、codex→Codex）。OpenAI 无 Color 用默认 Mono，其余用彩色。 */
 const TRANSFORMER_ICON: Record<string, ComponentType<{ size?: number; className?: string }>> = {
   claude: Anthropic,
@@ -122,14 +121,6 @@ export function EndpointCard({
   const [testOpen, setTestOpen] = useState(false);
   const [mapOpen, setMapOpen] = useState(false);
   const [deleteOpen, setDeleteOpen] = useState(false);
-  // 布局切换后等一帧再启用 transition，避免切换瞬间因 group-hover 触发过渡动画。
-  const [toolbarTransition, setToolbarTransition] = useState(false);
-  useEffect(() => {
-    setToolbarTransition(false);
-    if (view !== "grid") return;
-    const id = requestAnimationFrame(() => setToolbarTransition(true));
-    return () => cancelAnimationFrame(id);
-  }, [view]);
 
   const onMutateError = (e: unknown) => toast.error(errMsg(e));
 
@@ -211,7 +202,7 @@ export function EndpointCard({
     );
 
   const enableSwitch = (
-    <span className="inline-flex items-center mt-1">
+    <span className="inline-flex shrink-0 items-center">
       <Switch
         checked={endpoint.enabled}
         onCheckedChange={(v) => toggle.mutate(v)}
@@ -225,12 +216,12 @@ export function EndpointCard({
     openUrl(endpoint.apiUrl).catch((err) => toast.error(errMsg(err)));
   };
 
-  // 测试连通性用出站(真实)模型：test 直连上游、不经网关，入站映射名上游不认。
+  // 测试连通性使用真实出站模型：测试直连上游，不经网关，入站映射名上游不认。
   const testModels = outboundModels(endpoint);
   // 可用性展示用公布集合：出站模型并入映射入站名。
   const displayModels = advertisedModels(endpoint);
 
-  // 测试连通性需指定模型：≥2 个模型时弹 Popover 选择，否则直接测（0/1 模型走回落）
+  // 多个模型时由用户选择实际出站模型；0/1 个模型走协议默认值或锁定模型。
   const testButton =
     testModels.length >= 2 ? (
       <Popover open={testOpen} onOpenChange={setTestOpen}>
@@ -252,20 +243,20 @@ export function EndpointCard({
         <PopoverContent align="end" className="w-56 p-2">
           <p className="mb-1.5 px-1 text-xs text-ink-mute">选择测试模型</p>
           <div className="scrollbar-none flex max-h-60 flex-col gap-1 overflow-auto">
-            {testModels.map((m) => {
-              const ModelIcon = getModelIcon(m);
+            {testModels.map((model) => {
+              const ModelIcon = getModelIcon(model);
               return (
                 <button
-                  key={m}
+                  key={model}
                   type="button"
                   className="flex min-w-0 cursor-pointer items-center gap-1.5 rounded px-2 py-1 text-left text-xs hover:bg-surface-hover"
                   onClick={() => {
                     setTestOpen(false);
-                    test.mutate(m);
+                    test.mutate(model);
                   }}
                 >
                   <ModelIcon size={14} className="shrink-0" />
-                  <span className="truncate font-mono">{m}</span>
+                  <span className="truncate font-mono">{model}</span>
                 </button>
               );
             })}
@@ -414,30 +405,27 @@ export function EndpointCard({
 
   if (view === "grid") {
     return (
-      <Card className="h-full gap-0 py-0">
-        <CardContent className="flex h-full flex-col gap-2.5 p-4">
-          <div className="flex select-none items-center gap-2">
-            <TransformerIcon size={16} className="shrink-0" />
-            <span className="min-w-0 flex-1 truncate font-medium">{endpoint.name}</span>
-            {/* <Badge variant="muted">{endpoint.transformer}</Badge> */}
-            {grip}
+      <Card className="gap-0 overflow-hidden py-0">
+        <CardContent className="flex flex-col p-0">
+          <div className="flex min-w-0 flex-col gap-1 px-4 pt-3 pb-1">
+            <div className="flex select-none items-center gap-2">
+              <TransformerIcon size={16} className="shrink-0" />
+              <span className="min-w-0 flex-1 truncate font-medium">{endpoint.name}</span>
+              {grip}
+            </div>
+            {meta}
           </div>
-          {meta}
-          <div className="mt-auto flex select-none items-center justify-between gap-2 border-t border-edge-subtle pt-2.5">
+          <div className="flex w-full px-4 py-1.5">
+            <EndpointQualityPanel endpointId={endpoint.uid} />
+          </div>
+          <div className="flex select-none items-center gap-2 border-t border-edge-subtle px-4 py-1.5">
             <div className="flex items-center gap-1.5">
               {availability}
               {circuitBadge}
             </div>
-            {enableSwitch}
-          </div>
-          <div className="group/toolbar flex h-9 select-none items-center justify-end">
-            <div
-              className={cn(
-                "pointer-events-none opacity-0 group-hover/toolbar:pointer-events-auto group-hover/toolbar:opacity-100",
-                toolbarTransition && "transition-opacity duration-200 ease-in-out",
-              )}
-            >
+            <div className="ml-auto flex items-center gap-1">
               {actions}
+              {enableSwitch}
             </div>
           </div>
         </CardContent>
@@ -446,23 +434,29 @@ export function EndpointCard({
   }
 
   return (
-    <Card>
-      <CardContent className="flex items-center gap-3 px-4 py-3">
-        <div className="flex shrink-0 select-none items-center gap-2">
-          {grip}
-          <TransformerIcon size={18} className="shrink-0" />
+    <Card className="endpoint-list-card min-w-0 gap-0 overflow-hidden rounded-md py-0">
+      <CardContent className="endpoint-list-card-content grid min-w-0 grid-cols-[minmax(0,1fr)_13.125rem_auto] items-center gap-5 p-4">
+        <div className="flex min-w-0 items-center gap-4">
+          <div className="flex shrink-0 select-none items-center">{grip}</div>
+          <div className="flex min-w-0 flex-col gap-1">
+            <div className="flex min-w-0 select-none items-center gap-2">
+              <TransformerIcon size={17} className="shrink-0" />
+              <span className="min-w-0 truncate font-medium">{endpoint.name}</span>
+            </div>
+            {meta}
+          </div>
         </div>
-        <div className="flex min-w-0 flex-1 flex-col gap-0.5">
-          <div className="flex select-none items-center gap-2">
-            <span className="truncate font-medium">{endpoint.name}</span>
-            <Badge variant="muted">{endpoint.transformer}</Badge>
+        <div className="endpoint-list-quality flex min-w-0 justify-center">
+          <EndpointQualityPanel endpointId={endpoint.uid} variant="list" />
+        </div>
+        <div className="flex shrink-0 select-none items-center gap-1">
+          <div className="flex w-20 shrink-0 items-center justify-end gap-1.5">
             {availability}
             {circuitBadge}
           </div>
-          {meta}
+          <div className="flex items-center gap-1">{actions}</div>
+          {enableSwitch}
         </div>
-        <div className="select-none">{enableSwitch}</div>
-        <div className="select-none">{actions}</div>
       </CardContent>
     </Card>
   );

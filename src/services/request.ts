@@ -34,6 +34,7 @@ export function subscribe<T>(
 export const Events = {
   statsUpdated: "stats-updated",
   requestLogged: "request-logged",
+  endpointQualityUpdated: "endpoint-quality-updated",
   proxyStatusChanged: "proxy-status-changed",
   endpointHealthChanged: "endpoint-health-changed",
   endpointsChanged: "endpoints-changed",

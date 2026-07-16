@@ -9,7 +9,7 @@ const MAP: Record<string, { dot: "success" | "danger" | "idle"; label: string }>
 export function TestBadge({ status }: { status: string }) {
   const m = MAP[status] ?? MAP.unknown;
   return (
-    <span className="flex items-center gap-1.5 text-xs text-ink-secondary">
+    <span className="inline-flex whitespace-nowrap items-center gap-1.5 text-xs text-ink-secondary">
       <StatusDot status={m.dot} />
       {m.label}
     </span>
