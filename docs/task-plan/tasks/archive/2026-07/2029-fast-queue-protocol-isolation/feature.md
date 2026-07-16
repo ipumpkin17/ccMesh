@@ -6,6 +6,10 @@
   - 统一识别 Claude、OpenAI Chat、OpenAI Responses 三类入站协议
   - 按协议筛选兼容端点后，再应用快速队列和独立排序
   - 增加跨协议快速端点隔离回归测试
+- `src-tauri/src/modules/proxy/rotation.rs`
+  - 按入站协议保存当前端点 ID，候选过滤或重排后重新定位真实索引
+- `src-tauri/src/modules/proxy/server.rs`
+  - 手动切换时只更新目标端点实际参与的协议队列
 - `src-tauri/src/modules/storage/endpoint_repo.rs`
   - 删除协议无关的 `list_routable`
   - 仓储层只返回全部启用端点，协议选路由代理层负责
@@ -22,4 +26,5 @@
 
 - `cargo test --manifest-path src-tauri/Cargo.toml modules::proxy::forward::tests:: --lib`
 - `cargo test --manifest-path src-tauri/Cargo.toml modules::storage::endpoint_repo::tests:: --lib`
+- `cargo test --manifest-path src-tauri/Cargo.toml modules::proxy::rotation::tests:: --lib`
 - `cargo test --manifest-path src-tauri/Cargo.toml --lib`

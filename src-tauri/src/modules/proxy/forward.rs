@@ -37,13 +37,15 @@ use crate::utils::ua;
 const MAX_ERROR_BODY_BYTES: usize = 4096;
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
-enum InboundProtocol {
+pub(crate) enum InboundProtocol {
     Claude,
     OpenAiChat,
     OpenAiResponses,
 }
 
 impl InboundProtocol {
+    pub(crate) const ALL: [Self; 3] = [Self::Claude, Self::OpenAiChat, Self::OpenAiResponses];
+
     fn from_path(path: &str) -> Self {
         if path.contains("/chat/completions") {
             Self::OpenAiChat
@@ -76,7 +78,7 @@ impl InboundProtocol {
         }
     }
 
-    fn label(self) -> &'static str {
+    pub(crate) fn label(self) -> &'static str {
         match self {
             Self::Claude => "claude",
             Self::OpenAiChat => "openai",
@@ -87,7 +89,7 @@ impl InboundProtocol {
 
 /// 先按入站协议筛出可转换或可透传的端点，再仅在兼容端点内部应用快速队列。
 /// 不同协议互不抢占：例如 codex 快速端点不会屏蔽 Claude CLI 的普通端点。
-fn select_routable_endpoints(
+pub(crate) fn select_routable_endpoints(
     enabled: Vec<Endpoint>,
     inbound: InboundProtocol,
 ) -> (Vec<Endpoint>, bool) {
@@ -485,6 +487,8 @@ pub async fn handle_proxy(
         let msg = empty_candidates_message(model.as_deref(), breaker_exhausted, using_fast_queue);
         return json_error(StatusCode::BAD_GATEWAY, &msg);
     }
+    let rotation_key = inbound.label();
+    let candidate_ids: Vec<i64> = enabled.iter().map(|endpoint| endpoint.id).collect();
     let max = if use_specific {
         3
     } else {
@@ -507,7 +511,10 @@ pub async fn handle_proxy(
         let ep: Endpoint = if let Some(ref e) = resolution.endpoint {
             e.clone()
         } else {
-            let idx = st.rotation.current_index(n).unwrap_or(0);
+            let idx = st
+                .rotation
+                .current_index(rotation_key, &candidate_ids)
+                .unwrap_or(0);
             enabled[idx].clone()
         };
         st.set_current(&ep.name);
@@ -518,7 +525,7 @@ pub async fn handle_proxy(
         let used_permit = if gate {
             let allow = st.breakers.allow_request(&ep.name, Instant::now());
             if !allow.allowed {
-                st.rotation.advance(n);
+                st.rotation.advance(rotation_key, &candidate_ids);
                 continue;
             }
             allow.used_half_open_permit
@@ -637,7 +644,7 @@ pub async fn handle_proxy(
                 st.breakers.record_neutral(&ep.name, used_permit);
                 last_err = "请求被取消".to_string();
                 if !use_specific {
-                    st.rotation.advance(n);
+                    st.rotation.advance(rotation_key, &candidate_ids);
                 }
                 attempts_on_current = 0;
             }
@@ -777,7 +784,7 @@ pub async fn handle_proxy(
                 last_error_body = error_body_from_bytes(&err_bytes);
                 attempts_on_current += 1;
                 if attempts_on_current >= rotation::CONSECUTIVE_FAIL_SWITCH && !use_specific {
-                    st.rotation.advance(n);
+                    st.rotation.advance(rotation_key, &candidate_ids);
                     attempts_on_current = 0;
                 }
             }
@@ -798,7 +805,7 @@ pub async fn handle_proxy(
                 } else {
                     attempts_on_current += 1;
                     if attempts_on_current >= rotation::CONSECUTIVE_FAIL_SWITCH && !use_specific {
-                        st.rotation.advance(n);
+                        st.rotation.advance(rotation_key, &candidate_ids);
                         attempts_on_current = 0;
                     }
                 }
@@ -1169,6 +1176,23 @@ mod tests {
         assert_eq!(
             selected.iter().map(|e| e.name.as_str()).collect::<Vec<_>>(),
             vec!["codex-normal"]
+        );
+        assert!(!using_fast_queue);
+    }
+
+    #[test]
+    fn openai_chat_falls_back_when_only_codex_fast_endpoint_exists() {
+        let endpoints = vec![
+            endpoint(1, "openai-normal", "openai", false, 0),
+            endpoint(2, "codex-fast", "codex", true, 0),
+        ];
+
+        let (selected, using_fast_queue) =
+            select_routable_endpoints(endpoints, InboundProtocol::OpenAiChat);
+
+        assert_eq!(
+            selected.iter().map(|e| e.name.as_str()).collect::<Vec<_>>(),
+            vec!["openai-normal"]
         );
         assert!(!using_fast_queue);
     }

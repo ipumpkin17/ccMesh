@@ -15,13 +15,31 @@ use tokio::sync::oneshot;
 use tokio::task::JoinHandle;
 
 use crate::error::{AppError, AppResult};
+use crate::models::endpoint::Endpoint;
 use crate::modules::models_cache::model_info;
 use crate::modules::proxy::circuit_breaker::{BreakerRegistry, CircuitBreakerConfig};
-use crate::modules::proxy::forward::{handle_proxy, ActiveRequests, ProxyState};
+use crate::modules::proxy::forward::{
+    handle_proxy, select_routable_endpoints, ActiveRequests, InboundProtocol, ProxyState,
+};
 use crate::modules::proxy::rotation::Rotation;
 use crate::modules::stats::aggregator::StatsAggregator;
 use crate::modules::storage::{config_repo, db::DbPool, endpoint_repo};
 use crate::modules::transform::thinking_rectifier::RectifierConfig;
+
+fn set_rotation_for_endpoint(rotation: &Rotation, enabled: &[Endpoint], endpoint_id: i64) -> bool {
+    let mut routable = false;
+    for inbound in InboundProtocol::ALL {
+        let (candidates, _) = select_routable_endpoints(enabled.to_vec(), inbound);
+        if candidates
+            .iter()
+            .any(|candidate| candidate.id == endpoint_id)
+        {
+            rotation.set_endpoint(inbound.label(), endpoint_id);
+            routable = true;
+        }
+    }
+    routable
+}
 
 /// 代理运行句柄，存于 `AppState.proxy`。持有关停信号、任务句柄与共享状态。
 pub struct ProxyHandle {
@@ -46,20 +64,26 @@ impl ProxyHandle {
         self.state.current_endpoint_name()
     }
 
-    /// 手动切换到指定端点名：定位索引、取消旧端点在途请求、置为当前。
+    /// 手动切换到指定端点名：按兼容协议队列保存稳定端点 ID、取消旧端点在途请求、置为当前。
     pub fn switch_endpoint(&self, name: &str) -> AppResult<String> {
         let conn = self.state.db_pool.get()?;
         let enabled = endpoint_repo::list_enabled(&conn)?;
-        let idx = enabled
+        let endpoint = enabled
             .iter()
-            .position(|e| e.name.eq_ignore_ascii_case(name.trim()))
+            .find(|e| e.name.eq_ignore_ascii_case(name.trim()))
             .ok_or_else(|| AppError::NotFound(format!("端点 '{name}' 不存在或未启用")))?;
+
+        if !set_rotation_for_endpoint(&self.state.rotation, &enabled, endpoint.id) {
+            return Err(AppError::InvalidArgument(format!(
+                "端点 '{}' 不在当前有效队列中",
+                endpoint.name
+            )));
+        }
 
         if let Some(old) = self.state.current_endpoint_name() {
             self.state.active.cancel(&old);
         }
-        self.state.rotation.set_index(idx);
-        let new_name = enabled[idx].name.clone();
+        let new_name = endpoint.name.clone();
         *self.state.current_endpoint.lock().unwrap() = Some(new_name.clone());
         Ok(new_name)
     }
@@ -230,4 +254,57 @@ async fn count_tokens_route(body: Bytes) -> Response {
     let messages = json.get("messages").cloned().unwrap_or_else(|| json!([]));
     let input = crate::modules::tokens::estimate_input_tokens(system, &messages);
     Json(json!({ "input_tokens": input })).into_response()
+}
+
+#[cfg(test)]
+mod tests {
+    use super::set_rotation_for_endpoint;
+    use crate::models::endpoint::Endpoint;
+    use crate::modules::proxy::forward::{select_routable_endpoints, InboundProtocol};
+    use crate::modules::proxy::rotation::Rotation;
+
+    fn endpoint(id: i64, name: &str, transformer: &str) -> Endpoint {
+        Endpoint {
+            id,
+            name: name.into(),
+            api_url: String::new(),
+            api_key: String::new(),
+            auth_mode: "api_key".into(),
+            enabled: true,
+            use_proxy: false,
+            transformer: transformer.into(),
+            model: String::new(),
+            models: Vec::new(),
+            active_models: Vec::new(),
+            model_mappings: Vec::new(),
+            remark: String::new(),
+            sort_order: id,
+            fast: false,
+            fast_sort_order: id,
+            test_status: "unknown".into(),
+            created_at: String::new(),
+            updated_at: String::new(),
+            archived: false,
+        }
+    }
+
+    #[test]
+    fn manual_switch_tracks_endpoint_id_after_protocol_filtering() {
+        let enabled = vec![
+            endpoint(1, "claude-a", "claude"),
+            endpoint(2, "codex", "codex"),
+            endpoint(3, "claude-b", "claude"),
+        ];
+        let rotation = Rotation::new();
+
+        assert!(set_rotation_for_endpoint(&rotation, &enabled, 3));
+        let (claude_candidates, _) = select_routable_endpoints(enabled, InboundProtocol::Claude);
+        let candidate_ids: Vec<i64> = claude_candidates
+            .iter()
+            .map(|endpoint| endpoint.id)
+            .collect();
+
+        assert_eq!(candidate_ids, vec![1, 3]);
+        assert_eq!(rotation.current_index("claude", &candidate_ids), Some(1));
+    }
 }

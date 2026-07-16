@@ -1,3 +1,4 @@
+use std::collections::HashMap;
 use std::sync::Mutex;
 use std::time::Duration;
 
@@ -6,43 +7,54 @@ pub const TRANSIENT_RETRY_DELAY: Duration = Duration::from_millis(300);
 /// 同一端点连续失败达到此次数后切换到下一个端点。
 pub const CONSECUTIVE_FAIL_SWITCH: u32 = 2;
 
-/// 线程安全的轮换器：维护当前端点索引。
+/// 线程安全的轮换器：按入站协议维护当前端点 ID。
+///
+/// 候选端点会因协议、快速队列、模型与熔断状态动态变化，不能跨候选集合保存裸下标。
 #[derive(Default)]
 pub struct Rotation {
-    current: Mutex<usize>,
+    current: Mutex<HashMap<String, i64>>,
 }
 
 impl Rotation {
     pub fn new() -> Self {
-        Self {
-            current: Mutex::new(0),
-        }
+        Self::default()
     }
 
-    /// 当前索引（对 n 取模防越界）。n == 0 返回 None。
-    pub fn current_index(&self, n: usize) -> Option<usize> {
-        if n == 0 {
+    /// 返回当前协议队列内的端点索引。已保存端点不在本次候选中时回落首项。
+    pub fn current_index(&self, queue: &str, endpoint_ids: &[i64]) -> Option<usize> {
+        if endpoint_ids.is_empty() {
             return None;
         }
         let mut g = self.current.lock().unwrap();
-        *g %= n;
-        Some(*g)
+        let index = g
+            .get(queue)
+            .and_then(|current_id| endpoint_ids.iter().position(|id| id == current_id))
+            .unwrap_or(0);
+        g.insert(queue.to_string(), endpoint_ids[index]);
+        Some(index)
     }
 
-    /// 前进到下一个端点：`old = cur % n; cur = (old + 1) % n`。返回新索引。
-    pub fn advance(&self, n: usize) -> Option<usize> {
-        if n == 0 {
+    /// 在当前协议的本次候选中前进到下一端点，并保存稳定端点 ID。
+    pub fn advance(&self, queue: &str, endpoint_ids: &[i64]) -> Option<usize> {
+        if endpoint_ids.is_empty() {
             return None;
         }
         let mut g = self.current.lock().unwrap();
-        let old = *g % n;
-        *g = (old + 1) % n;
-        Some(*g)
+        let old = g
+            .get(queue)
+            .and_then(|current_id| endpoint_ids.iter().position(|id| id == current_id))
+            .unwrap_or(0);
+        let next = (old + 1) % endpoint_ids.len();
+        g.insert(queue.to_string(), endpoint_ids[next]);
+        Some(next)
     }
 
-    /// 手动设置当前索引（按端点名定位后由调用方传入）。
-    pub fn set_index(&self, idx: usize) {
-        *self.current.lock().unwrap() = idx;
+    /// 手动切换时按协议记录稳定端点 ID。
+    pub fn set_endpoint(&self, queue: &str, endpoint_id: i64) {
+        self.current
+            .lock()
+            .unwrap()
+            .insert(queue.to_string(), endpoint_id);
     }
 }
 
@@ -96,24 +108,39 @@ mod tests {
     #[test]
     fn advance_wraps_modulo_n() {
         let r = Rotation::new();
-        assert_eq!(r.current_index(3), Some(0));
-        assert_eq!(r.advance(3), Some(1));
-        assert_eq!(r.advance(3), Some(2));
-        assert_eq!(r.advance(3), Some(0)); // wrap
+        let ids = [10, 20, 30];
+        assert_eq!(r.current_index("claude", &ids), Some(0));
+        assert_eq!(r.advance("claude", &ids), Some(1));
+        assert_eq!(r.advance("claude", &ids), Some(2));
+        assert_eq!(r.advance("claude", &ids), Some(0));
     }
 
     #[test]
-    fn current_index_handles_shrunk_list() {
+    fn current_endpoint_survives_candidate_reorder() {
         let r = Rotation::new();
-        r.set_index(5);
-        assert_eq!(r.current_index(3), Some(2)); // 5 % 3
+        r.set_endpoint("claude", 30);
+
+        assert_eq!(r.current_index("claude", &[10, 30]), Some(1));
+        assert_eq!(r.current_index("claude", &[30, 10]), Some(0));
+    }
+
+    #[test]
+    fn protocol_queues_keep_independent_endpoints() {
+        let r = Rotation::new();
+        r.set_endpoint("claude", 20);
+        r.set_endpoint("responses", 30);
+
+        assert_eq!(r.current_index("claude", &[10, 20]), Some(1));
+        assert_eq!(r.current_index("responses", &[30, 40]), Some(0));
+        assert_eq!(r.advance("claude", &[10, 20]), Some(0));
+        assert_eq!(r.current_index("responses", &[30, 40]), Some(0));
     }
 
     #[test]
     fn zero_endpoints_yields_none() {
         let r = Rotation::new();
-        assert_eq!(r.current_index(0), None);
-        assert_eq!(r.advance(0), None);
+        assert_eq!(r.current_index("claude", &[]), None);
+        assert_eq!(r.advance("claude", &[]), None);
     }
 
     #[test]
