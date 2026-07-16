@@ -67,8 +67,8 @@ export function AppLayout() {
         )}
       >
         {navMode === "horizontal" ? <TopNav /> : <SideNav />}
-        <main className="flex-1 overflow-y-auto p-8">
-          <div className="h-full w-full min-w-[48rem]">
+        <main className="flex-1 overflow-x-auto overflow-y-hidden p-8">
+          <div className="h-full min-h-0 w-full min-w-[48rem]">
             <Suspense fallback={null}>
               <ActivePage />
             </Suspense>

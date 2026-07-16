@@ -1,5 +1,6 @@
 import { StatCard, TokenHint } from "@/components/business";
 import { RequestMonitor } from "@/components/business/RequestMonitor";
+import { PageShell } from "@/components/common";
 import { useStats } from "@/hooks/useStats";
 import { ServiceCard } from "./_components/ServiceCard";
 
@@ -13,14 +14,7 @@ export function Dashboard() {
     (today?.cacheReadTokens ?? 0);
 
   return (
-    <div className="flex flex-col gap-6">
-      <header className="flex flex-col gap-1">
-        <span className="text-[10px] font-medium tracking-[0.06em] text-ink-secondary uppercase">
-          Dashboard
-        </span>
-        <h1 className="text-2xl font-light tracking-tight">仪表盘</h1>
-      </header>
-
+    <PageShell title="仪表盘" contentClassName="flex flex-col gap-6">
       <ServiceCard />
 
       {/* 今日请求 / 失败 / Token，随 stats-updated 实时更新 */}
@@ -36,6 +30,6 @@ export function Dashboard() {
       </div>
 
       <RequestMonitor mode="live" pageSize={10} />
-    </div>
+    </PageShell>
   );
 }

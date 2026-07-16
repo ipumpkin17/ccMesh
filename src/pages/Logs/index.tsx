@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { ArrowDownIcon } from "lucide-react";
 import { toast } from "sonner";
 
+import { PageShell } from "@/components/common";
 import { Button } from "@/components/ui/button";
 import { configApi } from "@/services/modules/config";
 import { logsApi, type LogLine } from "@/services/modules/logs";
@@ -125,26 +126,29 @@ export function Logs() {
   };
 
   return (
-    <div className="flex h-full flex-col gap-4">
-      <h1 className="text-2xl font-light tracking-tight">日志</h1>
-
-      <LogToolbar
-        selected={selected}
-        onToggleLevel={toggleLevel}
-        onShowAll={() => setSelected(new Set())}
-        counts={counts}
-        total={lines.length}
-        keyword={keyword}
-        onKeyword={setKeyword}
-        captureLevel={captureLevel}
-        onCaptureLevel={changeCapture}
-        onCopy={copyAll}
-        onClear={() => {
-          logsApi.clear().catch(() => undefined);
-          setLines([]);
-        }}
-      />
-
+    <PageShell
+      title="日志"
+      headerExtra={
+        <LogToolbar
+          selected={selected}
+          onToggleLevel={toggleLevel}
+          onShowAll={() => setSelected(new Set())}
+          counts={counts}
+          total={lines.length}
+          keyword={keyword}
+          onKeyword={setKeyword}
+          captureLevel={captureLevel}
+          onCaptureLevel={changeCapture}
+          onCopy={copyAll}
+          onClear={() => {
+            logsApi.clear().catch(() => undefined);
+            setLines([]);
+          }}
+        />
+      }
+      contentScrollable={false}
+      contentClassName="relative flex flex-col"
+    >
       <div className="relative flex-1 overflow-hidden">
         <div
           ref={scrollRef}
@@ -174,6 +178,6 @@ export function Logs() {
           </Button>
         )}
       </div>
-    </div>
+    </PageShell>
   );
 }

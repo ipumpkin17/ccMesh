@@ -3,6 +3,7 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { disable, enable } from "@tauri-apps/plugin-autostart";
 import { toast } from "sonner";
 
+import { PageShell } from "@/components/common";
 import { SettingsGrid } from "@/components/settings";
 import { useAutostartEnabled } from "@/hooks/useAutostartEnabled";
 import { configApi } from "@/services/modules/config";
@@ -55,12 +56,15 @@ export function Settings() {
   };
 
   if (!cfg) {
-    return <p className="text-sm text-ink-mute">加载中…</p>;
+    return (
+      <PageShell title="设置">
+        <p className="text-sm text-ink-mute">加载中…</p>
+      </PageShell>
+    );
   }
 
   return (
-    <div className="flex flex-col gap-6">
-      <h1 className="text-2xl font-light tracking-tight text-ink-primary">设置</h1>
+    <PageShell title="设置" contentClassName="flex flex-col gap-6">
       <SettingsGrid>
         <GeneralCard cfg={cfg} save={save} />
         <StartupCard
@@ -78,6 +82,6 @@ export function Settings() {
           testingProxy={testingProxy}
         />
       </SettingsGrid>
-    </div>
+    </PageShell>
   );
 }

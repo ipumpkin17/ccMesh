@@ -1,5 +1,6 @@
 import { useMemo, useState } from "react";
 
+import { PageShell } from "@/components/common";
 import { useEndpoints } from "@/hooks/useEndpoints";
 import { useEndpointHealthEvents } from "@/hooks/useEndpointHealth";
 import type { Endpoint } from "@/services/modules/endpoint";
@@ -48,37 +49,38 @@ export function Endpoints() {
   };
 
   return (
-    <div className="flex h-full min-h-0 flex-col gap-4">
-      {/* 第一行：标题与筛选工具栏占满内容区 */}
-      <div className="flex min-w-0 shrink-0 flex-col gap-4">
-        <h1 className="shrink-0 text-2xl font-light tracking-tight">端点管理</h1>
-        <FilterBar onCreate={openCreate} />
-      </div>
+    <>
+      <PageShell
+        title="端点管理"
+        headerExtra={<FilterBar onCreate={openCreate} />}
+        contentScrollable={false}
+        contentClassName="flex flex-col"
+      >
+        {/* 端点列表自适应剩余宽度，右侧统计栏保持固定宽度 */}
+        <div className="flex min-h-0 flex-1 gap-4">
+          <div className="scrollbar-none min-h-0 min-w-0 flex-1 overflow-y-auto rounded-lg border border-edge bg-surface p-4">
+            {isLoading ? (
+              <p className="text-sm text-ink-mute">加载中…</p>
+            ) : filtered.length === 0 ? (
+              <p className="text-sm text-ink-mute">暂无端点，点击「新建端点」添加。</p>
+            ) : (
+              <DnDList
+                endpoints={filtered}
+                allEndpoints={endpoints ?? []}
+                draggable={dragEnabled}
+                typeFilterActive={typeFilterActive}
+                view={view}
+                onEdit={openEdit}
+              />
+            )}
+          </div>
 
-      {/* 第二行：端点列表自适应剩余宽度，右侧统计栏保持固定宽度 */}
-      <div className="flex min-h-0 flex-1 gap-4">
-        <div className="scrollbar-none min-h-0 min-w-0 flex-1 overflow-y-auto rounded-lg border border-edge bg-surface p-4">
-          {isLoading ? (
-            <p className="text-sm text-ink-mute">加载中…</p>
-          ) : filtered.length === 0 ? (
-            <p className="text-sm text-ink-mute">暂无端点，点击「新建端点」添加。</p>
-          ) : (
-            <DnDList
-              endpoints={filtered}
-              allEndpoints={endpoints ?? []}
-              draggable={dragEnabled}
-              typeFilterActive={typeFilterActive}
-              view={view}
-              onEdit={openEdit}
-            />
-          )}
+          {/* 右栏：端点统计 + 可用模型，顶部与中栏端点列表卡片对齐 */}
+          <EndpointSidebar />
         </div>
-
-        {/* 右栏：端点统计 + 可用模型，顶部与中栏端点列表卡片对齐 */}
-        <EndpointSidebar />
-      </div>
+      </PageShell>
 
       <EndpointForm open={formOpen} onOpenChange={setFormOpen} editing={editing} />
-    </div>
+    </>
   );
 }
