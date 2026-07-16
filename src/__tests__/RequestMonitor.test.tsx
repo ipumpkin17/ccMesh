@@ -11,6 +11,7 @@ import type { RequestLog } from "@/services/modules/stats";
 const log: RequestLog = {
   id: 1,
   ts: Date.now(),
+  endpointId: "11111111-1111-4111-8111-111111111111",
   endpointName: "ep-a",
   inboundFormat: "claude",
   transformer: "claude",

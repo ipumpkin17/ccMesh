@@ -3,6 +3,7 @@ import type { UnlistenFn } from "@tauri-apps/api/event";
 import { Events, request, subscribe } from "../request";
 
 export interface MaskedEndpoint {
+  endpointId: string;
   name: string;
   apiUrl: string;
   maskedKey: string;
@@ -22,6 +23,7 @@ export type CircuitState = "closed" | "open" | "halfOpen";
 
 /** 端点实时健康/熔断态（`get_endpoint_health` 返回，`endpoint-health-changed` 事件触发刷新）。 */
 export interface EndpointHealth {
+  endpointId: string;
   name: string;
   /** healthy | unhealthy | recovering */
   status: string;

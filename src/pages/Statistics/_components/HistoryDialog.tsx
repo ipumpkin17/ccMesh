@@ -39,8 +39,8 @@ export function HistoryDialog() {
   };
 
   const delRow = useMutation({
-    mutationFn: (v: { endpointName: string; date: string }) =>
-      statsApi.deleteDailyStat(v.endpointName, v.date),
+    mutationFn: (v: { endpointId: string; date: string }) =>
+      statsApi.deleteDailyStat(v.endpointId, v.date),
     onSuccess: () => {
       toast.success("已删除该记录");
       invalidate();
@@ -97,7 +97,7 @@ export function HistoryDialog() {
                 <tbody>
                   {rows.map((r, i) => (
                     <tr
-                      key={`${r.date}-${r.endpointName}-${i}`}
+                      key={`${r.date}-${r.endpointId}-${i}`}
                       className="border-b border-edge-subtle last:border-0"
                     >
                       <td className="px-3 py-2">
@@ -130,7 +130,7 @@ export function HistoryDialog() {
                             aria-label="删除该行"
                             onClick={() =>
                               delRow.mutate({
-                                endpointName: r.endpointName,
+                                endpointId: r.endpointId,
                                 date: r.date,
                               })
                             }

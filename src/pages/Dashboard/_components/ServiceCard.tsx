@@ -49,10 +49,10 @@ function endpointStatus(
   endpoint: Endpoint,
   current: string | null,
   running: boolean,
-  healthByName: Map<string, EndpointHealth>,
+  healthById: Map<string, EndpointHealth>,
 ): { status: QueueStatus; active: boolean; title?: string } {
-  const active = endpoint.name === current;
-  const health = healthByName.get(endpoint.name);
+  const active = endpoint.uid === current;
+  const health = healthById.get(endpoint.uid);
   if (health && health.circuit !== "closed") {
     return {
       active,
@@ -86,16 +86,16 @@ function QueueItem({
   endpoint,
   current,
   running,
-  healthByName,
+  healthById,
   fast,
 }: {
   endpoint: Endpoint;
   current: string | null;
   running: boolean;
-  healthByName: Map<string, EndpointHealth>;
+  healthById: Map<string, EndpointHealth>;
   fast?: boolean;
 }) {
-  const { status, active, title } = endpointStatus(endpoint, current, running, healthByName);
+  const { status, active, title } = endpointStatus(endpoint, current, running, healthById);
   return (
     <li title={title} className="inline-flex items-center gap-1.5">
       {fast ? (
@@ -121,13 +121,13 @@ function QueueSection({
   empty,
   current,
   running,
-  healthByName,
+  healthById,
 }: {
   endpoints: Endpoint[];
   empty: string;
   current: string | null;
   running: boolean;
-  healthByName: Map<string, EndpointHealth>;
+  healthById: Map<string, EndpointHealth>;
 }) {
   return (
     <div className="flex flex-col gap-2">
@@ -141,7 +141,7 @@ function QueueSection({
               endpoint={endpoint}
               current={current}
               running={running}
-              healthByName={healthByName}
+              healthById={healthById}
               fast={endpoint.fast}
             />
           ))}
@@ -455,10 +455,10 @@ export function ServiceCard() {
   // 端点实时健康/熔断态；健康/端点变更事件到达即刷新（共享 hook 统一订阅）。
   useEndpointHealthEvents();
   const { data: epHealth } = useEndpointHealth();
-  const healthByName = useMemo(() => {
-    const byName = new Map<string, EndpointHealth>();
-    for (const health of epHealth ?? []) byName.set(health.name, health);
-    return byName;
+  const healthById = useMemo(() => {
+    const byId = new Map<string, EndpointHealth>();
+    for (const health of epHealth ?? []) byId.set(health.endpointId, health);
+    return byId;
   }, [epHealth]);
   const { fastQueue, enabledQueue } = useMemo(
     () => splitEndpointQueues(endpointList ?? []),
@@ -472,7 +472,7 @@ export function ServiceCard() {
   // 实时高亮：新请求明细到达即更新当前工作端点（与下方实时监控同一事件源）。
   useEffect(() => {
     let un: (() => void) | undefined;
-    statsApi.onRequestLogged((log) => setLiveEndpoint(log.endpointName)).then((u) => {
+    statsApi.onRequestLogged((log) => setLiveEndpoint(log.endpointId)).then((u) => {
       un = u;
     });
     return () => un?.();
@@ -485,7 +485,7 @@ export function ServiceCard() {
   }, [running]);
 
   // 优先用最近请求明细的端点；回退代理状态；停机不高亮。
-  const current = running ? liveEndpoint ?? status?.currentEndpoint ?? null : null;
+  const current = running ? liveEndpoint ?? status?.currentEndpointId ?? null : null;
   const gatewayUrl =
     status?.port != null ? `http://127.0.0.1:${status.port}` : null;
 
@@ -550,7 +550,7 @@ export function ServiceCard() {
               empty="暂无启用端点"
               current={current}
               running={running}
-              healthByName={healthByName}
+              healthById={healthById}
             />
           </CardContent>
         </Card>

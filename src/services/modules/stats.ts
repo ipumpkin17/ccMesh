@@ -3,6 +3,7 @@ import type { UnlistenFn } from "@tauri-apps/api/event";
 import { Events, request, subscribe } from "../request";
 
 export interface EndpointStat {
+  endpointId: string;
   endpointName: string;
   requests: number;
   errors: number;
@@ -37,6 +38,7 @@ export interface StatsOverview {
 }
 
 export interface DailyStat {
+  endpointId: string;
   endpointName: string;
   date: string;
   requests: number;
@@ -52,6 +54,7 @@ export interface RequestLog {
   id: number;
   /** 请求时间（Unix 毫秒，UTC）。 */
   ts: number;
+  endpointId: string;
   endpointName: string;
   inboundFormat: string;
   /** 端点 transformer 快照（claude/openai/codex 等）。旧行/未记录为 null，前端回退 inboundFormat。 */
@@ -116,8 +119,8 @@ export const statsApi = {
   getStatsHistory: (page: number, pageSize: number) =>
     request<StatsHistoryPage>("get_stats_history", { page, pageSize }),
   /** 删除单端点单日历史记录。 */
-  deleteDailyStat: (endpointName: string, date: string) =>
-    request<number>("delete_daily_stat", { endpointName, date }),
+  deleteDailyStat: (endpointId: string, date: string) =>
+    request<number>("delete_daily_stat", { endpointId, date }),
   /** 删除某一天全部历史记录。 */
   deleteStatsByDate: (date: string) =>
     request<number>("delete_stats_by_date", { date }),

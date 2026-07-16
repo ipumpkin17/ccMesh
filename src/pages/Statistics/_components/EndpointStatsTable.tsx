@@ -27,7 +27,7 @@ export function EndpointStatsTable({ rows }: Props) {
         <tbody>
           {rows.map((r) => (
             <tr
-              key={r.endpointName}
+              key={r.endpointId}
               className="border-b border-edge-subtle last:border-0"
             >
               <td className="px-4 py-2">{r.endpointName}</td>

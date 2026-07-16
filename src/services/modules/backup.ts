@@ -6,6 +6,7 @@ export interface ImportSummary {
   endpointsAdded: number;
   endpointsUpdated: number;
   endpointsSkipped: number;
+  identitiesPreserved: number;
   credentials: number;
   configKeys: number;
 }

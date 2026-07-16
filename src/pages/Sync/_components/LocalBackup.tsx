@@ -33,7 +33,7 @@ export function LocalBackup() {
     onSuccess: (s) => {
       if (!s) return; // 用户取消
       toast.success(
-        `导入完成：新增 ${s.endpointsAdded} · 更新 ${s.endpointsUpdated} · 跳过 ${s.endpointsSkipped} 端点，凭证 ${s.credentials}，设置 ${s.configKeys}`,
+        `导入完成：新增 ${s.endpointsAdded} · 更新 ${s.endpointsUpdated} · 跳过 ${s.endpointsSkipped} 端点，保留本地身份 ${s.identitiesPreserved}，凭证 ${s.credentials}，设置 ${s.configKeys}`,
       );
       qc.invalidateQueries();
     },

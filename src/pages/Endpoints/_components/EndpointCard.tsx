@@ -134,7 +134,7 @@ export function EndpointCard({
 
   // 共享 ["endpoint-health"] 查询（多卡片去重）；展示运行期熔断态。
   const { data: epHealth } = useEndpointHealth();
-  const health = epHealth?.find((h) => h.name === endpoint.name);
+  const health = epHealth?.find((h) => h.endpointId === endpoint.uid);
   const circuitBadge =
     health && health.circuit !== "closed" ? (
       <Badge

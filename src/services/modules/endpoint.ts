@@ -10,6 +10,8 @@ export interface ModelMapping {
 
 export interface Endpoint {
   id: number;
+  /** 跨导入导出保持不变的稳定唯一 ID。 */
+  uid: string;
   name: string;
   apiUrl: string;
   apiKey: string;
