@@ -60,6 +60,7 @@ pub fn run() {
             {
                 let conn = pool.get()?;
                 modules::storage::migration::run_migrations(&conn)?;
+                commands::window::restore_main_window(&handle, &conn);
             }
 
             // 日志级别（从配置恢复）+ 实时推送接线
@@ -259,12 +260,15 @@ pub fn run() {
         ])
         .build(tauri::generate_context!())
         .expect("error while running tauri application")
-        .run(|_app_handle, _event| {
+        .run(|app_handle, event| {
+            if let tauri::RunEvent::ExitRequested { .. } = event {
+                commands::window::persist_main_window(app_handle);
+            }
             // macOS：窗口最小化/隐藏后点击 Dock 图标会触发 Reopen，
             // 默认不会恢复窗口，这里手动显示并取消最小化。
             #[cfg(target_os = "macos")]
-            if let tauri::RunEvent::Reopen { .. } = _event {
-                if let Some(w) = _app_handle.get_webview_window("main") {
+            if let tauri::RunEvent::Reopen { .. } = event {
+                if let Some(w) = app_handle.get_webview_window("main") {
                     let _ = w.show();
                     let _ = w.unminimize();
                     let _ = w.set_focus();
