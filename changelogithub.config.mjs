@@ -18,10 +18,7 @@ export default {
     docs: { title: '文档' },
     build: { title: '构建' },
     ci: { title: '持续集成' },
-    // 隐藏 chore/style/test：避免 release 升版、格式化、测试类提交进入变更记录
-    chore: { title: '维护', hidden: true },
-    style: { title: '样式', hidden: true },
-    test: { title: '测试', hidden: true },
+    // 不声明 chore/style/test，避免 release 升版、格式化、测试类提交进入变更记录。
     revert: { title: '回退' },
   },
 }

@@ -151,7 +151,15 @@ jobs:
       # changelogithub 默认会再创建一份 Draft Release，导致同 tag 出现两条。
       # 这里只生成说明文件，再写回 tauri-action 已创建的那条 Release。
       - name: 生成中文发布说明
-        run: npx --yes changelogithub@14.0.0 --output release-notes.md
+        # 当前提交可能同时带有 tauri-action 创建的 untagged 标签；只在 v* 版本标签之间生成说明。
+        run: |
+          current_tag="${{ github.ref_name }}"
+          previous_tag="$(git tag --merged "$current_tag" --sort=-version:refname | awk -v current="$current_tag" '$0 != current && $0 ~ /^v[0-9]/ { print; exit }')"
+          args=(--to "$current_tag" --output release-notes.md)
+          if [ -n "$previous_tag" ]; then
+            args+=(--from "$previous_tag")
+          fi
+          npx --yes changelogithub@14.0.0 "${args[@]}"
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
