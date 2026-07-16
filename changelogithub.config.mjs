@@ -8,19 +8,20 @@ export default {
   capitalize: false,
   group: true,
   titles: {
-    breakingChanges: "破坏性变更",
+    breakingChanges: '破坏性变更',
   },
   types: {
-    feat: { title: "新增" },
-    fix: { title: "修复" },
-    perf: { title: "性能优化" },
-    refactor: { title: "重构" },
-    docs: { title: "文档" },
-    build: { title: "构建" },
-    ci: { title: "持续集成" },
-    chore: { title: "维护" },
-    revert: { title: "回退" },
-    style: { title: "样式" },
-    test: { title: "测试" },
+    feat: { title: '新增' },
+    fix: { title: '修复' },
+    perf: { title: '性能优化' },
+    refactor: { title: '重构' },
+    docs: { title: '文档' },
+    build: { title: '构建' },
+    ci: { title: '持续集成' },
+    // 隐藏 chore/style/test：避免 release 升版、格式化、测试类提交进入变更记录
+    chore: { title: '维护', hidden: true },
+    style: { title: '样式', hidden: true },
+    test: { title: '测试', hidden: true },
+    revert: { title: '回退' },
   },
-};
+}
