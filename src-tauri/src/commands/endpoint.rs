@@ -1,4 +1,4 @@
-use std::time::{Duration, Instant};
+use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
 
 use serde::Serialize;
 use serde_json::json;
@@ -14,6 +14,43 @@ use crate::state::AppState;
 
 /// 端点配置/测试状态变更事件（payload 为空，前端收到后全量重拉相关查询）。
 const ENDPOINTS_CHANGED_EVENT: &str = "endpoints-changed";
+
+/// 连通性测试的通用短问题：不依赖上下文，可重复调用，不使用问候语。
+const CONNECTIVITY_TEST_PROMPTS: [&str; 10] = [
+    "What is one practical way to stay focused while working?",
+    "Why is it useful to take short breaks during a long task?",
+    "What is a good first step when debugging an error?",
+    "How can you tell whether an online source is reliable?",
+    "Why should you review changes before deploying them?",
+    "What is one simple way to reduce food waste at home?",
+    "What makes a password stronger and safer?",
+    "How can a daily plan help organize your work?",
+    "What is one way to make a meeting more efficient?",
+    "Why is it important to keep regular backups?",
+];
+const CONNECTIVITY_TEST_PROMPT_BLACKLIST: [&str; 5] = ["hi", "hello", "你好", "ok", "test"];
+
+fn is_connectivity_test_prompt_allowed(prompt: &str) -> bool {
+    let normalized = prompt.trim().to_ascii_lowercase();
+    !normalized.contains("你好")
+        && normalized
+            .split(|character: char| !character.is_alphanumeric())
+            .all(|word| !CONNECTIVITY_TEST_PROMPT_BLACKLIST.contains(&word))
+}
+
+fn connectivity_test_prompt() -> &'static str {
+    let allowed = CONNECTIVITY_TEST_PROMPTS
+        .iter()
+        .copied()
+        .filter(|prompt| is_connectivity_test_prompt_allowed(prompt))
+        .collect::<Vec<_>>();
+    let nanos = SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .map(|duration| duration.subsec_nanos() as usize)
+        .unwrap_or_default();
+    let index = nanos % allowed.len();
+    allowed[index]
+}
 
 #[tauri::command]
 pub fn list_endpoints(state: State<AppState>) -> AppResult<Vec<Endpoint>> {
@@ -165,7 +202,7 @@ pub struct TestResult {
     pub message: String,
 }
 
-/// 探测端点连通性：发送最小请求，200 即可用；持久化 test_status。
+/// 探测端点连通性：随机发送一条通用短问题，200 即可用；持久化 test_status。
 #[tauri::command]
 pub async fn test_endpoint(
     app: AppHandle,
@@ -190,9 +227,9 @@ pub async fn test_endpoint(
 
     let base = ep.api_url.trim_end_matches('/');
     let format = UpstreamFormat::from_transformer_name(&ep.transformer);
-    // 优先用调用方指定的模型（前端选择），否则端点锁定 model，再否则按格式回落默认
+    // 优先使用前端指定的真实出站模型，否则端点锁定模型，再按协议回落默认模型。
     let fallback = format.default_model();
-    let model_str = model.filter(|s| !s.trim().is_empty()).unwrap_or_else(|| {
+    let model_str = model.filter(|value| !value.trim().is_empty()).unwrap_or_else(|| {
         if ep.model.is_empty() {
             fallback.to_string()
         } else {
@@ -200,27 +237,28 @@ pub async fn test_endpoint(
         }
     });
     let model = model_str.as_str();
-
+    let prompt = connectivity_test_prompt();
     let (url, body) = match format {
         UpstreamFormat::OpenAiChat => (
             format!("{base}/v1/chat/completions"),
             json!({
-                "model": model, "max_tokens": 16,
-                "messages": [{ "role": "user", "content": "ping" }]
+                "model": model, "max_tokens": 64,
+                "messages": [{ "role": "user", "content": prompt }]
             }),
         ),
         UpstreamFormat::OpenAiResponses => (
             format!("{base}/v1/responses"),
             json!({
-                "model": model, "max_output_tokens": 16,
-                "input": "ping"
+                "model": model, "max_output_tokens": 64,
+                "reasoning": { "effort": "low" },
+                "input": prompt
             }),
         ),
         UpstreamFormat::Claude => (
             format!("{base}/v1/messages"),
             json!({
-                "model": model, "max_tokens": 16,
-                "messages": [{ "role": "user", "content": "ping" }]
+                "model": model, "max_tokens": 64,
+                "messages": [{ "role": "user", "content": prompt }]
             }),
         ),
     };
@@ -272,6 +310,25 @@ pub async fn test_endpoint(
         latency_ms,
         message,
     })
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn connectivity_test_prompts_are_general_questions_without_greetings() {
+        assert_eq!(CONNECTIVITY_TEST_PROMPTS.len(), 10);
+        assert!(CONNECTIVITY_TEST_PROMPTS.iter().all(|prompt| !prompt.trim().is_empty()));
+        assert!(CONNECTIVITY_TEST_PROMPTS
+            .iter()
+            .all(|prompt| is_connectivity_test_prompt_allowed(prompt)));
+    }
+
+    #[test]
+    fn connectivity_test_prompt_always_comes_from_the_catalog() {
+        assert!(CONNECTIVITY_TEST_PROMPTS.contains(&connectivity_test_prompt()));
+    }
 }
 
 /// 代理连通性检测目标：轻量 204 连通性 URL（经代理 GET，验证代理能出网）。
