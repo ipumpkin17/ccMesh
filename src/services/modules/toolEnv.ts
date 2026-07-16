@@ -28,9 +28,18 @@ export interface ToolInstallationReport {
   anchored: boolean;
 }
 
+export interface LocalCliUserAgents {
+  codexUa: string | null;
+  claudeUa: string | null;
+}
+
 export const toolEnvApi = {
   getToolVersions(tools?: string[]): Promise<ToolVersion[]> {
     return request("get_tool_versions", { tools });
+  },
+
+  getLocalCliUserAgents(): Promise<LocalCliUserAgents> {
+    return request("get_local_cli_user_agents");
   },
 
   runToolLifecycleAction(

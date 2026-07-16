@@ -256,6 +256,7 @@ pub fn run() {
             commands::tool_config::preview_codex_config,
             commands::tool_config::parse_codex_fields,
             commands::tool_env::get_tool_versions,
+            commands::tool_env::get_local_cli_user_agents,
             commands::tool_env::run_tool_lifecycle_action,
             commands::tool_env::probe_tool_installations
         ])

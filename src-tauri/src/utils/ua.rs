@@ -8,15 +8,26 @@
 
 /// 模拟 Claude CLI 的 UA（版本号随发布更新，此处先固定一个近期版本）。
 pub const CLAUDE_PROBE_UA: &str = "claude-cli/2.1.185 (external, sdk-cli)";
+pub const CODEX_VSCODE_VERSION: &str = "1.111.0";
 
 /// Codex CLI 的 originator 头值，后端据此识别真实客户端。
 pub const CODEX_ORIGINATOR: &str = "codex_cli_rs";
 
 /// 模拟 Codex CLI 的 UA：`codex_cli_rs/<version> (<OS>; <arch>) vscode/<version>`，OS/arch 取运行环境。
 pub fn codex_probe_ua() -> String {
+    codex_ua_for_version("0.114.0")
+}
+
+/// 使用本机 Codex CLI 的版本构造转发 UA，平台信息始终取代理运行环境。
+pub fn codex_ua_for_version(version: &str) -> String {
     format!(
-        "codex_cli_rs/0.114.0 ({}; {}) vscode/1.111.0",
+        "codex_cli_rs/{version} ({}; {}) vscode/{CODEX_VSCODE_VERSION}",
         std::env::consts::OS,
         std::env::consts::ARCH
     )
+}
+
+/// 使用本机 Claude Code 的版本构造转发 UA。
+pub fn claude_ua_for_version(version: &str) -> String {
+    format!("claude-cli/{version} (external, sdk-cli)")
 }

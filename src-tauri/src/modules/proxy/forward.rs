@@ -155,9 +155,9 @@ pub struct ProxyState {
     pub client: reqwest::Client,
     /// 全局代理 client（配置了 proxy_url 时构建；端点 use_proxy 为真时使用）。
     pub proxy_client: Option<reqwest::Client>,
-    /// 伪装 UA：转发到 OpenAI 端点时覆盖 User-Agent（空=透传客户端）。
+    /// 转发到 OpenAI 端点时使用的 Codex User-Agent（空值回落默认 Codex UA）。
     pub openai_ua: String,
-    /// 伪装 UA：转发到 Claude 端点时覆盖 User-Agent（空=透传客户端）。
+    /// 转发到 Claude 端点时使用的 Claude Code User-Agent（空值回落默认 Claude UA）。
     pub claude_cli_ua: String,
     pub rotation: Rotation,
     pub active: ActiveRequests,
@@ -901,19 +901,30 @@ async fn send_upstream(
     };
     let mut rb = client.request(rmethod, url);
 
-    // 伪装 UA：按上游格式取配置；非空则覆盖客户端 UA，为空则纯透传（客户端 UA 随下方头部复制原样转发）
+    // 上游始终使用对应官方客户端 UA，避免暴露 ccMesh 或入站调用方的身份。
     let ua_format = UpstreamFormat::from_transformer_name(&ep.transformer);
     let ua_override = match ua_format {
-        UpstreamFormat::OpenAiChat | UpstreamFormat::OpenAiResponses => st.openai_ua.trim(),
-        UpstreamFormat::Claude => st.claude_cli_ua.trim(),
+        UpstreamFormat::OpenAiChat | UpstreamFormat::OpenAiResponses => {
+            let configured = st.openai_ua.trim();
+            if configured.is_empty() {
+                ua::codex_probe_ua()
+            } else {
+                configured.to_string()
+            }
+        }
+        UpstreamFormat::Claude => {
+            let configured = st.claude_cli_ua.trim();
+            if configured.is_empty() {
+                ua::CLAUDE_PROBE_UA.to_string()
+            } else {
+                configured.to_string()
+            }
+        }
     };
-    let override_ua = !ua_override.is_empty();
-    let add_codex_originator = override_ua
-        && ua_override.starts_with(ua::CODEX_ORIGINATOR)
-        && !headers.contains_key("originator");
+    let add_codex_originator =
+        ua_override.starts_with(ua::CODEX_ORIGINATOR) && !headers.contains_key("originator");
 
-    // 复制客户端头部（剔除 Host / Content-Length / Accept-Encoding / 客户端凭证 / 控制头；
-    // 仅在配置了伪装 UA 时剔除客户端 user-agent，否则原样透传客户端 UA）
+    // 复制客户端头部（剔除 Host / Content-Length / Accept-Encoding / 客户端凭证 / 控制头 / 原始 UA）。
     for (k, v) in headers.iter() {
         let kn = k.as_str().to_ascii_lowercase();
         if kn == "host"
@@ -923,7 +934,7 @@ async fn send_upstream(
             || kn == "x-api-key"
             || kn == resolver::ENDPOINT_HEADER
             || kn == resolver::ENDPOINT_HEADER_ALT
-            || (override_ua && kn == "user-agent")
+            || kn == "user-agent"
         {
             continue;
         }
@@ -932,10 +943,7 @@ async fn send_upstream(
         }
     }
 
-    // 配置了伪装 UA 才覆盖；未配置时客户端 UA 已在上面原样透传
-    if override_ua {
-        rb = rb.header("user-agent", ua_override);
-    }
+    rb = rb.header("user-agent", ua_override);
     if add_codex_originator {
         rb = rb.header("originator", ua::CODEX_ORIGINATOR);
     }

@@ -6,6 +6,8 @@ use std::collections::HashMap;
 use std::path::Path;
 use std::str::FromStr;
 
+use crate::utils::ua;
+
 #[cfg(target_os = "windows")]
 use std::os::windows::process::CommandExt;
 
@@ -34,6 +36,14 @@ pub struct ToolVersion {
     env_type: String,
     /// 当 env_type 为 "wsl" 时，返回该工具绑定的 WSL distro（用于按 distro 探测 shells）
     wsl_distro: Option<String>,
+}
+
+/// 可由本机已安装 CLI 精确生成的转发 UA。未安装或无法运行时对应字段为 None。
+#[derive(serde::Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct LocalCliUserAgents {
+    pub codex_ua: Option<String>,
+    pub claude_ua: Option<String>,
 }
 
 const VALID_TOOLS: [&str; 4] = ["claude", "codex", "opencode", "pi"];
@@ -98,6 +108,23 @@ pub async fn get_tool_versions(
     }
 
     Ok(results)
+}
+
+/// 只读取本机命令版本生成 UA，不访问 npm 或 GitHub，也不修改任何设置。
+#[tauri::command]
+pub async fn get_local_cli_user_agents() -> Result<LocalCliUserAgents, String> {
+    tokio::task::spawn_blocking(|| {
+        let codex_ua =
+            probe_local_tool_version("codex").map(|version| ua::codex_ua_for_version(&version));
+        let claude_ua =
+            probe_local_tool_version("claude").map(|version| ua::claude_ua_for_version(&version));
+        LocalCliUserAgents {
+            codex_ua,
+            claude_ua,
+        }
+    })
+    .await
+    .map_err(|error| format!("读取本机 CLI 版本失败：{error}"))
 }
 
 #[tauri::command]
@@ -712,6 +739,32 @@ async fn get_single_tool_version_impl(
         installed_but_broken,
         env_type,
         wsl_distro,
+    }
+}
+
+/// 复用本地环境检查的命令探测策略，只返回当前实际可执行的版本。
+fn probe_local_tool_version(tool: &str) -> Option<String> {
+    let (_, wsl_distro) = tool_env_type_and_wsl_distro(tool);
+    let probe = if let Some(distro) = wsl_distro.as_deref() {
+        try_get_version_wsl(tool, distro, None, None)
+    } else {
+        #[cfg(target_os = "windows")]
+        {
+            scan_cli_version(tool)
+        }
+
+        #[cfg(not(target_os = "windows"))]
+        {
+            match try_get_version(tool) {
+                ShellProbe::NotFound(_) => scan_cli_version(tool),
+                found => found,
+            }
+        }
+    };
+
+    match probe {
+        ShellProbe::Found(version) => Some(version.trim_start_matches('v').to_string()),
+        ShellProbe::FoundButFailed(_) | ShellProbe::NotFound(_) => None,
     }
 }
 

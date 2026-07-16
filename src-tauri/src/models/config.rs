@@ -57,9 +57,9 @@ pub struct AppConfig {
     pub proxy_enabled: bool,
     /// 「代理更新」专用开关：开启时应用更新检查/下载经同一代理地址出网。
     pub proxy_for_update: bool,
-    /// 转发到 OpenAI 端点时覆盖 User-Agent（空=透传客户端）。
+    /// 转发到 OpenAI 端点时使用的 Codex User-Agent（空值自动回落默认值）。
     pub openai_ua: String,
-    /// 转发到 Claude 端点时覆盖 User-Agent（空=透传客户端）。
+    /// 转发到 Claude 端点时使用的 Claude Code User-Agent（空值自动回落默认值）。
     pub claude_cli_ua: String,
     pub update: UpdateSettings,
     pub webdav: WebDavConfig,

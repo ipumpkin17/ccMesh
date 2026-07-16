@@ -26,8 +26,22 @@ pub fn get_all_config(state: State<AppState>) -> AppResult<BTreeMap<String, Stri
 pub async fn set_config(
     app: AppHandle,
     state: State<'_, AppState>,
-    patch: HashMap<String, String>,
+    mut patch: HashMap<String, String>,
 ) -> AppResult<AppConfig> {
+    // UA 不能为空：上游始终看到对应官方客户端，而不是 ccMesh 或入站调用方。
+    if patch
+        .get("openaiUa")
+        .is_some_and(|value| value.trim().is_empty())
+    {
+        patch.insert("openaiUa".into(), AppConfig::default().openai_ua);
+    }
+    if patch
+        .get("claudeCliUa")
+        .is_some_and(|value| value.trim().is_empty())
+    {
+        patch.insert("claudeCliUa".into(), AppConfig::default().claude_cli_ua);
+    }
+
     let needs_restart = {
         let conn = state.db_pool.get()?;
         let old_port = config_repo::get_value(&conn, "port")?;
