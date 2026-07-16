@@ -6,6 +6,7 @@ use serde::{Deserialize, Serialize};
 pub struct ProxyStatus {
     pub running: bool,
     pub port: u16,
+    pub current_endpoint_id: Option<String>,
     pub current_endpoint: Option<String>,
     pub enabled_endpoint_count: usize,
 }
@@ -15,6 +16,7 @@ impl Default for ProxyStatus {
         Self {
             running: false,
             port: 0,
+            current_endpoint_id: None,
             current_endpoint: None,
             enabled_endpoint_count: 0,
         }

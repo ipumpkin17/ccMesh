@@ -12,7 +12,7 @@ pub const CONSECUTIVE_FAIL_SWITCH: u32 = 2;
 /// 候选端点会因协议、快速队列、模型与熔断状态动态变化，不能跨候选集合保存裸下标。
 #[derive(Default)]
 pub struct Rotation {
-    current: Mutex<HashMap<String, i64>>,
+    current: Mutex<HashMap<String, String>>,
 }
 
 impl Rotation {
@@ -21,7 +21,7 @@ impl Rotation {
     }
 
     /// 返回当前协议队列内的端点索引。已保存端点不在本次候选中时回落首项。
-    pub fn current_index(&self, queue: &str, endpoint_ids: &[i64]) -> Option<usize> {
+    pub fn current_index(&self, queue: &str, endpoint_ids: &[String]) -> Option<usize> {
         if endpoint_ids.is_empty() {
             return None;
         }
@@ -30,12 +30,12 @@ impl Rotation {
             .get(queue)
             .and_then(|current_id| endpoint_ids.iter().position(|id| id == current_id))
             .unwrap_or(0);
-        g.insert(queue.to_string(), endpoint_ids[index]);
+        g.insert(queue.to_string(), endpoint_ids[index].clone());
         Some(index)
     }
 
     /// 在当前协议的本次候选中前进到下一端点，并保存稳定端点 ID。
-    pub fn advance(&self, queue: &str, endpoint_ids: &[i64]) -> Option<usize> {
+    pub fn advance(&self, queue: &str, endpoint_ids: &[String]) -> Option<usize> {
         if endpoint_ids.is_empty() {
             return None;
         }
@@ -45,16 +45,16 @@ impl Rotation {
             .and_then(|current_id| endpoint_ids.iter().position(|id| id == current_id))
             .unwrap_or(0);
         let next = (old + 1) % endpoint_ids.len();
-        g.insert(queue.to_string(), endpoint_ids[next]);
+        g.insert(queue.to_string(), endpoint_ids[next].clone());
         Some(next)
     }
 
     /// 手动切换时按协议记录稳定端点 ID。
-    pub fn set_endpoint(&self, queue: &str, endpoint_id: i64) {
+    pub fn set_endpoint(&self, queue: &str, endpoint_id: &str) {
         self.current
             .lock()
             .unwrap()
-            .insert(queue.to_string(), endpoint_id);
+            .insert(queue.to_string(), endpoint_id.to_string());
     }
 }
 
@@ -108,7 +108,7 @@ mod tests {
     #[test]
     fn advance_wraps_modulo_n() {
         let r = Rotation::new();
-        let ids = [10, 20, 30];
+        let ids = ["a".into(), "b".into(), "c".into()];
         assert_eq!(r.current_index("claude", &ids), Some(0));
         assert_eq!(r.advance("claude", &ids), Some(1));
         assert_eq!(r.advance("claude", &ids), Some(2));
@@ -118,22 +118,30 @@ mod tests {
     #[test]
     fn current_endpoint_survives_candidate_reorder() {
         let r = Rotation::new();
-        r.set_endpoint("claude", 30);
+        r.set_endpoint("claude", "c");
 
-        assert_eq!(r.current_index("claude", &[10, 30]), Some(1));
-        assert_eq!(r.current_index("claude", &[30, 10]), Some(0));
+        assert_eq!(
+            r.current_index("claude", &["a".into(), "c".into()]),
+            Some(1)
+        );
+        assert_eq!(
+            r.current_index("claude", &["c".into(), "a".into()]),
+            Some(0)
+        );
     }
 
     #[test]
     fn protocol_queues_keep_independent_endpoints() {
         let r = Rotation::new();
-        r.set_endpoint("claude", 20);
-        r.set_endpoint("responses", 30);
+        r.set_endpoint("claude", "b");
+        r.set_endpoint("responses", "c");
 
-        assert_eq!(r.current_index("claude", &[10, 20]), Some(1));
-        assert_eq!(r.current_index("responses", &[30, 40]), Some(0));
-        assert_eq!(r.advance("claude", &[10, 20]), Some(0));
-        assert_eq!(r.current_index("responses", &[30, 40]), Some(0));
+        let claude = ["a".into(), "b".into()];
+        let responses = ["c".into(), "d".into()];
+        assert_eq!(r.current_index("claude", &claude), Some(1));
+        assert_eq!(r.current_index("responses", &responses), Some(0));
+        assert_eq!(r.advance("claude", &claude), Some(0));
+        assert_eq!(r.current_index("responses", &responses), Some(0));
     }
 
     #[test]

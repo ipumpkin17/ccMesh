@@ -23,10 +23,13 @@ pub struct CredentialItem {
     pub sort_order: i64,
 }
 
-/// 导出/导入的端点（全字段 + 多凭证），不含 id/时间戳/test_status/device。
+/// 导出/导入的端点（全字段 + 稳定 ID + 多凭证），不含数据库行主键/时间戳/test_status/device。
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct EndpointExport {
+    /// 稳定端点 ID。旧版 v1 配置缺失时，导入阶段自动生成。
+    #[serde(default)]
+    pub id: Option<String>,
     pub name: String,
     pub api_url: String,
     #[serde(default)]
@@ -74,6 +77,8 @@ pub struct ImportSummary {
     pub endpoints_added: i64,
     pub endpoints_updated: i64,
     pub endpoints_skipped: i64,
+    /// 同名不同 ID 时保留本地稳定身份的端点数。
+    pub identities_preserved: i64,
     pub credentials: i64,
     pub config_keys: i64,
 }

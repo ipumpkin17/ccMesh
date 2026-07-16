@@ -249,7 +249,7 @@ pub async fn test_endpoint(
             let guard = state.proxy.lock().unwrap();
             guard
                 .as_ref()
-                .is_some_and(|h| h.state.breakers.force_close(&ep.name))
+                .is_some_and(|h| h.state.breakers.force_close(&ep.uid))
         };
         if health_changed {
             state.stats.emit_health_changed();

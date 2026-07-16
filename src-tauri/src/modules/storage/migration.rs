@@ -1,4 +1,5 @@
-use rusqlite::Connection;
+use rusqlite::{params, Connection};
+use uuid::Uuid;
 
 use crate::error::AppResult;
 
@@ -131,7 +132,60 @@ const MIGRATIONS: &[&str] = &[
      ALTER TABLE endpoints ADD COLUMN fast_sort_order INTEGER NOT NULL DEFAULT 0;",
     // v13：归档标记。归档端点从主列表隐藏但保留配置，可还原或删除。
     "ALTER TABLE endpoints ADD COLUMN archived INTEGER NOT NULL DEFAULT 0;",
+    // v14：稳定端点唯一 ID。旧端点由 Rust 迁移逻辑补齐 UUID；空值仅用于迁移过渡。
+    "ALTER TABLE endpoints ADD COLUMN uid TEXT NOT NULL DEFAULT '';
+     CREATE UNIQUE INDEX idx_endpoints_uid ON endpoints(uid) WHERE uid <> '';",
+    // v15：所有新统计改用稳定端点 ID。旧统计不回填，endpoint_id 保持空串等待用户清理。
+    // daily_stats 需要重建以移除旧的 endpoint_name 唯一约束，避免端点改名/重建后继续按名称串线。
+    "CREATE TABLE daily_stats_v15 (
+        id                    INTEGER PRIMARY KEY AUTOINCREMENT,
+        endpoint_id           TEXT    NOT NULL DEFAULT '',
+        endpoint_name         TEXT    NOT NULL,
+        date                  TEXT    NOT NULL,
+        requests              INTEGER NOT NULL DEFAULT 0,
+        errors                INTEGER NOT NULL DEFAULT 0,
+        input_tokens          INTEGER NOT NULL DEFAULT 0,
+        output_tokens         INTEGER NOT NULL DEFAULT 0,
+        device_id             TEXT    NOT NULL DEFAULT '',
+        cache_creation_tokens INTEGER NOT NULL DEFAULT 0,
+        cache_read_tokens     INTEGER NOT NULL DEFAULT 0
+    );
+    INSERT INTO daily_stats_v15(
+        id, endpoint_name, date, requests, errors, input_tokens, output_tokens, device_id,
+        cache_creation_tokens, cache_read_tokens
+    )
+    SELECT id, endpoint_name, date, requests, errors, input_tokens, output_tokens, device_id,
+           cache_creation_tokens, cache_read_tokens
+    FROM daily_stats;
+    DROP TABLE daily_stats;
+    ALTER TABLE daily_stats_v15 RENAME TO daily_stats;
+    CREATE INDEX idx_daily_stats_date ON daily_stats(date);
+    CREATE INDEX idx_daily_stats_endpoint ON daily_stats(endpoint_name);
+    CREATE INDEX idx_daily_stats_endpoint_id ON daily_stats(endpoint_id);
+    CREATE INDEX idx_daily_stats_device ON daily_stats(device_id);
+    CREATE UNIQUE INDEX idx_daily_stats_identity
+        ON daily_stats(endpoint_id, date, device_id) WHERE endpoint_id <> '';
+
+    ALTER TABLE request_logs ADD COLUMN endpoint_id TEXT NOT NULL DEFAULT '';
+    CREATE INDEX idx_request_logs_endpoint_id ON request_logs(endpoint_id);",
 ];
+
+fn backfill_endpoint_uids(conn: &Connection) -> AppResult<()> {
+    let ids = {
+        let mut stmt = conn.prepare("SELECT id FROM endpoints WHERE uid = '' ORDER BY id ASC")?;
+        let rows = stmt.query_map([], |row| row.get::<_, i64>(0))?;
+        rows.collect::<rusqlite::Result<Vec<_>>>()?
+    };
+
+    for id in ids {
+        let uid = Uuid::new_v4().to_string();
+        conn.execute(
+            "UPDATE endpoints SET uid = ?1 WHERE id = ?2 AND uid = ''",
+            params![uid, id],
+        )?;
+    }
+    Ok(())
+}
 
 /// 幂等执行迁移：读取 `schema_version` 当前版本，仅应用尚未执行的脚本。
 pub fn run_migrations(conn: &Connection) -> AppResult<()> {
@@ -151,11 +205,25 @@ pub fn run_migrations(conn: &Connection) -> AppResult<()> {
     for (idx, script) in MIGRATIONS.iter().enumerate() {
         let version = (idx + 1) as i64;
         if version > current {
-            conn.execute_batch(script)?;
-            conn.execute("INSERT INTO schema_version(version) VALUES (?1)", [version])?;
+            conn.execute_batch("BEGIN IMMEDIATE")?;
+            let result = (|| -> AppResult<()> {
+                conn.execute_batch(script)?;
+                conn.execute("INSERT INTO schema_version(version) VALUES (?1)", [version])?;
+                Ok(())
+            })();
+            if let Err(error) = result {
+                let _ = conn.execute_batch("ROLLBACK");
+                return Err(error);
+            }
+            if let Err(error) = conn.execute_batch("COMMIT") {
+                let _ = conn.execute_batch("ROLLBACK");
+                return Err(error.into());
+            }
             tracing::info!(version, "已应用数据库迁移");
         }
     }
+
+    backfill_endpoint_uids(conn)?;
 
     Ok(())
 }
@@ -326,5 +394,143 @@ mod tests {
             rows.filter_map(Result::ok).collect()
         };
         assert!(cols.contains(&"archived".to_string()));
+    }
+
+    #[test]
+    fn v14_adds_and_backfills_endpoint_uid() {
+        let c = Connection::open_in_memory().unwrap();
+        c.execute_batch(
+            "CREATE TABLE schema_version (
+                version INTEGER NOT NULL,
+                applied_at TEXT NOT NULL DEFAULT (datetime('now'))
+            );",
+        )
+        .unwrap();
+        for (idx, script) in MIGRATIONS.iter().take(13).enumerate() {
+            c.execute_batch(script).unwrap();
+            c.execute(
+                "INSERT INTO schema_version(version) VALUES (?1)",
+                [(idx + 1) as i64],
+            )
+            .unwrap();
+        }
+        c.execute(
+            "INSERT INTO endpoints(name, api_url) VALUES('legacy', 'https://example.com')",
+            [],
+        )
+        .unwrap();
+
+        run_migrations(&c).unwrap();
+
+        let uid: String = c
+            .query_row(
+                "SELECT uid FROM endpoints WHERE name = 'legacy'",
+                [],
+                |row| row.get(0),
+            )
+            .unwrap();
+        assert!(Uuid::parse_str(&uid).is_ok());
+        let version: i64 = c
+            .query_row("SELECT MAX(version) FROM schema_version", [], |row| {
+                row.get(0)
+            })
+            .unwrap();
+        assert_eq!(version, 15);
+    }
+
+    #[test]
+    fn v15_keeps_legacy_stats_unidentified_and_indexes_new_ids() {
+        let c = Connection::open_in_memory().unwrap();
+        c.execute_batch(
+            "CREATE TABLE schema_version (
+                version INTEGER NOT NULL,
+                applied_at TEXT NOT NULL DEFAULT (datetime('now'))
+            );",
+        )
+        .unwrap();
+        for (idx, script) in MIGRATIONS.iter().take(14).enumerate() {
+            c.execute_batch(script).unwrap();
+            c.execute(
+                "INSERT INTO schema_version(version) VALUES (?1)",
+                [(idx + 1) as i64],
+            )
+            .unwrap();
+        }
+        c.execute(
+            "INSERT INTO daily_stats(endpoint_name,date,requests,device_id)
+             VALUES('legacy','2026-07-16',1,'dev')",
+            [],
+        )
+        .unwrap();
+
+        run_migrations(&c).unwrap();
+
+        let endpoint_id: String = c
+            .query_row("SELECT endpoint_id FROM daily_stats", [], |row| row.get(0))
+            .unwrap();
+        assert!(endpoint_id.is_empty());
+        c.execute(
+            "INSERT INTO daily_stats(endpoint_id,endpoint_name,date,device_id)
+             VALUES('uid-1','renamed','2026-07-16','dev')",
+            [],
+        )
+        .unwrap();
+        assert!(c
+            .execute(
+                "INSERT INTO daily_stats(endpoint_id,endpoint_name,date,device_id)
+                 VALUES('uid-1','another-name','2026-07-16','dev')",
+                [],
+            )
+            .is_err());
+    }
+
+    #[test]
+    fn failed_migration_rolls_back_schema_and_version_together() {
+        let c = Connection::open_in_memory().unwrap();
+        c.execute_batch(
+            "CREATE TABLE schema_version (
+                version INTEGER NOT NULL,
+                applied_at TEXT NOT NULL DEFAULT (datetime('now'))
+            );",
+        )
+        .unwrap();
+        for (idx, script) in MIGRATIONS.iter().take(14).enumerate() {
+            c.execute_batch(script).unwrap();
+            c.execute(
+                "INSERT INTO schema_version(version) VALUES (?1)",
+                [(idx + 1) as i64],
+            )
+            .unwrap();
+        }
+        c.execute_batch(
+            "CREATE TABLE blocker(value TEXT);
+             CREATE INDEX idx_daily_stats_endpoint_id ON blocker(value);",
+        )
+        .unwrap();
+
+        assert!(run_migrations(&c).is_err());
+
+        let version: i64 = c
+            .query_row("SELECT MAX(version) FROM schema_version", [], |row| {
+                row.get(0)
+            })
+            .unwrap();
+        assert_eq!(version, 14);
+        let columns: Vec<String> = {
+            let mut stmt = c.prepare("PRAGMA table_info(daily_stats)").unwrap();
+            stmt.query_map([], |row| row.get(1))
+                .unwrap()
+                .collect::<rusqlite::Result<Vec<_>>>()
+                .unwrap()
+        };
+        assert!(!columns.contains(&"endpoint_id".to_string()));
+        let staging_exists: i64 = c
+            .query_row(
+                "SELECT COUNT(*) FROM sqlite_master WHERE type='table' AND name='daily_stats_v15'",
+                [],
+                |row| row.get(0),
+            )
+            .unwrap();
+        assert_eq!(staging_exists, 0);
     }
 }

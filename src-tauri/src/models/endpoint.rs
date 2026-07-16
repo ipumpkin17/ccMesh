@@ -12,7 +12,10 @@ pub struct ModelMapping {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct Endpoint {
+    /// 本机数据库行主键，仅用于 CRUD 与外键关联。
     pub id: i64,
+    /// 跨导入导出保持不变的稳定唯一 ID。
+    pub uid: String,
     pub name: String,
     pub api_url: String,
     pub api_key: String,

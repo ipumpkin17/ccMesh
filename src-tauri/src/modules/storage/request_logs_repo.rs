@@ -12,14 +12,15 @@ pub fn insert_batch(conn: &mut Connection, logs: &[RequestLog], device_id: &str)
     {
         let mut stmt = tx.prepare(
             "INSERT INTO request_logs(
-                ts, endpoint_name, inbound_format, transformer, upstream_url, inbound_path, upstream_path,
+                ts, endpoint_id, endpoint_name, inbound_format, transformer, upstream_url, inbound_path, upstream_path,
                 status_code, is_error, input_tokens, output_tokens, cache_creation_tokens,
                 cache_read_tokens, model, duration_ms, first_byte_ms, actual_model, error_body, device_id)
-             VALUES(?1,?2,?3,?4,?5,?6,?7,?8,?9,?10,?11,?12,?13,?14,?15,?16,?17,?18,?19)",
+             VALUES(?1,?2,?3,?4,?5,?6,?7,?8,?9,?10,?11,?12,?13,?14,?15,?16,?17,?18,?19,?20)",
         )?;
         for l in logs {
             stmt.execute(params![
                 l.ts,
+                l.endpoint_id,
                 l.endpoint_name,
                 l.inbound_format,
                 l.transformer,
@@ -49,23 +50,24 @@ fn row_to_log(r: &rusqlite::Row) -> rusqlite::Result<RequestLog> {
     Ok(RequestLog {
         id: r.get(0)?,
         ts: r.get(1)?,
-        endpoint_name: r.get(2)?,
-        inbound_format: r.get(3)?,
-        transformer: r.get(4)?,
-        upstream_url: r.get(5)?,
-        status_code: r.get(6)?,
-        is_error: r.get::<_, i64>(7)? != 0,
-        input_tokens: r.get(8)?,
-        output_tokens: r.get(9)?,
-        cache_creation_tokens: r.get(10)?,
-        cache_read_tokens: r.get(11)?,
-        model: r.get(12)?,
-        duration_ms: r.get(13)?,
-        inbound_path: r.get(14)?,
-        upstream_path: r.get(15)?,
-        first_byte_ms: r.get(16)?,
-        actual_model: r.get(17)?,
-        error_body: r.get(18)?,
+        endpoint_id: r.get(2)?,
+        endpoint_name: r.get(3)?,
+        inbound_format: r.get(4)?,
+        transformer: r.get(5)?,
+        upstream_url: r.get(6)?,
+        status_code: r.get(7)?,
+        is_error: r.get::<_, i64>(8)? != 0,
+        input_tokens: r.get(9)?,
+        output_tokens: r.get(10)?,
+        cache_creation_tokens: r.get(11)?,
+        cache_read_tokens: r.get(12)?,
+        model: r.get(13)?,
+        duration_ms: r.get(14)?,
+        inbound_path: r.get(15)?,
+        upstream_path: r.get(16)?,
+        first_byte_ms: r.get(17)?,
+        actual_model: r.get(18)?,
+        error_body: r.get(19)?,
     })
 }
 
@@ -91,7 +93,7 @@ pub fn query_page(
     }
     if let Some(ep) = endpoint {
         if !ep.is_empty() {
-            where_sql.push_str(" AND endpoint_name = ?");
+            where_sql.push_str(" AND endpoint_id = ?");
             args.push(SqlValue::Text(ep.to_string()));
         }
     }
@@ -105,7 +107,7 @@ pub fn query_page(
     page_args.push(SqlValue::Integer(limit));
     page_args.push(SqlValue::Integer(offset));
     let sql = format!(
-        "SELECT id, ts, endpoint_name, inbound_format, transformer, upstream_url, status_code, is_error,
+        "SELECT id, ts, endpoint_id, endpoint_name, inbound_format, transformer, upstream_url, status_code, is_error,
                 input_tokens, output_tokens, cache_creation_tokens, cache_read_tokens, model, duration_ms,
                 inbound_path, upstream_path, first_byte_ms, actual_model, error_body
          FROM request_logs{where_sql}
@@ -147,6 +149,7 @@ mod tests {
         RequestLog {
             id: 0,
             ts,
+            endpoint_id: format!("uid-{endpoint}"),
             endpoint_name: endpoint.to_string(),
             inbound_format: "claude".to_string(),
             transformer: Some("claude".to_string()),
@@ -222,9 +225,9 @@ mod tests {
         let (items, total) = query_page(&c, Some(150), Some(350), None, 50, 0).unwrap();
         assert_eq!(total, 2);
         assert_eq!(items.len(), 2);
-        let (a_items, a_total) = query_page(&c, None, None, Some("a"), 50, 0).unwrap();
+        let (a_items, a_total) = query_page(&c, None, None, Some("uid-a"), 50, 0).unwrap();
         assert_eq!(a_total, 2);
-        assert!(a_items.iter().all(|l| l.endpoint_name == "a"));
+        assert!(a_items.iter().all(|l| l.endpoint_id == "uid-a"));
     }
 
     #[test]

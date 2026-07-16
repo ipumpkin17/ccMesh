@@ -41,6 +41,7 @@ struct Delta {
 
 /// 一次请求结果的完整记录（由代理转发汇聚点构造）。
 pub struct RequestRecord {
+    pub endpoint_id: String,
     pub endpoint_name: String,
     pub model: Option<String>,
     pub inbound_format: String,
@@ -68,7 +69,7 @@ pub struct StatsAggregator {
     db_pool: DbPool,
     app_handle: AppHandle,
     device_id: String,
-    pending: Mutex<HashMap<(String, String), Delta>>,
+    pending: Mutex<HashMap<(String, String), (String, Delta)>>,
     pending_logs: Mutex<Vec<RequestLog>>,
     last_prune: Mutex<Option<Instant>>,
 }
@@ -114,7 +115,12 @@ impl StatsAggregator {
         let ts = chrono::Utc::now().timestamp_millis();
         {
             let mut p = self.pending.lock().unwrap();
-            let d = p.entry((rec.endpoint_name.clone(), date)).or_default();
+            let entry = p
+                .entry((rec.endpoint_id.clone(), date))
+                .or_insert_with(|| (rec.endpoint_name.clone(), Delta::default()));
+            // 名称只作为最新展示快照；聚合身份始终使用 endpoint_id。
+            entry.0 = rec.endpoint_name.clone();
+            let d = &mut entry.1;
             d.requests += 1;
             if rec.is_error {
                 d.errors += 1;
@@ -127,6 +133,7 @@ impl StatsAggregator {
         let log = RequestLog {
             id: 0,
             ts,
+            endpoint_id: rec.endpoint_id,
             endpoint_name: rec.endpoint_name,
             inbound_format: rec.inbound_format,
             transformer: rec.transformer,
@@ -166,7 +173,7 @@ impl StatsAggregator {
 
     /// 将内存增量批量写入 DB（幂等：无增量且无需清理时直接返回）。
     pub fn flush(&self) -> AppResult<()> {
-        let drained: Vec<((String, String), Delta)> = {
+        let drained: Vec<((String, String), (String, Delta))> = {
             let mut p = self.pending.lock().unwrap();
             p.drain().collect()
         };
@@ -179,10 +186,11 @@ impl StatsAggregator {
             return Ok(());
         }
         let mut conn = self.db_pool.get()?;
-        for ((endpoint, date), d) in drained {
+        for ((endpoint_id, date), (endpoint_name, d)) in drained {
             stats_repo::upsert(
                 &conn,
-                &endpoint,
+                &endpoint_id,
+                &endpoint_name,
                 &date,
                 &self.device_id,
                 d.requests,

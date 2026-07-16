@@ -26,15 +26,19 @@ use crate::modules::stats::aggregator::StatsAggregator;
 use crate::modules::storage::{config_repo, db::DbPool, endpoint_repo};
 use crate::modules::transform::thinking_rectifier::RectifierConfig;
 
-fn set_rotation_for_endpoint(rotation: &Rotation, enabled: &[Endpoint], endpoint_id: i64) -> bool {
+fn set_rotation_for_endpoint(
+    rotation: &Rotation,
+    enabled: &[Endpoint],
+    endpoint_uid: &str,
+) -> bool {
     let mut routable = false;
     for inbound in InboundProtocol::ALL {
         let (candidates, _) = select_routable_endpoints(enabled.to_vec(), inbound);
         if candidates
             .iter()
-            .any(|candidate| candidate.id == endpoint_id)
+            .any(|candidate| candidate.uid == endpoint_uid)
         {
-            rotation.set_endpoint(inbound.label(), endpoint_id);
+            rotation.set_endpoint(inbound.label(), endpoint_uid);
             routable = true;
         }
     }
@@ -60,32 +64,35 @@ impl ProxyHandle {
         }
     }
 
-    pub fn current_endpoint(&self) -> Option<String> {
-        self.state.current_endpoint_name()
+    pub fn current_endpoint(&self) -> Option<crate::modules::proxy::forward::CurrentEndpoint> {
+        self.state.current_endpoint()
     }
 
-    /// 手动切换到指定端点名：按兼容协议队列保存稳定端点 ID、取消旧端点在途请求、置为当前。
-    pub fn switch_endpoint(&self, name: &str) -> AppResult<String> {
+    /// 手动切换到指定稳定端点 ID：按兼容协议队列保存 ID、取消旧端点在途请求、置为当前。
+    pub fn switch_endpoint(&self, endpoint_id: &str) -> AppResult<()> {
         let conn = self.state.db_pool.get()?;
         let enabled = endpoint_repo::list_enabled(&conn)?;
         let endpoint = enabled
             .iter()
-            .find(|e| e.name.eq_ignore_ascii_case(name.trim()))
-            .ok_or_else(|| AppError::NotFound(format!("端点 '{name}' 不存在或未启用")))?;
+            .find(|e| e.uid == endpoint_id.trim())
+            .ok_or_else(|| AppError::NotFound(format!("端点 ID '{endpoint_id}' 不存在或未启用")))?;
 
-        if !set_rotation_for_endpoint(&self.state.rotation, &enabled, endpoint.id) {
+        if !set_rotation_for_endpoint(&self.state.rotation, &enabled, &endpoint.uid) {
             return Err(AppError::InvalidArgument(format!(
                 "端点 '{}' 不在当前有效队列中",
                 endpoint.name
             )));
         }
 
-        if let Some(old) = self.state.current_endpoint_name() {
-            self.state.active.cancel(&old);
+        if let Some(old) = self.state.current_endpoint() {
+            self.state.active.cancel(&old.id);
         }
-        let new_name = endpoint.name.clone();
-        *self.state.current_endpoint.lock().unwrap() = Some(new_name.clone());
-        Ok(new_name)
+        *self.state.current_endpoint.lock().unwrap() =
+            Some(crate::modules::proxy::forward::CurrentEndpoint {
+                id: endpoint.uid.clone(),
+                name: endpoint.name.clone(),
+            });
+        Ok(())
     }
 }
 
@@ -193,14 +200,14 @@ async fn stats_route() -> Response {
 /// 专用型端点（model 非空）公布锁定模型；聚合型端点展开 models 清单。
 /// 按入站鉴权格式返回：带 x-api-key/anthropic-version → Anthropic 格式；否则 OpenAI 格式。
 async fn models_route(State(st): State<Arc<ProxyState>>, headers: HeaderMap) -> Response {
-    let pairs: Vec<(String, String)> = match st.db_pool.get() {
+    let entries: Vec<(String, String, String)> = match st.db_pool.get() {
         Ok(conn) => match endpoint_repo::list_enabled(&conn) {
             Ok(endpoints) => endpoints
                 .iter()
                 .flat_map(|ep| {
                     crate::modules::proxy::resolver::advertised_models(ep)
                         .into_iter()
-                        .map(|m| (m, ep.name.clone()))
+                        .map(|m| (m, ep.uid.clone(), ep.name.clone()))
                         .collect::<Vec<_>>()
                 })
                 .collect(),
@@ -211,14 +218,14 @@ async fn models_route(State(st): State<Arc<ProxyState>>, headers: HeaderMap) -> 
 
     // 跨端点去重（大小写不敏感，保留首次出现），与对外公布模型口径一致，
     // 避免多个端点公布同名模型时 /v1/models 出现重复项（拉取模型下拉重复）。
-    let pairs = crate::modules::proxy::resolver::dedup_advertised_pairs(pairs);
+    let entries = crate::modules::proxy::resolver::dedup_advertised_entries(entries);
 
     let anthropic = headers.contains_key("x-api-key") || headers.contains_key("anthropic-version");
     if anthropic {
         // Anthropic 格式：data[].{id,type,display_name,created_at} + first_id/last_id/has_more
-        let data: Vec<serde_json::Value> = pairs
+        let data: Vec<serde_json::Value> = entries
             .iter()
-            .map(|(id, _)| {
+            .map(|(id, _, _)| {
                 json!({
                     "id": id,
                     "type": "model",
@@ -228,8 +235,8 @@ async fn models_route(State(st): State<Arc<ProxyState>>, headers: HeaderMap) -> 
             })
             .collect();
         // 空列表时 first_id/last_id 为 null（对齐官方 Anthropic 行为）
-        let first_id = pairs.first().map(|(id, _)| id.as_str());
-        let last_id = pairs.last().map(|(id, _)| id.as_str());
+        let first_id = entries.first().map(|(id, _, _)| id.as_str());
+        let last_id = entries.last().map(|(id, _, _)| id.as_str());
         Json(json!({
             "data": data,
             "first_id": first_id,
@@ -239,9 +246,9 @@ async fn models_route(State(st): State<Arc<ProxyState>>, headers: HeaderMap) -> 
         .into_response()
     } else {
         // OpenAI 格式：object:list + data[].{id,object,created,owned_by}
-        let data: Vec<serde_json::Value> = pairs
+        let data: Vec<serde_json::Value> = entries
             .iter()
-            .map(|(id, name)| model_info(id, name))
+            .map(|(id, endpoint_id, name)| model_info(id, endpoint_id, name))
             .collect();
         Json(json!({ "object": "list", "data": data })).into_response()
     }
@@ -266,6 +273,7 @@ mod tests {
     fn endpoint(id: i64, name: &str, transformer: &str) -> Endpoint {
         Endpoint {
             id,
+            uid: format!("00000000-0000-4000-8000-{id:012}"),
             name: name.into(),
             api_url: String::new(),
             api_key: String::new(),
@@ -297,14 +305,24 @@ mod tests {
         ];
         let rotation = Rotation::new();
 
-        assert!(set_rotation_for_endpoint(&rotation, &enabled, 3));
+        assert!(set_rotation_for_endpoint(
+            &rotation,
+            &enabled,
+            "00000000-0000-4000-8000-000000000003"
+        ));
         let (claude_candidates, _) = select_routable_endpoints(enabled, InboundProtocol::Claude);
-        let candidate_ids: Vec<i64> = claude_candidates
+        let candidate_ids: Vec<String> = claude_candidates
             .iter()
-            .map(|endpoint| endpoint.id)
+            .map(|endpoint| endpoint.uid.clone())
             .collect();
 
-        assert_eq!(candidate_ids, vec![1, 3]);
+        assert_eq!(
+            candidate_ids,
+            vec![
+                "00000000-0000-4000-8000-000000000001",
+                "00000000-0000-4000-8000-000000000003"
+            ]
+        );
         assert_eq!(rotation.current_index("claude", &candidate_ids), Some(1));
     }
 }

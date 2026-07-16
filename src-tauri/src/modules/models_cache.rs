@@ -12,13 +12,13 @@ fn default_model(ep: &Endpoint) -> &str {
     }
 }
 
-pub fn model_info(id: &str, endpoint_name: &str) -> Value {
+pub fn model_info(id: &str, endpoint_id: &str, endpoint_name: &str) -> Value {
     json!({
         "id": id,
         "object": "model",
         "created": 1_735_689_600,
         "owned_by": endpoint_name,
-        "endpoint_id": endpoint_name
+        "endpoint_id": endpoint_id
     })
 }
 
@@ -39,8 +39,26 @@ async fn fetch_model_ids(
 pub async fn fetch_models(client: &reqwest::Client, ep: &Endpoint) -> Vec<Value> {
     let ids = fetch_model_ids(client, &ep.api_url, &ep.api_key, &ep.transformer).await;
     if ids.is_empty() {
-        vec![model_info(default_model(ep), &ep.name)]
+        vec![model_info(default_model(ep), &ep.uid, &ep.name)]
     } else {
-        ids.iter().map(|id| model_info(id, &ep.name)).collect()
+        ids.iter()
+            .map(|id| model_info(id, &ep.uid, &ep.name))
+            .collect()
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::model_info;
+
+    #[test]
+    fn endpoint_id_stays_stable_when_name_changes() {
+        let before = model_info("model", "stable-id", "A");
+        let after = model_info("model", "stable-id", "B");
+
+        assert_eq!(before["endpoint_id"], "stable-id");
+        assert_eq!(after["endpoint_id"], "stable-id");
+        assert_eq!(before["owned_by"], "A");
+        assert_eq!(after["owned_by"], "B");
     }
 }

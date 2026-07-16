@@ -1,9 +1,11 @@
 use std::path::Path;
 
 use rusqlite::{params, params_from_iter, Connection};
+use uuid::Uuid;
 
-use crate::error::AppResult;
+use crate::error::{AppError, AppResult};
 use crate::modules::storage::config_repo::SAFE_CONFIG_KEYS;
+use crate::modules::storage::migration::run_migrations;
 
 fn sql_quote(path: &Path) -> String {
     path.to_string_lossy().replace('\'', "''")
@@ -11,6 +13,24 @@ fn sql_quote(path: &Path) -> String {
 
 fn placeholders(n: usize) -> String {
     vec!["?"; n].join(",")
+}
+
+fn validate_backup_ids(conn: &Connection, table: &str, column: &str) -> AppResult<()> {
+    let sql = format!("SELECT DISTINCT {column} FROM backup.{table} WHERE {column} <> ''");
+    let mut stmt = conn.prepare(&sql)?;
+    let rows = stmt.query_map([], |row| row.get::<_, String>(0))?;
+    for value in rows {
+        let value = value?;
+        let canonical = Uuid::parse_str(&value)
+            .map(|parsed| parsed.to_string() == value)
+            .unwrap_or(false);
+        if !canonical {
+            return Err(AppError::InvalidArgument(format!(
+                "WebDAV 备份包含无效或非规范的端点 ID: {value}"
+            )));
+        }
+    }
+    Ok(())
 }
 
 /// 生成可上传的数据库副本：VACUUM INTO 临时文件，并剔除设备特定配置（仅保留安全键）。
@@ -33,20 +53,28 @@ pub fn create_backup_copy(conn: &Connection, temp_path: &Path) -> AppResult<()> 
 
 /// 将备份库 ATTACH 后合并到本地：
 /// - app_config：仅安全键；overwrite=REPLACE / keep=IGNORE
-/// - endpoints：按 name；overwrite=REPLACE / keep=IGNORE
-/// - daily_stats：重打本地 device_id 并按 (endpoint,date) 聚合；overwrite 先删冲突日
+/// - endpoints：按稳定 uid；名称仅作为可更新展示字段
+/// - daily_stats：仅同步带 endpoint_id 的新统计，重打本地 device_id；旧名称统计忽略
 pub fn merge_from_backup(
     conn: &mut Connection,
     backup_path: &Path,
     overwrite: bool,
     device_id: &str,
 ) -> AppResult<()> {
+    // WebDAV 下载文件是临时副本，可先迁移到当前结构；旧统计 ID 保持空串并在合并时忽略。
+    // 这样 v13 及更早备份仍能恢复端点配置，而不会把名称历史强行映射成统计身份。
+    {
+        let backup = Connection::open(backup_path)?;
+        run_migrations(&backup)?;
+    }
     conn.execute_batch(&format!(
         "ATTACH DATABASE '{}' AS backup",
         sql_quote(backup_path)
     ))?;
 
     let result = (|| -> AppResult<()> {
+        validate_backup_ids(conn, "endpoints", "uid")?;
+        validate_backup_ids(conn, "daily_stats", "endpoint_id")?;
         let mode = if overwrite { "OR REPLACE" } else { "OR IGNORE" };
         let tx = conn.transaction()?;
 
@@ -59,31 +87,98 @@ pub fn merge_from_backup(
             params_from_iter(SAFE_CONFIG_KEYS.iter()),
         )?;
 
-        tx.execute(
-            &format!(
-                "INSERT {mode} INTO endpoints
-                    (name, api_url, api_key, auth_mode, enabled, transformer, model, remark, sort_order, test_status)
-                 SELECT name, api_url, api_key, auth_mode, enabled, transformer, model, remark, sort_order, test_status
-                 FROM backup.endpoints"
-            ),
-            [],
-        )?;
+        if overwrite {
+            tx.execute(
+                "INSERT INTO endpoints(
+                    uid, name, api_url, api_key, auth_mode, enabled, use_proxy, transformer, model,
+                    models, active_models, model_mappings, remark, sort_order, fast, fast_sort_order,
+                    test_status, archived
+                 )
+                 SELECT COALESCE(local_by_uid.uid, local_by_name.uid, remote.uid),
+                        remote.name, remote.api_url, remote.api_key, remote.auth_mode,
+                        remote.enabled, remote.use_proxy, remote.transformer, remote.model,
+                        remote.models, remote.active_models, remote.model_mappings, remote.remark,
+                        remote.sort_order, remote.fast, remote.fast_sort_order,
+                        remote.test_status, remote.archived
+                 FROM backup.endpoints remote
+                 LEFT JOIN endpoints local_by_uid ON local_by_uid.uid = remote.uid
+                 LEFT JOIN endpoints local_by_name ON local_by_name.name = remote.name
+                 WHERE remote.uid <> ''
+                 ON CONFLICT(uid) WHERE uid <> '' DO UPDATE SET
+                    name=excluded.name, api_url=excluded.api_url, api_key=excluded.api_key,
+                    auth_mode=excluded.auth_mode, enabled=excluded.enabled,
+                    use_proxy=excluded.use_proxy, transformer=excluded.transformer, model=excluded.model,
+                    models=excluded.models, active_models=excluded.active_models,
+                    model_mappings=excluded.model_mappings, remark=excluded.remark,
+                    sort_order=excluded.sort_order, fast=excluded.fast,
+                    fast_sort_order=excluded.fast_sort_order, test_status=excluded.test_status,
+                    archived=excluded.archived, updated_at=datetime('now')",
+                [],
+            )?;
+        } else {
+            tx.execute(
+                "INSERT OR IGNORE INTO endpoints(
+                    uid, name, api_url, api_key, auth_mode, enabled, use_proxy, transformer, model,
+                    models, active_models, model_mappings, remark, sort_order, fast, fast_sort_order,
+                    test_status, archived
+                 )
+                 SELECT COALESCE(local_by_uid.uid, local_by_name.uid, remote.uid),
+                        remote.name, remote.api_url, remote.api_key, remote.auth_mode,
+                        remote.enabled, remote.use_proxy, remote.transformer, remote.model,
+                        remote.models, remote.active_models, remote.model_mappings, remote.remark,
+                        remote.sort_order, remote.fast, remote.fast_sort_order,
+                        remote.test_status, remote.archived
+                 FROM backup.endpoints remote
+                 LEFT JOIN endpoints local_by_uid ON local_by_uid.uid = remote.uid
+                 LEFT JOIN endpoints local_by_name ON local_by_name.name = remote.name
+                 WHERE remote.uid <> ''",
+                [],
+            )?;
+        }
 
         if overwrite {
             tx.execute(
                 "DELETE FROM daily_stats WHERE EXISTS (
-                    SELECT 1 FROM backup.daily_stats b
-                    WHERE b.endpoint_name = daily_stats.endpoint_name AND b.date = daily_stats.date
+                    SELECT 1
+                    FROM backup.daily_stats remote_stat
+                    LEFT JOIN backup.endpoints remote_endpoint
+                      ON remote_endpoint.uid = remote_stat.endpoint_id
+                    LEFT JOIN endpoints local_by_uid
+                      ON local_by_uid.uid = remote_stat.endpoint_id
+                    LEFT JOIN endpoints local_by_name
+                      ON local_by_name.name = remote_endpoint.name
+                    WHERE remote_stat.endpoint_id <> ''
+                      AND COALESCE(local_by_uid.uid, local_by_name.uid, remote_stat.endpoint_id)
+                          = daily_stats.endpoint_id
+                      AND remote_stat.date = daily_stats.date
                  )",
                 [],
             )?;
         }
         tx.execute(
             &format!(
-                "INSERT {mode} INTO daily_stats
-                    (endpoint_name, date, requests, errors, input_tokens, output_tokens, device_id)
-                 SELECT endpoint_name, date, SUM(requests), SUM(errors), SUM(input_tokens), SUM(output_tokens), ?1
-                 FROM backup.daily_stats GROUP BY endpoint_name, date"
+                "WITH normalized AS (
+                    SELECT COALESCE(local_by_uid.uid, local_by_name.uid, remote_stat.endpoint_id)
+                               AS endpoint_id,
+                           remote_stat.endpoint_name, remote_stat.date, remote_stat.requests,
+                           remote_stat.errors, remote_stat.input_tokens, remote_stat.output_tokens,
+                           remote_stat.cache_creation_tokens, remote_stat.cache_read_tokens
+                    FROM backup.daily_stats remote_stat
+                    LEFT JOIN backup.endpoints remote_endpoint
+                      ON remote_endpoint.uid = remote_stat.endpoint_id
+                    LEFT JOIN endpoints local_by_uid
+                      ON local_by_uid.uid = remote_stat.endpoint_id
+                    LEFT JOIN endpoints local_by_name
+                      ON local_by_name.name = remote_endpoint.name
+                    WHERE remote_stat.endpoint_id <> ''
+                 )
+                 INSERT {mode} INTO daily_stats
+                    (endpoint_id, endpoint_name, date, requests, errors, input_tokens, output_tokens,
+                     cache_creation_tokens, cache_read_tokens, device_id)
+                 SELECT endpoint_id, MAX(endpoint_name), date, SUM(requests), SUM(errors),
+                        SUM(input_tokens), SUM(output_tokens), SUM(cache_creation_tokens),
+                        SUM(cache_read_tokens), ?1
+                 FROM normalized GROUP BY endpoint_id, date"
             ),
             params![device_id],
         )?;
@@ -103,6 +198,102 @@ mod tests {
     use rusqlite::Connection;
 
     #[test]
+    fn rejects_invalid_endpoint_id_from_backup() {
+        let c = Connection::open_in_memory().unwrap();
+        c.execute_batch(
+            "ATTACH DATABASE ':memory:' AS backup;
+             CREATE TABLE backup.endpoints(uid TEXT NOT NULL);
+             INSERT INTO backup.endpoints(uid) VALUES('not-a-uuid');",
+        )
+        .unwrap();
+
+        let err = validate_backup_ids(&c, "endpoints", "uid").unwrap_err();
+
+        assert!(err.to_string().contains("无效或非规范的端点 ID"));
+    }
+
+    #[test]
+    fn rejects_noncanonical_endpoint_id_from_backup() {
+        let c = Connection::open_in_memory().unwrap();
+        c.execute_batch(
+            "ATTACH DATABASE ':memory:' AS backup;
+             CREATE TABLE backup.endpoints(uid TEXT NOT NULL);
+             INSERT INTO backup.endpoints(uid)
+             VALUES('AAAAAAAA-AAAA-4AAA-8AAA-AAAAAAAAAAAA');",
+        )
+        .unwrap();
+
+        let err = validate_backup_ids(&c, "endpoints", "uid").unwrap_err();
+
+        assert!(err.to_string().contains("非规范的端点 ID"));
+    }
+
+    #[test]
+    fn merge_upgrades_v13_backup_and_keeps_legacy_stats_unidentified() {
+        let dir = std::env::temp_dir();
+        let pid = std::process::id();
+        let backup_path = dir.join(format!("ccx_v13_{pid}.db"));
+        let target_path = dir.join(format!("ccx_v15_target_{pid}.db"));
+        for path in [&backup_path, &target_path] {
+            let _ = std::fs::remove_file(path);
+        }
+        let legacy = Connection::open(&backup_path).unwrap();
+        legacy
+            .execute_batch(
+                "CREATE TABLE schema_version(version INTEGER NOT NULL);
+                 INSERT INTO schema_version(version) VALUES(13);
+                 CREATE TABLE app_config(key TEXT PRIMARY KEY, value TEXT NOT NULL);
+                 CREATE TABLE endpoints(
+                    id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT NOT NULL UNIQUE,
+                    api_url TEXT NOT NULL, api_key TEXT NOT NULL DEFAULT '',
+                    auth_mode TEXT NOT NULL DEFAULT 'api_key', enabled INTEGER NOT NULL DEFAULT 1,
+                    transformer TEXT NOT NULL DEFAULT 'claude', model TEXT NOT NULL DEFAULT '',
+                    remark TEXT NOT NULL DEFAULT '', sort_order INTEGER NOT NULL DEFAULT 0,
+                    test_status TEXT NOT NULL DEFAULT 'unknown', created_at TEXT NOT NULL DEFAULT '',
+                    updated_at TEXT NOT NULL DEFAULT '', models TEXT NOT NULL DEFAULT '[]',
+                    use_proxy INTEGER NOT NULL DEFAULT 0, model_mappings TEXT NOT NULL DEFAULT '[]',
+                    active_models TEXT NOT NULL DEFAULT '[]', fast INTEGER NOT NULL DEFAULT 0,
+                    fast_sort_order INTEGER NOT NULL DEFAULT 0, archived INTEGER NOT NULL DEFAULT 0
+                 );
+                 CREATE TABLE daily_stats(
+                    id INTEGER PRIMARY KEY AUTOINCREMENT, endpoint_name TEXT NOT NULL,
+                    date TEXT NOT NULL, requests INTEGER NOT NULL DEFAULT 0,
+                    errors INTEGER NOT NULL DEFAULT 0, input_tokens INTEGER NOT NULL DEFAULT 0,
+                    output_tokens INTEGER NOT NULL DEFAULT 0, device_id TEXT NOT NULL DEFAULT '',
+                    cache_creation_tokens INTEGER NOT NULL DEFAULT 0,
+                    cache_read_tokens INTEGER NOT NULL DEFAULT 0,
+                    UNIQUE(endpoint_name,date,device_id)
+                 );
+                 CREATE TABLE request_logs(id INTEGER PRIMARY KEY AUTOINCREMENT);
+                 INSERT INTO endpoints(name,api_url) VALUES('legacy','https://legacy.example.com');
+                 INSERT INTO daily_stats(endpoint_name,date,requests,device_id)
+                    VALUES('legacy','2026-07-01',3,'OLD');",
+            )
+            .unwrap();
+        drop(legacy);
+
+        let mut target = Connection::open(&target_path).unwrap();
+        run_migrations(&target).unwrap();
+        merge_from_backup(&mut target, &backup_path, true, "LOCAL").unwrap();
+
+        let uid: String = target
+            .query_row("SELECT uid FROM endpoints WHERE name='legacy'", [], |row| {
+                row.get(0)
+            })
+            .unwrap();
+        assert!(Uuid::parse_str(&uid).is_ok());
+        let stats_count: i64 = target
+            .query_row("SELECT COUNT(*) FROM daily_stats", [], |row| row.get(0))
+            .unwrap();
+        assert_eq!(stats_count, 0);
+
+        drop(target);
+        for path in [&backup_path, &target_path] {
+            let _ = std::fs::remove_file(path);
+        }
+    }
+
+    #[test]
     fn backup_strips_device_config_and_merge_restamps_device() {
         let dir = std::env::temp_dir();
         let pid = std::process::id();
@@ -113,7 +304,7 @@ mod tests {
             let _ = std::fs::remove_file(p);
         }
 
-        // 源库：安全键 theme + 设备键 device_id + 一条统计（设备 SRC）
+        // 源库：安全键 theme + 设备键 device_id + 稳定 ID 端点和统计（设备 SRC）
         let src = Connection::open(&src_path).unwrap();
         run_migrations(&src).unwrap();
         src.execute(
@@ -122,8 +313,14 @@ mod tests {
         )
         .unwrap();
         src.execute(
-            "INSERT INTO daily_stats(endpoint_name,date,requests,errors,input_tokens,output_tokens,device_id)
-             VALUES('ep','2026-06-05',5,0,0,0,'SRC')",
+            "INSERT INTO endpoints(uid,name,api_url)
+             VALUES('11111111-1111-4111-8111-111111111111','ep','https://example.com')",
+            [],
+        )
+        .unwrap();
+        src.execute(
+            "INSERT INTO daily_stats(endpoint_id,endpoint_name,date,requests,errors,input_tokens,output_tokens,device_id)
+             VALUES('11111111-1111-4111-8111-111111111111','ep','2026-06-05',5,0,0,0,'SRC')",
             [],
         )
         .unwrap();
@@ -151,11 +348,18 @@ mod tests {
         // 目标库合并（overwrite）：daily_stats 重打本地 device_id
         let mut tgt = Connection::open(&tgt_path).unwrap();
         run_migrations(&tgt).unwrap();
+        tgt.execute(
+            "INSERT INTO endpoints(uid,name,api_url)
+             VALUES('22222222-2222-4222-8222-222222222222','ep','https://local.example.com')",
+            [],
+        )
+        .unwrap();
         merge_from_backup(&mut tgt, &bk_path, true, "LOCAL").unwrap();
 
         let dev: String = tgt
             .query_row(
-                "SELECT device_id FROM daily_stats WHERE endpoint_name='ep'",
+                "SELECT device_id FROM daily_stats
+                 WHERE endpoint_id='22222222-2222-4222-8222-222222222222'",
                 [],
                 |r| r.get(0),
             )
@@ -163,12 +367,19 @@ mod tests {
         assert_eq!(dev, "LOCAL");
         let reqs: i64 = tgt
             .query_row(
-                "SELECT requests FROM daily_stats WHERE endpoint_name='ep'",
+                "SELECT requests FROM daily_stats
+                 WHERE endpoint_id='22222222-2222-4222-8222-222222222222'",
                 [],
                 |r| r.get(0),
             )
             .unwrap();
         assert_eq!(reqs, 5);
+        let endpoint_uid: String = tgt
+            .query_row("SELECT uid FROM endpoints WHERE name='ep'", [], |r| {
+                r.get(0)
+            })
+            .unwrap();
+        assert_eq!(endpoint_uid, "22222222-2222-4222-8222-222222222222");
         let theme: String = tgt
             .query_row("SELECT value FROM app_config WHERE key='theme'", [], |r| {
                 r.get(0)

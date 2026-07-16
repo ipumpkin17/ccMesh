@@ -1,15 +1,17 @@
 use std::collections::HashSet;
 
 use rusqlite::{params, Connection, OptionalExtension, Row};
+use uuid::Uuid;
 
 use crate::error::{AppError, AppResult};
 use crate::models::endpoint::{CreateEndpointRequest, Endpoint, UpdateEndpointRequest};
 
-const COLS: &str = "id, name, api_url, api_key, auth_mode, enabled, use_proxy, transformer, model, models, active_models, model_mappings, remark, sort_order, fast, fast_sort_order, test_status, created_at, updated_at, archived";
+const COLS: &str = "id, uid, name, api_url, api_key, auth_mode, enabled, use_proxy, transformer, model, models, active_models, model_mappings, remark, sort_order, fast, fast_sort_order, test_status, created_at, updated_at, archived";
 
 fn row_to_endpoint(row: &Row) -> rusqlite::Result<Endpoint> {
     Ok(Endpoint {
         id: row.get("id")?,
+        uid: row.get("uid")?,
         name: row.get("name")?,
         api_url: row.get("api_url")?,
         api_key: row.get("api_key")?,
@@ -67,6 +69,15 @@ pub fn get_by_name(conn: &Connection, name: &str) -> AppResult<Option<Endpoint>>
     Ok(conn.query_row(&sql, [name], row_to_endpoint).optional()?)
 }
 
+pub fn get_by_uid(conn: &Connection, uid: &str) -> AppResult<Option<Endpoint>> {
+    let sql = format!("SELECT {COLS} FROM endpoints WHERE uid = ?1");
+    Ok(conn.query_row(&sql, [uid], row_to_endpoint).optional()?)
+}
+
+pub fn new_endpoint_uid() -> String {
+    Uuid::new_v4().to_string()
+}
+
 fn require(conn: &Connection, id: i64) -> AppResult<Endpoint> {
     get_by_id(conn, id)?.ok_or_else(|| AppError::NotFound(format!("端点 #{id} 不存在")))
 }
@@ -102,11 +113,13 @@ pub fn create(conn: &Connection, req: &CreateEndpointRequest) -> AppResult<Endpo
 
     // 点亮子集规整为 models 的子集（去除已不存在的模型，避免脏数据）。
     let active = sanitize_active(&req.models, &req.active_models);
+    let uid = new_endpoint_uid();
     conn.execute(
         "INSERT INTO endpoints
-            (name, api_url, api_key, auth_mode, enabled, use_proxy, transformer, model, models, active_models, model_mappings, remark, sort_order, fast, fast_sort_order)
-         VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14, ?15)",
+            (uid, name, api_url, api_key, auth_mode, enabled, use_proxy, transformer, model, models, active_models, model_mappings, remark, sort_order, fast, fast_sort_order)
+         VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14, ?15, ?16)",
         params![
+            uid,
             req.name,
             req.api_url,
             req.api_key,
@@ -390,6 +403,7 @@ mod tests {
     fn crud_and_list_enabled() {
         let c = db();
         let a = create(&c, &req("a")).unwrap();
+        assert!(Uuid::parse_str(&a.uid).is_ok());
         assert!(create(&c, &req("a")).is_err()); // 重名拒绝
         let b = create(&c, &req("b")).unwrap();
         update(&c, b.id, &upd(Some(false))).unwrap();
@@ -397,6 +411,25 @@ mod tests {
         assert_eq!(list_enabled(&c).unwrap().len(), 1);
         delete(&c, a.id).unwrap();
         assert_eq!(list_all(&c).unwrap().len(), 1);
+    }
+
+    #[test]
+    fn rename_preserves_endpoint_uid() {
+        let c = db();
+        let created = create(&c, &req("before")).unwrap();
+
+        let updated = update(
+            &c,
+            created.id,
+            &UpdateEndpointRequest {
+                name: Some("after".into()),
+                ..Default::default()
+            },
+        )
+        .unwrap();
+
+        assert_eq!(updated.uid, created.uid);
+        assert_eq!(get_by_uid(&c, &created.uid).unwrap().unwrap().name, "after");
     }
 
     #[test]

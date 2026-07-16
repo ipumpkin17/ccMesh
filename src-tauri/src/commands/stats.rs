@@ -1,6 +1,7 @@
 use tauri::State;
+use uuid::Uuid;
 
-use crate::error::AppResult;
+use crate::error::{AppError, AppResult};
 use crate::models::stats::{RequestLogPage, StatsHistoryPage, StatsOverview};
 use crate::modules::stats::aggregator;
 use crate::modules::storage::{request_logs_repo, stats_repo};
@@ -72,11 +73,19 @@ pub fn get_stats_history(
 #[tauri::command]
 pub fn delete_daily_stat(
     state: State<AppState>,
-    endpoint_name: String,
+    endpoint_id: String,
     date: String,
 ) -> AppResult<usize> {
+    let endpoint_id = endpoint_id.trim();
+    let parsed = Uuid::parse_str(endpoint_id)
+        .map_err(|_| AppError::InvalidArgument("端点 ID 无效".to_string()))?;
+    if parsed.to_string() != endpoint_id {
+        return Err(AppError::InvalidArgument(
+            "端点 ID 必须使用规范 UUID".to_string(),
+        ));
+    }
     let conn = state.db_pool.get()?;
-    stats_repo::delete_row(&conn, &endpoint_name, &date)
+    stats_repo::delete_row(&conn, endpoint_id, &date)
 }
 
 /// 删除某一天全部端点的历史记录，返回删除行数。

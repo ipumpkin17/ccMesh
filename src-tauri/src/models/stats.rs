@@ -4,6 +4,7 @@ use serde::{Deserialize, Serialize};
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct DailyStat {
+    pub endpoint_id: String,
     pub endpoint_name: String,
     pub date: String,
     pub requests: i64,
@@ -18,6 +19,7 @@ pub struct DailyStat {
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct EndpointStat {
+    pub endpoint_id: String,
     pub endpoint_name: String,
     pub requests: i64,
     pub errors: i64,
@@ -67,6 +69,7 @@ pub struct RequestLog {
     pub id: i64,
     /// 请求时间（Unix 毫秒，UTC）。
     pub ts: i64,
+    pub endpoint_id: String,
     pub endpoint_name: String,
     pub inbound_format: String,
     /// 端点 transformer 快照（claude/openai/codex 等）。旧行/未记录为 None，前端回退 inbound_format。

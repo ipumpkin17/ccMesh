@@ -34,15 +34,20 @@ fn enabled_count(state: &AppState) -> usize {
 pub(crate) fn build_status(state: &AppState) -> ProxyStatus {
     let guard = state.proxy.lock().unwrap();
     match guard.as_ref() {
-        Some(h) => ProxyStatus {
-            running: true,
-            port: h.port,
-            current_endpoint: h.current_endpoint(),
-            enabled_endpoint_count: enabled_count(state),
-        },
+        Some(h) => {
+            let current = h.current_endpoint();
+            ProxyStatus {
+                running: true,
+                port: h.port,
+                current_endpoint_id: current.as_ref().map(|endpoint| endpoint.id.clone()),
+                current_endpoint: current.map(|endpoint| endpoint.name),
+                enabled_endpoint_count: enabled_count(state),
+            }
+        }
         None => ProxyStatus {
             running: false,
             port: read_port(state),
+            current_endpoint_id: None,
             current_endpoint: None,
             enabled_endpoint_count: enabled_count(state),
         },
@@ -98,14 +103,14 @@ pub fn get_proxy_status(state: State<'_, AppState>) -> AppResult<ProxyStatus> {
 pub fn switch_endpoint(
     app: AppHandle,
     state: State<'_, AppState>,
-    name: String,
+    endpoint_id: String,
 ) -> AppResult<ProxyStatus> {
     {
         let guard = state.proxy.lock().unwrap();
         let h = guard
             .as_ref()
             .ok_or_else(|| AppError::Proxy("代理未运行".to_string()))?;
-        h.switch_endpoint(&name)?;
+        h.switch_endpoint(&endpoint_id)?;
     }
     let status = build_status(&state);
     emit_status(&app, &status);

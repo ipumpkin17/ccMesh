@@ -120,27 +120,29 @@ struct ActiveEntry {
 
 impl ActiveRequests {
     /// 标记一个请求开始，返回该端点的取消令牌。
-    pub fn start(&self, name: &str) -> CancellationToken {
+    pub fn start(&self, endpoint_id: &str) -> CancellationToken {
         let mut g = self.inner.lock().unwrap();
-        let entry = g.entry(name.to_string()).or_insert_with(|| ActiveEntry {
-            count: 0,
-            token: CancellationToken::new(),
-        });
+        let entry = g
+            .entry(endpoint_id.to_string())
+            .or_insert_with(|| ActiveEntry {
+                count: 0,
+                token: CancellationToken::new(),
+            });
         entry.count += 1;
         entry.token.clone()
     }
 
-    pub fn finish(&self, name: &str) {
+    pub fn finish(&self, endpoint_id: &str) {
         let mut g = self.inner.lock().unwrap();
-        if let Some(e) = g.get_mut(name) {
+        if let Some(e) = g.get_mut(endpoint_id) {
             e.count = e.count.saturating_sub(1);
         }
     }
 
     /// 取消该端点所有在途请求并换发新令牌（手动切换用）。
-    pub fn cancel(&self, name: &str) {
+    pub fn cancel(&self, endpoint_id: &str) {
         let mut g = self.inner.lock().unwrap();
-        if let Some(e) = g.get_mut(name) {
+        if let Some(e) = g.get_mut(endpoint_id) {
             e.token.cancel();
             e.token = CancellationToken::new();
         }
@@ -160,7 +162,7 @@ pub struct ProxyState {
     pub rotation: Rotation,
     pub active: ActiveRequests,
     pub stats: Arc<StatsAggregator>,
-    pub current_endpoint: Mutex<Option<String>>,
+    pub current_endpoint: Mutex<Option<CurrentEndpoint>>,
     /// 全局「启用代理」开关（start_proxy 时读配置；端点 use_proxy 未开时按此决定是否走代理）。
     pub proxy_enabled: bool,
     /// 每端点熔断器（请求驱动，运行期内存态）。
@@ -170,17 +172,27 @@ pub struct ProxyState {
 }
 
 impl ProxyState {
-    pub fn current_endpoint_name(&self) -> Option<String> {
+    pub fn current_endpoint(&self) -> Option<CurrentEndpoint> {
         self.current_endpoint.lock().unwrap().clone()
     }
-    fn set_current(&self, name: &str) {
-        *self.current_endpoint.lock().unwrap() = Some(name.to_string());
+    fn set_current(&self, endpoint: &Endpoint) {
+        *self.current_endpoint.lock().unwrap() = Some(CurrentEndpoint {
+            id: endpoint.uid.clone(),
+            name: endpoint.name.clone(),
+        });
     }
+}
+
+#[derive(Clone)]
+pub struct CurrentEndpoint {
+    pub id: String,
+    pub name: String,
 }
 
 /// 单次请求的元信息，贯穿响应处理并用于构造统计明细记录。
 #[derive(Clone)]
 struct RequestMeta {
+    endpoint_id: String,
     endpoint: String,
     model: Option<String>,
     inbound_format: String,
@@ -217,6 +229,7 @@ impl RequestMeta {
         error_body: Option<String>,
     ) -> RequestRecord {
         RequestRecord {
+            endpoint_id: self.endpoint_id.clone(),
             endpoint_name: self.endpoint.clone(),
             model: self.model.clone(),
             inbound_format: self.inbound_format.clone(),
@@ -488,7 +501,10 @@ pub async fn handle_proxy(
         return json_error(StatusCode::BAD_GATEWAY, &msg);
     }
     let rotation_key = inbound.label();
-    let candidate_ids: Vec<i64> = enabled.iter().map(|endpoint| endpoint.id).collect();
+    let candidate_ids: Vec<String> = enabled
+        .iter()
+        .map(|endpoint| endpoint.uid.clone())
+        .collect();
     let max = if use_specific {
         3
     } else {
@@ -497,6 +513,7 @@ pub async fn handle_proxy(
 
     let mut attempts_on_current = 0u32;
     let mut last_err = String::new();
+    let mut last_endpoint_id = String::new();
     let mut last_endpoint = String::new();
     let mut last_status: Option<u16> = None;
     let mut last_error_body: Option<String> = None;
@@ -517,13 +534,14 @@ pub async fn handle_proxy(
                 .unwrap_or(0);
             enabled[idx].clone()
         };
-        st.set_current(&ep.name);
+        st.set_current(&ep);
+        last_endpoint_id = ep.uid.clone();
         last_endpoint = ep.name.clone();
         last_transformer = Some(ep.transformer.clone());
 
         // 熔断许可：gate 时对候选取许可（半开同一时刻仅 1 个探测）；拒绝则跳到下一个端点。
         let used_permit = if gate {
-            let allow = st.breakers.allow_request(&ep.name, Instant::now());
+            let allow = st.breakers.allow_request(&ep.uid, Instant::now());
             if !allow.allowed {
                 st.rotation.advance(rotation_key, &candidate_ids);
                 continue;
@@ -631,17 +649,17 @@ pub async fn handle_proxy(
             );
         }
 
-        let token = st.active.start(&ep.name);
+        let token = st.active.start(&ep.uid);
         let result = tokio::select! {
             r = send_upstream(&st, &ep, &method, upstream_path, &headers, &attempt_body) => Some(r),
             _ = token.cancelled() => None,
         };
-        st.active.finish(&ep.name);
+        st.active.finish(&ep.uid);
 
         match result {
             // 被手动切换取消 → 切到下一个
             None => {
-                st.breakers.record_neutral(&ep.name, used_permit);
+                st.breakers.record_neutral(&ep.uid, used_permit);
                 last_err = "请求被取消".to_string();
                 if !use_specific {
                     st.rotation.advance(rotation_key, &candidate_ids);
@@ -666,6 +684,7 @@ pub async fn handle_proxy(
                     None
                 };
                 let meta = RequestMeta {
+                    endpoint_id: ep.uid.clone(),
                     endpoint: ep.name.clone(),
                     model: model.clone(),
                     inbound_format: (if inbound_openai {
@@ -687,7 +706,7 @@ pub async fn handle_proxy(
                 };
                 if status == 200 {
                     // 成功：闭合熔断（半开恢复时回传许可）；转换则通知前端
-                    if st.breakers.record_success(&ep.name, used_permit) {
+                    if st.breakers.record_success(&ep.uid, used_permit) {
                         st.stats.emit_health_changed();
                     }
                     // 真实 token 由各响应处理函数解析上游 usage 后记录
@@ -710,11 +729,11 @@ pub async fn handle_proxy(
                 // 非 200：按状态码归类上报熔断（客户端错误中性、其余计入失败）
                 match rotation::categorize_status(status) {
                     rotation::Outcome::NonRetryable => {
-                        st.breakers.record_neutral(&ep.name, used_permit)
+                        st.breakers.record_neutral(&ep.uid, used_permit)
                     }
                     rotation::Outcome::Retryable => {
                         if st.breakers.record_failure(
-                            &ep.name,
+                            &ep.uid,
                             used_permit,
                             Instant::now(),
                             &format!("HTTP {status}"),
@@ -793,7 +812,7 @@ pub async fn handle_proxy(
                 // 网络错误计入熔断（Retryable）；转换则通知前端
                 if st
                     .breakers
-                    .record_failure(&ep.name, used_permit, Instant::now(), &msg)
+                    .record_failure(&ep.uid, used_permit, Instant::now(), &msg)
                 {
                     st.stats.emit_health_changed();
                 }
@@ -815,6 +834,7 @@ pub async fn handle_proxy(
 
     if !last_endpoint.is_empty() {
         st.stats.record(RequestRecord {
+            endpoint_id: last_endpoint_id,
             endpoint_name: last_endpoint.clone(),
             model: model.clone(),
             inbound_format: inbound_label.to_string(),
@@ -1124,6 +1144,7 @@ mod tests {
     ) -> Endpoint {
         Endpoint {
             id,
+            uid: format!("00000000-0000-4000-8000-{id:012}"),
             name: name.into(),
             api_url: String::new(),
             api_key: String::new(),

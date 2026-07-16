@@ -10,6 +10,7 @@ use crate::utils::mask::mask_api_key;
 #[derive(Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct MaskedEndpoint {
+    pub endpoint_id: String,
     pub name: String,
     pub api_url: String,
     pub masked_key: String,
@@ -36,6 +37,7 @@ pub fn get_health(state: State<AppState>) -> AppResult<HealthInfo> {
     let endpoints = all
         .into_iter()
         .map(|e| MaskedEndpoint {
+            endpoint_id: e.uid,
             name: e.name,
             api_url: e.api_url,
             masked_key: mask_api_key(&e.api_key),
@@ -64,14 +66,17 @@ pub fn get_endpoint_health(state: State<AppState>) -> AppResult<Vec<EndpointHeal
         Some(h) => enabled
             .iter()
             .map(|e| {
-                h.state.breakers.health_of(&e.name).unwrap_or_else(|| {
-                    EndpointHealthInfo::from_test_status(&e.name, &e.test_status)
-                })
+                h.state
+                    .breakers
+                    .health_of(&e.uid, &e.name)
+                    .unwrap_or_else(|| {
+                        EndpointHealthInfo::from_test_status(&e.uid, &e.name, &e.test_status)
+                    })
             })
             .collect(),
         None => enabled
             .iter()
-            .map(|e| EndpointHealthInfo::from_test_status(&e.name, &e.test_status))
+            .map(|e| EndpointHealthInfo::from_test_status(&e.uid, &e.name, &e.test_status))
             .collect(),
     };
     Ok(infos)

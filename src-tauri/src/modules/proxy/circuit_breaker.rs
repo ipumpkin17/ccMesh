@@ -129,7 +129,7 @@ impl BreakerInner {
         }
     }
 
-    fn to_info(&self, name: &str) -> EndpointHealthInfo {
+    fn to_info(&self, endpoint_id: &str, name: &str) -> EndpointHealthInfo {
         let success_rate = if self.total_requests == 0 {
             1.0
         } else {
@@ -141,6 +141,7 @@ impl BreakerInner {
             CircuitState::HalfOpen => "recovering",
         };
         EndpointHealthInfo {
+            endpoint_id: endpoint_id.to_string(),
             name: name.to_string(),
             status: status.to_string(),
             circuit: self.state.as_str().to_string(),
@@ -156,6 +157,7 @@ impl BreakerInner {
 #[derive(Debug, Clone, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct EndpointHealthInfo {
+    pub endpoint_id: String,
     pub name: String,
     /// healthy | unhealthy | recovering
     pub status: String,
@@ -169,8 +171,9 @@ pub struct EndpointHealthInfo {
 
 impl EndpointHealthInfo {
     /// 无熔断记录（未承接流量）的端点：视为健康/闭合。
-    pub fn healthy(name: &str) -> Self {
+    pub fn healthy(endpoint_id: &str, name: &str) -> Self {
         Self {
+            endpoint_id: endpoint_id.to_string(),
             name: name.to_string(),
             status: "healthy".to_string(),
             circuit: "closed".to_string(),
@@ -182,7 +185,7 @@ impl EndpointHealthInfo {
     }
 
     /// 代理未运行时按库内 test_status 粗映射（无运行期熔断态）。
-    pub fn from_test_status(name: &str, test_status: &str) -> Self {
+    pub fn from_test_status(endpoint_id: &str, name: &str, test_status: &str) -> Self {
         let status = match test_status {
             "available" => "healthy",
             "unavailable" => "unhealthy",
@@ -190,12 +193,12 @@ impl EndpointHealthInfo {
         };
         Self {
             status: status.to_string(),
-            ..Self::healthy(name)
+            ..Self::healthy(endpoint_id, name)
         }
     }
 }
 
-/// 按端点名池化的熔断器注册表（存 `ProxyState`，运行期内存态）。
+/// 按稳定端点 ID 池化的熔断器注册表（存 `ProxyState`，运行期内存态）。
 pub struct BreakerRegistry {
     config: CircuitBreakerConfig,
     inner: Mutex<HashMap<String, BreakerInner>>,
@@ -210,17 +213,17 @@ impl BreakerRegistry {
     }
 
     /// 选路过滤用：端点当前是否可选（不占半开许可）。Open 到期会惰性转 HalfOpen。
-    pub fn is_available(&self, name: &str, now: Instant) -> bool {
+    pub fn is_available(&self, endpoint_id: &str, now: Instant) -> bool {
         let mut g = self.inner.lock().unwrap();
-        let b = g.entry(name.to_string()).or_default();
+        let b = g.entry(endpoint_id.to_string()).or_default();
         b.maybe_half_open(&self.config, now);
         b.state != CircuitState::Open
     }
 
     /// 发请求前取许可。HalfOpen 同一时刻只放行 1 个探测。
-    pub fn allow_request(&self, name: &str, now: Instant) -> AllowResult {
+    pub fn allow_request(&self, endpoint_id: &str, now: Instant) -> AllowResult {
         let mut g = self.inner.lock().unwrap();
-        let b = g.entry(name.to_string()).or_default();
+        let b = g.entry(endpoint_id.to_string()).or_default();
         b.maybe_half_open(&self.config, now);
         match b.state {
             CircuitState::Closed => AllowResult {
@@ -249,9 +252,9 @@ impl BreakerRegistry {
     }
 
     /// 记录成功。返回是否发生状态转换（供调用方发事件）。
-    pub fn record_success(&self, name: &str, used_permit: bool) -> bool {
+    pub fn record_success(&self, endpoint_id: &str, used_permit: bool) -> bool {
         let mut g = self.inner.lock().unwrap();
-        let b = g.entry(name.to_string()).or_default();
+        let b = g.entry(endpoint_id.to_string()).or_default();
         if used_permit && b.half_open_in_flight > 0 {
             b.half_open_in_flight -= 1;
         }
@@ -268,9 +271,15 @@ impl BreakerRegistry {
     }
 
     /// 记录失败（仅 Retryable 调用）。返回是否发生状态转换。
-    pub fn record_failure(&self, name: &str, used_permit: bool, now: Instant, error: &str) -> bool {
+    pub fn record_failure(
+        &self,
+        endpoint_id: &str,
+        used_permit: bool,
+        now: Instant,
+        error: &str,
+    ) -> bool {
         let mut g = self.inner.lock().unwrap();
-        let b = g.entry(name.to_string()).or_default();
+        let b = g.entry(endpoint_id.to_string()).or_default();
         if used_permit && b.half_open_in_flight > 0 {
             b.half_open_in_flight -= 1;
         }
@@ -301,12 +310,12 @@ impl BreakerRegistry {
     }
 
     /// 记录中性结果（客户端错误/中断）：仅释放半开许可，不计入熔断。
-    pub fn record_neutral(&self, name: &str, used_permit: bool) {
+    pub fn record_neutral(&self, endpoint_id: &str, used_permit: bool) {
         if !used_permit {
             return;
         }
         let mut g = self.inner.lock().unwrap();
-        if let Some(b) = g.get_mut(name) {
+        if let Some(b) = g.get_mut(endpoint_id) {
             if b.half_open_in_flight > 0 {
                 b.half_open_in_flight -= 1;
             }
@@ -315,17 +324,17 @@ impl BreakerRegistry {
 
     /// 单端点健康信息；无熔断记录（未承接流量）返回 `None`，由调用方决定回退
     /// （避免伪造 healthy 覆盖手动测试结论）。
-    pub fn health_of(&self, name: &str) -> Option<EndpointHealthInfo> {
+    pub fn health_of(&self, endpoint_id: &str, name: &str) -> Option<EndpointHealthInfo> {
         let g = self.inner.lock().unwrap();
-        g.get(name).map(|b| b.to_info(name))
+        g.get(endpoint_id).map(|b| b.to_info(endpoint_id, name))
     }
 
     /// 强制闭合指定端点熔断器（用户手动测试确认可用时调用）。
     /// 仅在存在记录且状态非 Closed 时转换为 Closed 并返回 true（供调用方决定是否 emit 事件）；
     /// 无记录或已 Closed 返回 false，避免多余事件。复用 `to_closed` 清零全部计数。
-    pub fn force_close(&self, name: &str) -> bool {
+    pub fn force_close(&self, endpoint_id: &str) -> bool {
         let mut g = self.inner.lock().unwrap();
-        if let Some(b) = g.get_mut(name) {
+        if let Some(b) = g.get_mut(endpoint_id) {
             if b.state != CircuitState::Closed {
                 b.to_closed();
                 return true;
@@ -344,7 +353,7 @@ pub fn select_candidates(
 ) -> Vec<Endpoint> {
     enabled
         .iter()
-        .filter(|e| registry.is_available(&e.name, now))
+        .filter(|e| registry.is_available(&e.uid, now))
         .cloned()
         .collect()
 }
@@ -366,6 +375,7 @@ mod tests {
     fn ep(name: &str) -> Endpoint {
         Endpoint {
             id: 1,
+            uid: format!("uid-{name}"),
             name: name.to_string(),
             api_url: "https://x".into(),
             api_key: "".into(),
@@ -471,7 +481,7 @@ mod tests {
         let eps = vec![ep("a"), ep("b")];
         // a 熔断
         for _ in 0..3 {
-            reg.record_failure("a", false, now, "boom");
+            reg.record_failure("uid-a", false, now, "boom");
         }
         let c = select_candidates(&eps, &reg, now);
         assert_eq!(c.len(), 1);
@@ -479,7 +489,7 @@ mod tests {
 
         // b 也熔断 → 全 Open → 返回空（不再兜底放行）
         for _ in 0..3 {
-            reg.record_failure("b", false, now, "boom");
+            reg.record_failure("uid-b", false, now, "boom");
         }
         let c2 = select_candidates(&eps, &reg, now);
         assert!(c2.is_empty());
@@ -498,7 +508,9 @@ mod tests {
         assert!(!reg.is_available("a", now)); // Open 未到期 → 选路跳过
                                               // force_close → Closed，返回 true；计数清零、health 反映 healthy/closed
         assert!(reg.force_close("a"));
-        let h = reg.health_of("a").unwrap();
+        let h = reg.health_of("a", "端点 A").unwrap();
+        assert_eq!(h.endpoint_id, "a");
+        assert_eq!(h.name, "端点 A");
         assert_eq!(h.circuit, "closed");
         assert_eq!(h.status, "healthy");
         assert_eq!(h.consecutive_failures, 0);
@@ -514,6 +526,6 @@ mod tests {
         let later = now + Duration::from_secs(61);
         assert!(reg2.allow_request("b", later).allowed); // 惰性转 HalfOpen 并占许可
         assert!(reg2.force_close("b"));
-        assert_eq!(reg2.health_of("b").unwrap().circuit, "closed");
+        assert_eq!(reg2.health_of("b", "端点 B").unwrap().circuit, "closed");
     }
 }

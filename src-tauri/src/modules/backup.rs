@@ -1,6 +1,7 @@
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, HashSet};
 
 use rusqlite::{params, Connection, OptionalExtension};
+use uuid::Uuid;
 
 use crate::error::{AppError, AppResult};
 use crate::models::backup::{ConfigBundle, CredentialItem, EndpointExport, ImportSummary};
@@ -51,6 +52,7 @@ pub fn build_config_bundle(conn: &Connection) -> AppResult<ConfigBundle> {
     for e in endpoint_repo::list_all(conn)? {
         let credentials = read_credentials(conn, e.id)?;
         endpoints.push(EndpointExport {
+            id: Some(e.uid),
             name: e.name,
             api_url: e.api_url,
             api_key: e.api_key,
@@ -82,7 +84,17 @@ pub fn build_config_bundle(conn: &Connection) -> AppResult<ConfigBundle> {
     })
 }
 
-/// 导入配置迁移包。`overwrite` 为真时同名端点覆盖更新并重置凭证、配置键覆盖；否则跳过同名、配置键保留本地。
+fn normalize_exported_endpoint_id(value: Option<&str>) -> AppResult<Option<String>> {
+    let Some(value) = value.map(str::trim).filter(|value| !value.is_empty()) else {
+        return Ok(None);
+    };
+    let uid = Uuid::parse_str(value)
+        .map_err(|_| AppError::InvalidArgument(format!("配置包含无效的端点 ID: {value}")))?;
+    Ok(Some(uid.to_string()))
+}
+
+/// 导入配置迁移包。新配置按稳定 ID 匹配，旧配置回退按名称匹配；
+/// `overwrite` 为真时覆盖端点并重置凭证、配置键覆盖，否则保留本地记录。
 pub fn import_config_bundle(
     conn: &mut Connection,
     bundle: &ConfigBundle,
@@ -100,6 +112,27 @@ pub fn import_config_bundle(
         )));
     }
 
+    let mut imported_ids = HashSet::new();
+    let mut imported_names = HashSet::new();
+    for ep in &bundle.endpoints {
+        if ep.name.trim().is_empty() || ep.api_url.trim().is_empty() {
+            continue;
+        }
+        if !imported_names.insert(ep.name.clone()) {
+            return Err(AppError::InvalidArgument(format!(
+                "配置包含重复的端点名称: {}",
+                ep.name
+            )));
+        }
+        if let Some(uid) = normalize_exported_endpoint_id(ep.id.as_deref())? {
+            if !imported_ids.insert(uid.clone()) {
+                return Err(AppError::InvalidArgument(format!(
+                    "配置包含重复的端点 ID: {uid}"
+                )));
+            }
+        }
+    }
+
     let tx = conn.transaction()?;
     let mut s = ImportSummary::default();
 
@@ -107,13 +140,44 @@ pub fn import_config_bundle(
         if ep.name.trim().is_empty() || ep.api_url.trim().is_empty() {
             continue;
         }
-        let existing: Option<i64> = tx
+        let imported_uid = normalize_exported_endpoint_id(ep.id.as_deref())?;
+        let existing_by_uid: Option<(i64, String)> = match imported_uid.as_deref() {
+            Some(uid) => tx
+                .query_row(
+                    "SELECT id, name FROM endpoints WHERE uid = ?1",
+                    params![uid],
+                    |row| Ok((row.get(0)?, row.get(1)?)),
+                )
+                .optional()?,
+            None => None,
+        };
+        let existing_by_name: Option<(i64, String)> = tx
             .query_row(
-                "SELECT id FROM endpoints WHERE name = ?1",
+                "SELECT id, uid FROM endpoints WHERE name = ?1",
                 params![ep.name],
-                |r| r.get(0),
+                |row| Ok((row.get(0)?, row.get(1)?)),
             )
             .optional()?;
+        if let (Some((uid_id, _)), Some((name_id, _))) =
+            (existing_by_uid.as_ref(), existing_by_name.as_ref())
+        {
+            if uid_id != name_id {
+                return Err(AppError::InvalidArgument(format!(
+                    "端点 '{}' 的 ID 与本地同名端点冲突",
+                    ep.name
+                )));
+            }
+        }
+        let preserve_local_identity =
+            imported_uid.is_some() && existing_by_uid.is_none() && existing_by_name.is_some();
+        if preserve_local_identity {
+            s.identities_preserved += 1;
+        }
+        let existing = match imported_uid.as_ref() {
+            Some(_) if preserve_local_identity => existing_by_name.as_ref().map(|(id, _)| *id),
+            Some(_) => existing_by_uid.as_ref().map(|(id, _)| *id),
+            None => existing_by_name.as_ref().map(|(id, _)| *id),
+        };
 
         let models_json = serde_json::to_string(&ep.models).unwrap_or_else(|_| "[]".to_string());
         // 点亮子集规整为 models 子集后再持久化，避免迁移包脏数据。
@@ -127,10 +191,11 @@ pub fn import_config_bundle(
         let id = match existing {
             Some(id) if overwrite => {
                 tx.execute(
-                    "UPDATE endpoints SET api_url=?1, api_key=?2, auth_mode=?3, enabled=?4,
-                        use_proxy=?5, transformer=?6, model=?7, models=?8, active_models=?9, remark=?10,
-                        sort_order=?11, updated_at=datetime('now') WHERE id=?12",
+                    "UPDATE endpoints SET name=?1, api_url=?2, api_key=?3, auth_mode=?4, enabled=?5,
+                        use_proxy=?6, transformer=?7, model=?8, models=?9, active_models=?10, remark=?11,
+                        sort_order=?12, updated_at=datetime('now') WHERE id=?13",
                     params![
+                        ep.name,
                         ep.api_url,
                         ep.api_key,
                         ep.auth_mode,
@@ -157,11 +222,13 @@ pub fn import_config_bundle(
                 continue;
             }
             None => {
+                let uid = imported_uid.unwrap_or_else(endpoint_repo::new_endpoint_uid);
                 tx.execute(
                     "INSERT INTO endpoints
-                        (name, api_url, api_key, auth_mode, enabled, use_proxy, transformer, model, models, active_models, remark, sort_order)
-                     VALUES (?1,?2,?3,?4,?5,?6,?7,?8,?9,?10,?11,?12)",
+                        (uid, name, api_url, api_key, auth_mode, enabled, use_proxy, transformer, model, models, active_models, remark, sort_order)
+                     VALUES (?1,?2,?3,?4,?5,?6,?7,?8,?9,?10,?11,?12,?13)",
                     params![
+                        uid,
                         ep.name,
                         ep.api_url,
                         ep.api_key,
@@ -222,8 +289,8 @@ mod tests {
 
     fn seed(conn: &Connection) {
         conn.execute(
-            "INSERT INTO endpoints(name, api_url, api_key, enabled, use_proxy, transformer, model, models, remark)
-             VALUES('ep1','https://a','k1',1,1,'openai','gpt', '[\"gpt\",\"o3\"]','r1')",
+            "INSERT INTO endpoints(uid, name, api_url, api_key, enabled, use_proxy, transformer, model, models, remark)
+             VALUES('11111111-1111-4111-8111-111111111111','ep1','https://a','k1',1,1,'openai','gpt', '[\"gpt\",\"o3\"]','r1')",
             [],
         )
         .unwrap();
@@ -253,6 +320,10 @@ mod tests {
         assert_eq!(bundle.kind, "ccmesh-config");
         assert_eq!(bundle.endpoints.len(), 1);
         let ep = &bundle.endpoints[0];
+        assert_eq!(
+            ep.id.as_deref(),
+            Some("11111111-1111-4111-8111-111111111111")
+        );
         assert_eq!(ep.models, vec!["gpt".to_string(), "o3".to_string()]);
         assert!(ep.use_proxy);
         assert_eq!(ep.credentials.len(), 1);
@@ -274,6 +345,12 @@ mod tests {
         assert_eq!(s1.endpoints_added, 1);
         assert_eq!(s1.credentials, 1);
         assert_eq!(s1.config_keys, 1); // 仅 theme
+        let imported_uid: String = dst
+            .query_row("SELECT uid FROM endpoints WHERE name = 'ep1'", [], |row| {
+                row.get(0)
+            })
+            .unwrap();
+        assert_eq!(imported_uid, "11111111-1111-4111-8111-111111111111");
 
         // 再次非覆盖导入：跳过同名
         let s2 = import_config_bundle(&mut dst, &bundle, false).unwrap();
@@ -303,5 +380,141 @@ mod tests {
             config: BTreeMap::new(),
         };
         assert!(import_config_bundle(&mut dst, &bad, false).is_err());
+    }
+
+    #[test]
+    fn legacy_v1_import_generates_endpoint_id() {
+        let bundle: ConfigBundle = serde_json::from_value(serde_json::json!({
+            "type": "ccmesh-config",
+            "version": 1,
+            "appVersion": "0.2.1",
+            "exportedAt": "2026-07-16T09:24:22+08:00",
+            "endpoints": [{
+                "name": "UF - grok",
+                "apiUrl": "http://ssss",
+                "apiKey": "sk-sss",
+                "authMode": "api_key",
+                "enabled": true,
+                "useProxy": false,
+                "transformer": "openai",
+                "model": "",
+                "models": [
+                    "grok-build-0.1",
+                    "grok-4.5",
+                    "grok-4.3",
+                    "grok-4.20-0309-reasoning",
+                    "grok-4.20-0309-non-reasoning",
+                    "grok-4.20-multi-agent-0309",
+                    "grok-3-mini",
+                    "grok-3-mini-fast",
+                    "grok-composer-2.5-fast",
+                    "gpt-image-2",
+                    "grok-imagine-image",
+                    "grok-imagine-image-quality",
+                    "grok-imagine-video",
+                    "grok-imagine-video-1.5-preview"
+                ],
+                "activeModels": [],
+                "remark": "",
+                "sortOrder": 0,
+                "credentials": []
+            }],
+            "config": {}
+        }))
+        .unwrap();
+        let mut dst = db();
+
+        import_config_bundle(&mut dst, &bundle, false).unwrap();
+
+        let uid: String = dst
+            .query_row(
+                "SELECT uid FROM endpoints WHERE name = 'UF - grok'",
+                [],
+                |row| row.get(0),
+            )
+            .unwrap();
+        assert!(Uuid::parse_str(&uid).is_ok());
+    }
+
+    #[test]
+    fn overwrite_matches_stable_id_after_rename() {
+        let src = db();
+        seed(&src);
+        let mut bundle = build_config_bundle(&src).unwrap();
+        bundle.endpoints[0].name = "renamed".into();
+        let mut dst = db();
+        import_config_bundle(&mut dst, &build_config_bundle(&src).unwrap(), false).unwrap();
+
+        import_config_bundle(&mut dst, &bundle, true).unwrap();
+
+        let count: i64 = dst
+            .query_row("SELECT COUNT(*) FROM endpoints", [], |row| row.get(0))
+            .unwrap();
+        let uid: String = dst
+            .query_row(
+                "SELECT uid FROM endpoints WHERE name = 'renamed'",
+                [],
+                |row| row.get(0),
+            )
+            .unwrap();
+        assert_eq!(count, 1);
+        assert_eq!(uid, "11111111-1111-4111-8111-111111111111");
+    }
+
+    #[test]
+    fn import_preserves_local_id_for_same_name_from_another_upgraded_device() {
+        let src = db();
+        seed(&src);
+        let mut bundle = build_config_bundle(&src).unwrap();
+        bundle.endpoints[0].id = Some("22222222-2222-4222-8222-222222222222".into());
+        let mut dst = db();
+        seed(&dst);
+
+        bundle.endpoints[0].api_url = "https://remote.example.com".into();
+        let summary = import_config_bundle(&mut dst, &bundle, true).unwrap();
+
+        assert_eq!(summary.endpoints_updated, 1);
+        assert_eq!(summary.identities_preserved, 1);
+        let (uid, api_url): (String, String) = dst
+            .query_row(
+                "SELECT uid, api_url FROM endpoints WHERE name='ep1'",
+                [],
+                |row| Ok((row.get(0)?, row.get(1)?)),
+            )
+            .unwrap();
+        assert_eq!(uid, "11111111-1111-4111-8111-111111111111");
+        assert_eq!(api_url, "https://remote.example.com");
+    }
+
+    #[test]
+    fn import_rejects_invalid_stable_id() {
+        let src = db();
+        seed(&src);
+        let mut bundle = build_config_bundle(&src).unwrap();
+        bundle.endpoints[0].id = Some("not-a-uuid".into());
+        let mut dst = db();
+
+        let err = import_config_bundle(&mut dst, &bundle, false).unwrap_err();
+
+        assert!(err.to_string().contains("无效的端点 ID"));
+    }
+
+    #[test]
+    fn import_rejects_duplicate_stable_ids_in_bundle() {
+        let src = db();
+        seed(&src);
+        let mut bundle = build_config_bundle(&src).unwrap();
+        let mut duplicate = bundle.endpoints[0].clone();
+        duplicate.name = "duplicate".into();
+        bundle.endpoints.push(duplicate);
+        let mut dst = db();
+
+        let err = import_config_bundle(&mut dst, &bundle, true).unwrap_err();
+
+        assert!(err.to_string().contains("重复的端点 ID"));
+        let count: i64 = dst
+            .query_row("SELECT COUNT(*) FROM endpoints", [], |row| row.get(0))
+            .unwrap();
+        assert_eq!(count, 0);
     }
 }
