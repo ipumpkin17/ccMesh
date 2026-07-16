@@ -1,15 +1,13 @@
 import { useEffect, useRef } from "react";
-import { PanelLeftIcon } from "lucide-react";
 
-import { Button } from "@/components/ui/button";
-import { ThemeToggle, Logo, LangToggle } from "@/components/common";
+import { Logo } from "@/components/common";
 import { VersionPopover } from "@/components/business";
 import { useLayoutStore } from "@/stores";
 import { NavItem } from "./NavItem";
-import { getVisibleNavItems, SETTINGS_ITEM, ABOUT_ITEM } from "./navConfig";
+import { getVisibleNavItems } from "./navConfig";
+import { SettingsShortcut } from "./SettingsShortcut";
 
 export function TopNav() {
-  const setNavMode = useLayoutStore((s) => s.setNavMode);
   const hiddenNavIds = useLayoutStore((s) => s.hiddenNavIds);
   const navItems = getVisibleNavItems(hiddenNavIds);
   // 顶部导航横向滚动条已隐藏，监听纵向滚轮映射为左右滚动，保持横向列表可操作。
@@ -44,21 +42,10 @@ export function TopNav() {
         {navItems.map((item) => (
           <NavItem key={item.id} item={item} variant="horizontal" />
         ))}
-        <NavItem item={SETTINGS_ITEM} variant="horizontal" />
-        <NavItem item={ABOUT_ITEM} variant="horizontal" />
       </nav>
 
       <div className="flex shrink-0 items-center gap-2">
-        <Button
-          variant="outline"
-          size="icon"
-          aria-label="切换为侧边导航"
-          onClick={() => setNavMode("vertical")}
-        >
-          <PanelLeftIcon className="size-4" />
-        </Button>
-        <ThemeToggle />
-        <LangToggle />
+        <SettingsShortcut side="bottom" />
       </div>
     </header>
   );

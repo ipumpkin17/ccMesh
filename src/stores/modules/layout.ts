@@ -9,10 +9,8 @@ export type ViewId =
   | "endpoints"
   | "configProfiles"
   | "statistics"
-  | "sync"
   | "logs"
-  | "settings"
-  | "about";
+  | "settings";
 
 /** 可在导航中显隐的业务页（不含设置/关于）。 */
 export type NavPageId =
@@ -20,7 +18,6 @@ export type NavPageId =
   | "endpoints"
   | "configProfiles"
   | "statistics"
-  | "sync"
   | "logs";
 
 export const NAV_PAGE_IDS: NavPageId[] = [
@@ -28,7 +25,6 @@ export const NAV_PAGE_IDS: NavPageId[] = [
   "endpoints",
   "configProfiles",
   "statistics",
-  "sync",
   "logs",
 ];
 

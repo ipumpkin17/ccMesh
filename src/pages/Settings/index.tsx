@@ -1,22 +1,43 @@
 import { useRef, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { disable, enable } from "@tauri-apps/plugin-autostart";
+import {
+  ArrowRightLeftIcon,
+  CpuIcon,
+  FolderSyncIcon,
+  GlobeIcon,
+  InfoIcon,
+  SlidersHorizontalIcon,
+} from "lucide-react";
 import { toast } from "sonner";
 
 import { emptyClass, PageShell } from "@/components/common";
-import { SettingsGrid } from "@/components/settings";
+import { SettingsPageContent, SettingsWorkspace, type SettingsWorkspaceItem } from "@/components/settings";
 import { useAutostartEnabled } from "@/hooks/useAutostartEnabled";
 import { configApi } from "@/services/modules/config";
-import { AdvancedCard } from "./_components/AdvancedCard";
-import { GeneralCard } from "./_components/GeneralCard";
-import { NavVisibilityCard } from "./_components/NavVisibilityCard";
-import { ProxyCard } from "./_components/ProxyCard";
-import { StartupCard } from "./_components/StartupCard";
+import { AppInfoSection, StartupCard } from "./components/application";
+import { AdvancedCard, LocalEnvCheck } from "./components/advanced";
+import { GeneralCard, NavVisibilityCard } from "./components/general";
+import { CcSwitchImport } from "./components/migration";
+import { ProxyCard } from "./components/network";
+import { ICloudSync, LocalBackup, RemoteBackupPanel } from "./components/sync";
+import { IS_MAC } from "@/lib/platform";
+import { useLayoutStore } from "@/stores";
 
 const errMsg = (e: unknown) => (e instanceof Error ? e.message : String(e));
 
+type SettingsPageId =
+  | "about"
+  | "general"
+  | "network"
+  | "sync"
+  | "advanced"
+  | "external";
+
 export function Settings() {
   const qc = useQueryClient();
+  const navMode = useLayoutStore((s) => s.navMode);
+  const setNavMode = useLayoutStore((s) => s.setNavMode);
   const { data: cfg } = useQuery({ queryKey: ["config"], queryFn: configApi.getConfig });
 
   const save = async (patch: Record<string, string>) => {
@@ -64,18 +85,51 @@ export function Settings() {
     );
   }
 
-  return (
-    <PageShell title="设置" contentClassName="flex flex-col gap-6">
-      <SettingsGrid>
-        <GeneralCard cfg={cfg} save={save} />
-        <NavVisibilityCard />
-        <StartupCard
-          cfg={cfg}
-          save={save}
-          autostartQ={autostartQ}
-          toggleAutostart={toggleAutostart}
-        />
-        <AdvancedCard cfg={cfg} save={save} />
+  const pages: SettingsWorkspaceItem<SettingsPageId>[] = [
+    {
+      id: "about",
+      label: "应用设置",
+      icon: InfoIcon,
+      content: (
+        <SettingsPageContent>
+          <AppInfoSection />
+          <StartupCard
+            cfg={cfg}
+            save={save}
+            autostartQ={autostartQ}
+            toggleAutostart={toggleAutostart}
+          />
+        </SettingsPageContent>
+      ),
+    },
+    {
+      id: "general",
+      label: "常规设置",
+      icon: SlidersHorizontalIcon,
+      content: (
+        <SettingsPageContent>
+          <GeneralCard cfg={cfg} save={save} navMode={navMode} setNavMode={setNavMode} />
+          <NavVisibilityCard />
+        </SettingsPageContent>
+      ),
+    },
+    {
+      id: "sync",
+      label: "数据同步",
+      icon: FolderSyncIcon,
+      content: (
+        <SettingsPageContent>
+          {IS_MAC ? <ICloudSync /> : null}
+          <LocalBackup />
+          <RemoteBackupPanel />
+        </SettingsPageContent>
+      ),
+    },
+    {
+      id: "network",
+      label: "网络代理",
+      icon: GlobeIcon,
+      content: (
         <ProxyCard
           cfg={cfg}
           save={save}
@@ -83,7 +137,30 @@ export function Settings() {
           testProxy={testProxy}
           testingProxy={testingProxy}
         />
-      </SettingsGrid>
+      ),
+    },
+    {
+      id: "advanced",
+      label: "高级设置",
+      icon: CpuIcon,
+      content: (
+        <SettingsPageContent>
+          <AdvancedCard cfg={cfg} save={save} />
+          <LocalEnvCheck />
+        </SettingsPageContent>
+      ),
+    },
+    {
+      id: "external",
+      label: "外部迁移",
+      icon: ArrowRightLeftIcon,
+      content: <CcSwitchImport />,
+    },
+  ];
+
+  return (
+    <PageShell title="设置" contentScrollable={false} contentClassName="min-h-0">
+      <SettingsWorkspace items={pages} defaultItemId="about" ariaLabel="设置功能" />
     </PageShell>
   );
 }

@@ -19,24 +19,17 @@ const ConfigProfiles = lazy(() =>
 const Statistics = lazy(() =>
   import("@/pages/Statistics").then((m) => ({ default: m.Statistics })),
 );
-const Sync = lazy(() => import("@/pages/Sync").then((m) => ({ default: m.Sync })));
 const Logs = lazy(() => import("@/pages/Logs").then((m) => ({ default: m.Logs })));
 const Settings = lazy(() =>
   import("@/pages/Settings").then((m) => ({ default: m.Settings })),
 );
-const About = lazy(() =>
-  import("@/pages/About").then((m) => ({ default: m.About })),
-);
-
 const PAGES: Record<ViewId, ComponentType> = {
   dashboard: Dashboard,
   endpoints: Endpoints,
   configProfiles: ConfigProfiles,
   statistics: Statistics,
-  sync: Sync,
   logs: Logs,
   settings: Settings,
-  about: About,
 };
 
 export function AppLayout() {

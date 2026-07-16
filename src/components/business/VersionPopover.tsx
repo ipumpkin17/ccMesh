@@ -194,9 +194,9 @@ export function VersionPopover({ compact = false }: { compact?: boolean }) {
             <button
               type="button"
               className="text-xs text-primary-soft hover:text-primary transition-colors"
-              onClick={() => setActiveView("about")}
+              onClick={() => setActiveView("settings")}
             >
-              关于
+              设置
             </button>
           </div>
           <button

@@ -1,13 +1,12 @@
 import {
   ChevronLeftIcon,
   ChevronRightIcon,
-  PanelTopIcon,
 } from "lucide-react";
 
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
-import { ThemeToggle, Logo, LangToggle } from "@/components/common";
-import { UpdateBadge, VersionPopover } from "@/components/business";
+import { Logo } from "@/components/common";
+import { VersionPopover } from "@/components/business";
 import {
   Tooltip,
   TooltipContent,
@@ -15,12 +14,12 @@ import {
 } from "@/components/ui/tooltip";
 import { useLayoutStore } from "@/stores";
 import { NavItem } from "./NavItem";
-import { getVisibleNavItems, SETTINGS_ITEM, ABOUT_ITEM } from "./navConfig";
+import { getVisibleNavItems } from "./navConfig";
+import { SettingsShortcut } from "./SettingsShortcut";
 
 export function SideNav() {
   const sidebarState = useLayoutStore((s) => s.sidebarState);
   const toggleSidebar = useLayoutStore((s) => s.toggleSidebar);
-  const setNavMode = useLayoutStore((s) => s.setNavMode);
   const hiddenNavIds = useLayoutStore((s) => s.hiddenNavIds);
   const collapsed = sidebarState === "collapsed";
   const navItems = getVisibleNavItems(hiddenNavIds);
@@ -58,37 +57,14 @@ export function SideNav() {
       </div>
 
       <div className="flex flex-col gap-1 border-t border-edge px-2 py-2">
-        <div className="relative">
-          <NavItem item={SETTINGS_ITEM} variant="vertical" collapsed={collapsed} />
-          <span className="pointer-events-none absolute right-2 top-1/2 -translate-y-1/2">
-            <UpdateBadge />
-          </span>
-        </div>
-        <NavItem item={ABOUT_ITEM} variant="vertical" collapsed={collapsed} />
         <div
           className={cn(
             "flex gap-1 pt-1",
             collapsed ? "flex-col items-center" : "items-center justify-between"
           )}
         >
+          <SettingsShortcut />
           <div className={cn("flex gap-1", collapsed && "flex-col")}>
-            <ThemeToggle />
-            <LangToggle />
-          </div>
-          <div className={cn("flex gap-1", collapsed && "flex-col")}>
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  aria-label="切换为顶部导航"
-                  onClick={() => setNavMode("horizontal")}
-                >
-                  <PanelTopIcon className="size-4" />
-                </Button>
-              </TooltipTrigger>
-              <TooltipContent side="right">切换为顶部导航</TooltipContent>
-            </Tooltip>
             <Tooltip>
               <TooltipTrigger asChild>
                 <Button

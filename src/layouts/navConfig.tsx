@@ -4,10 +4,7 @@ import {
   ServerIcon,
   FileCogIcon,
   ChartColumnIcon,
-  RefreshCwIcon,
   ScrollTextIcon,
-  SettingsIcon,
-  InfoIcon,
 } from "lucide-react";
 
 import type { NavPageId, ViewId } from "@/stores";
@@ -29,23 +26,8 @@ export const NAV_ITEMS: NavItemDef[] = [
     icon: FileCogIcon,
   },
   { id: "statistics", label: "统计", labelEn: "Statistics", icon: ChartColumnIcon },
-  { id: "sync", label: "同步", labelEn: "Sync", icon: RefreshCwIcon },
   { id: "logs", label: "日志", labelEn: "Logs", icon: ScrollTextIcon },
 ];
-
-export const SETTINGS_ITEM: NavItemDef = {
-  id: "settings",
-  label: "设置",
-  labelEn: "Settings",
-  icon: SettingsIcon,
-};
-
-export const ABOUT_ITEM: NavItemDef = {
-  id: "about",
-  label: "关于",
-  labelEn: "About",
-  icon: InfoIcon,
-};
 
 /** 按隐藏列表过滤业务导航项。 */
 export function getVisibleNavItems(hiddenNavIds: NavPageId[]): NavItemDef[] {
