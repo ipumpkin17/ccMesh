@@ -1,6 +1,6 @@
 use std::collections::{BTreeMap, HashSet};
 
-use rusqlite::{params, Connection, OptionalExtension};
+use rusqlite::{params, params_from_iter, Connection, OptionalExtension};
 use uuid::Uuid;
 
 use crate::error::{AppError, AppResult};
@@ -63,8 +63,11 @@ pub fn build_config_bundle(conn: &Connection) -> AppResult<ConfigBundle> {
             model: e.model,
             models: e.models,
             active_models: e.active_models,
+            model_mappings: e.model_mappings,
             remark: e.remark,
             sort_order: e.sort_order,
+            fast: e.fast,
+            fast_sort_order: e.fast_sort_order,
             credentials,
         });
     }
@@ -188,12 +191,15 @@ pub fn import_config_bundle(
             .cloned()
             .collect();
         let active_json = serde_json::to_string(&active).unwrap_or_else(|_| "[]".to_string());
+        let mappings_json =
+            serde_json::to_string(&ep.model_mappings).unwrap_or_else(|_| "[]".to_string());
         let id = match existing {
             Some(id) if overwrite => {
                 tx.execute(
                     "UPDATE endpoints SET name=?1, api_url=?2, api_key=?3, auth_mode=?4, enabled=?5,
-                        use_proxy=?6, transformer=?7, model=?8, models=?9, active_models=?10, remark=?11,
-                        sort_order=?12, updated_at=datetime('now') WHERE id=?13",
+                        use_proxy=?6, transformer=?7, model=?8, models=?9, active_models=?10,
+                        model_mappings=?11, remark=?12, sort_order=?13, fast=?14, fast_sort_order=?15,
+                        updated_at=datetime('now') WHERE id=?16",
                     params![
                         ep.name,
                         ep.api_url,
@@ -205,8 +211,11 @@ pub fn import_config_bundle(
                         ep.model,
                         models_json,
                         active_json,
+                        mappings_json,
                         ep.remark,
                         ep.sort_order,
+                        ep.fast as i64,
+                        ep.fast_sort_order,
                         id,
                     ],
                 )?;
@@ -225,8 +234,8 @@ pub fn import_config_bundle(
                 let uid = imported_uid.unwrap_or_else(endpoint_repo::new_endpoint_uid);
                 tx.execute(
                     "INSERT INTO endpoints
-                        (uid, name, api_url, api_key, auth_mode, enabled, use_proxy, transformer, model, models, active_models, remark, sort_order)
-                     VALUES (?1,?2,?3,?4,?5,?6,?7,?8,?9,?10,?11,?12,?13)",
+                        (uid, name, api_url, api_key, auth_mode, enabled, use_proxy, transformer, model, models, active_models, model_mappings, remark, sort_order, fast, fast_sort_order)
+                     VALUES (?1,?2,?3,?4,?5,?6,?7,?8,?9,?10,?11,?12,?13,?14,?15,?16)",
                     params![
                         uid,
                         ep.name,
@@ -239,8 +248,11 @@ pub fn import_config_bundle(
                         ep.model,
                         models_json,
                         active_json,
+                        mappings_json,
                         ep.remark,
                         ep.sort_order,
+                        ep.fast as i64,
+                        ep.fast_sort_order,
                     ],
                 )?;
                 s.endpoints_added += 1;
@@ -270,6 +282,200 @@ pub fn import_config_bundle(
         };
         tx.execute(sql, params![k, v])?;
         s.config_keys += 1;
+    }
+
+    tx.commit()?;
+    Ok(s)
+}
+
+
+/// 仅导出端点配置（不含应用设置）。
+pub fn build_endpoints_only(conn: &Connection) -> AppResult<Vec<EndpointExport>> {
+    let mut endpoints = Vec::new();
+    for e in endpoint_repo::list_all(conn)? {
+        let credentials = read_credentials(conn, e.id)?;
+        endpoints.push(EndpointExport {
+            id: Some(e.uid),
+            name: e.name,
+            api_url: e.api_url,
+            api_key: e.api_key,
+            auth_mode: e.auth_mode,
+            enabled: e.enabled,
+            use_proxy: e.use_proxy,
+            transformer: e.transformer,
+            model: e.model,
+            models: e.models,
+            active_models: e.active_models,
+            model_mappings: e.model_mappings,
+            remark: e.remark,
+            sort_order: e.sort_order,
+            fast: e.fast,
+            fast_sort_order: e.fast_sort_order,
+            credentials,
+        });
+    }
+    Ok(endpoints)
+}
+
+/// 用端点列表全量覆盖本地（严格按稳定 ID 对齐，删除云端不存在的本地端点）。
+pub fn replace_endpoints(
+    conn: &mut Connection,
+    endpoints: &[EndpointExport],
+) -> AppResult<ImportSummary> {
+    let mut imported_ids = HashSet::new();
+    let mut imported_names = HashSet::new();
+    let mut normalized = Vec::new();
+    for ep in endpoints {
+        if ep.name.trim().is_empty() || ep.api_url.trim().is_empty() {
+            continue;
+        }
+        let uid = normalize_exported_endpoint_id(ep.id.as_deref())?
+            .ok_or_else(|| AppError::InvalidArgument(format!("端点 '{}' 缺少稳定 ID", ep.name)))?;
+        if !imported_ids.insert(uid.clone()) {
+            return Err(AppError::InvalidArgument(format!("配置包含重复的端点 ID: {uid}")));
+        }
+        if !imported_names.insert(ep.name.clone()) {
+            return Err(AppError::InvalidArgument(format!(
+                "配置包含重复的端点名称: {}",
+                ep.name
+            )));
+        }
+        let mut item = ep.clone();
+        item.id = Some(uid);
+        normalized.push(item);
+    }
+
+    let tx = conn.transaction()?;
+    let mut s = ImportSummary::default();
+
+    for ep in &normalized {
+        let uid = ep.id.as_deref().unwrap();
+        let existing: Option<i64> = tx
+            .query_row(
+                "SELECT id FROM endpoints WHERE uid = ?1",
+                params![uid],
+                |row| row.get(0),
+            )
+            .optional()?;
+
+        if let Some(conflict_id) = tx
+            .query_row(
+                "SELECT id FROM endpoints WHERE name = ?1 AND uid <> ?2",
+                params![ep.name, uid],
+                |row| row.get::<_, i64>(0),
+            )
+            .optional()?
+        {
+            let renamed = format!("{} (冲突)", ep.name);
+            tx.execute(
+                "UPDATE endpoints SET name=?1, updated_at=datetime('now') WHERE id=?2",
+                params![renamed, conflict_id],
+            )?;
+        }
+
+        let models_json = serde_json::to_string(&ep.models).unwrap_or_else(|_| "[]".to_string());
+        let active: Vec<String> = ep
+            .active_models
+            .iter()
+            .filter(|a| ep.models.iter().any(|m| m == *a))
+            .cloned()
+            .collect();
+        let active_json = serde_json::to_string(&active).unwrap_or_else(|_| "[]".to_string());
+        let mappings_json =
+            serde_json::to_string(&ep.model_mappings).unwrap_or_else(|_| "[]".to_string());
+
+        let id = if let Some(id) = existing {
+            tx.execute(
+                "UPDATE endpoints SET name=?1, api_url=?2, api_key=?3, auth_mode=?4, enabled=?5,
+                    use_proxy=?6, transformer=?7, model=?8, models=?9, active_models=?10,
+                    model_mappings=?11, remark=?12, sort_order=?13, fast=?14, fast_sort_order=?15,
+                    archived=0, updated_at=datetime('now') WHERE id=?16",
+                params![
+                    ep.name,
+                    ep.api_url,
+                    ep.api_key,
+                    ep.auth_mode,
+                    ep.enabled as i64,
+                    ep.use_proxy as i64,
+                    ep.transformer,
+                    ep.model,
+                    models_json,
+                    active_json,
+                    mappings_json,
+                    ep.remark,
+                    ep.sort_order,
+                    ep.fast as i64,
+                    ep.fast_sort_order,
+                    id,
+                ],
+            )?;
+            s.endpoints_updated += 1;
+            id
+        } else {
+            tx.execute(
+                "INSERT INTO endpoints
+                    (uid, name, api_url, api_key, auth_mode, enabled, use_proxy, transformer, model,
+                     models, active_models, model_mappings, remark, sort_order, fast, fast_sort_order, archived)
+                 VALUES (?1,?2,?3,?4,?5,?6,?7,?8,?9,?10,?11,?12,?13,?14,?15,?16,0)",
+                params![
+                    uid,
+                    ep.name,
+                    ep.api_url,
+                    ep.api_key,
+                    ep.auth_mode,
+                    ep.enabled as i64,
+                    ep.use_proxy as i64,
+                    ep.transformer,
+                    ep.model,
+                    models_json,
+                    active_json,
+                    mappings_json,
+                    ep.remark,
+                    ep.sort_order,
+                    ep.fast as i64,
+                    ep.fast_sort_order,
+                ],
+            )?;
+            s.endpoints_added += 1;
+            tx.last_insert_rowid()
+        };
+
+        tx.execute(
+            "DELETE FROM endpoint_credentials WHERE endpoint_id=?1",
+            params![id],
+        )?;
+        for c in &ep.credentials {
+            tx.execute(
+                "INSERT INTO endpoint_credentials(endpoint_id, api_key, enabled, sort_order)
+                 VALUES(?1,?2,?3,?4)",
+                params![id, c.api_key, c.enabled as i64, c.sort_order],
+            )?;
+            s.credentials += 1;
+        }
+    }
+
+    if imported_ids.is_empty() {
+        let ids: Vec<i64> = {
+            let mut stmt = tx.prepare("SELECT id FROM endpoints WHERE archived = 0")?;
+            let rows = stmt.query_map([], |r| r.get(0))?;
+            rows.collect::<rusqlite::Result<Vec<_>>>()?
+        };
+        for id in ids {
+            tx.execute("DELETE FROM endpoints WHERE id=?1", params![id])?;
+        }
+    } else {
+        let placeholders = vec!["?"; imported_ids.len()].join(",");
+        let sql = format!(
+            "SELECT id FROM endpoints WHERE archived = 0 AND uid NOT IN ({placeholders})"
+        );
+        let ids: Vec<i64> = {
+            let mut stmt = tx.prepare(&sql)?;
+            let rows = stmt.query_map(params_from_iter(imported_ids.iter()), |r| r.get(0))?;
+            rows.collect::<rusqlite::Result<Vec<_>>>()?
+        };
+        for id in ids {
+            tx.execute("DELETE FROM endpoints WHERE id=?1", params![id])?;
+        }
     }
 
     tx.commit()?;
@@ -325,6 +531,7 @@ mod tests {
             Some("11111111-1111-4111-8111-111111111111")
         );
         assert_eq!(ep.models, vec!["gpt".to_string(), "o3".to_string()]);
+        assert!(ep.model_mappings.is_empty());
         assert!(ep.use_proxy);
         assert_eq!(ep.credentials.len(), 1);
         assert_eq!(ep.credentials[0].api_key, "cred-a");
@@ -515,5 +722,27 @@ mod tests {
             .query_row("SELECT COUNT(*) FROM endpoints", [], |row| row.get(0))
             .unwrap();
         assert_eq!(count, 0);
+    }
+
+    #[test]
+    fn model_mappings_roundtrip_via_import() {
+        use crate::models::endpoint::ModelMapping;
+        let src = db();
+        seed(&src);
+        let mut bundle = build_config_bundle(&src).unwrap();
+        bundle.endpoints[0].model_mappings = vec![ModelMapping {
+            from: "alias".into(),
+            to: "gpt".into(),
+        }];
+        bundle.endpoints[0].active_models = vec!["gpt".into()];
+
+        let mut dst = db();
+        import_config_bundle(&mut dst, &bundle, true).unwrap();
+        let ep = endpoint_repo::list_all(&dst).unwrap().into_iter().next().unwrap();
+        assert_eq!(ep.models, vec!["gpt".to_string(), "o3".to_string()]);
+        assert_eq!(ep.active_models, vec!["gpt".to_string()]);
+        assert_eq!(ep.model_mappings.len(), 1);
+        assert_eq!(ep.model_mappings[0].from, "alias");
+        assert_eq!(ep.model_mappings[0].to, "gpt");
     }
 }

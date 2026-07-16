@@ -22,9 +22,15 @@ pub fn list_endpoints(state: State<AppState>) -> AppResult<Vec<Endpoint>> {
 }
 
 #[tauri::command]
-pub fn create_endpoint(state: State<AppState>, req: CreateEndpointRequest) -> AppResult<Endpoint> {
+pub fn create_endpoint(
+    app: AppHandle,
+    state: State<AppState>,
+    req: CreateEndpointRequest,
+) -> AppResult<Endpoint> {
     let conn = state.db_pool.get()?;
-    endpoint_repo::create(&conn, &req)
+    let ep = endpoint_repo::create(&conn, &req)?;
+    let _ = app.emit(ENDPOINTS_CHANGED_EVENT, ());
+    Ok(ep)
 }
 
 #[tauri::command]
@@ -41,9 +47,11 @@ pub fn update_endpoint(
 }
 
 #[tauri::command]
-pub fn delete_endpoint(state: State<AppState>, id: i64) -> AppResult<()> {
+pub fn delete_endpoint(app: AppHandle, state: State<AppState>, id: i64) -> AppResult<()> {
     let conn = state.db_pool.get()?;
-    endpoint_repo::delete(&conn, id)
+    endpoint_repo::delete(&conn, id)?;
+    let _ = app.emit(ENDPOINTS_CHANGED_EVENT, ());
+    Ok(())
 }
 
 #[tauri::command]
@@ -94,7 +102,7 @@ pub fn reorder_fast_endpoints(
 
 /// 克隆端点：名称自动加 `(副本)` 后缀并避免冲突。
 #[tauri::command]
-pub fn clone_endpoint(state: State<AppState>, id: i64) -> AppResult<Endpoint> {
+pub fn clone_endpoint(app: AppHandle, state: State<AppState>, id: i64) -> AppResult<Endpoint> {
     let conn = state.db_pool.get()?;
     let src = endpoint_repo::get_by_id(&conn, id)?
         .ok_or_else(|| AppError::NotFound(format!("端点 #{id} 不存在")))?;
@@ -115,7 +123,9 @@ pub fn clone_endpoint(state: State<AppState>, id: i64) -> AppResult<Endpoint> {
         remark: src.remark,
         fast: src.fast,
     };
-    endpoint_repo::create(&conn, &req)
+    let ep = endpoint_repo::create(&conn, &req)?;
+    let _ = app.emit(ENDPOINTS_CHANGED_EVENT, ());
+    Ok(ep)
 }
 
 fn extract_base_name(name: &str) -> String {

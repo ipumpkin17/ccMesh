@@ -136,6 +136,50 @@ pub fn merge_from_backup(
             )?;
         }
 
+
+        // 同步端点多凭证：按远端 endpoint.uid 对齐到本地 endpoint 行 id。
+        // overwrite 时先清本地相关凭证再重建；keep 时仅补本地尚无凭证的端点。
+        if overwrite {
+            tx.execute(
+                "DELETE FROM endpoint_credentials
+                 WHERE endpoint_id IN (
+                    SELECT local.id
+                    FROM endpoints local
+                    JOIN backup.endpoints remote
+                      ON remote.uid = local.uid
+                     OR (remote.uid <> '' AND local.name = remote.name)
+                 )",
+                [],
+            )?;
+            tx.execute(
+                "INSERT INTO endpoint_credentials(endpoint_id, api_key, enabled, sort_order)
+                 SELECT local.id, remote_cred.api_key, remote_cred.enabled, remote_cred.sort_order
+                 FROM backup.endpoint_credentials remote_cred
+                 JOIN backup.endpoints remote ON remote.id = remote_cred.endpoint_id
+                 JOIN endpoints local
+                   ON local.uid = remote.uid
+                   OR (remote.uid <> '' AND local.name = remote.name)
+                 WHERE remote.uid <> ''",
+                [],
+            )?;
+        } else {
+            tx.execute(
+                "INSERT INTO endpoint_credentials(endpoint_id, api_key, enabled, sort_order)
+                 SELECT local.id, remote_cred.api_key, remote_cred.enabled, remote_cred.sort_order
+                 FROM backup.endpoint_credentials remote_cred
+                 JOIN backup.endpoints remote ON remote.id = remote_cred.endpoint_id
+                 JOIN endpoints local
+                   ON local.uid = remote.uid
+                   OR (remote.uid <> '' AND local.name = remote.name)
+                 WHERE remote.uid <> ''
+                   AND NOT EXISTS (
+                        SELECT 1 FROM endpoint_credentials existing
+                        WHERE existing.endpoint_id = local.id
+                   )",
+                [],
+            )?;
+        }
+
         if overwrite {
             tx.execute(
                 "DELETE FROM daily_stats WHERE EXISTS (
@@ -386,6 +430,112 @@ mod tests {
             })
             .unwrap();
         assert_eq!(theme, "dark");
+
+        drop(tgt);
+        for p in [&src_path, &bk_path, &tgt_path] {
+            let _ = std::fs::remove_file(p);
+        }
+    }
+
+    #[test]
+    fn merge_preserves_models_mappings_and_credentials() {
+        let dir = std::env::temp_dir();
+        let pid = std::process::id();
+        let src_path = dir.join(format!("ccx_models_src_{pid}.db"));
+        let bk_path = dir.join(format!("ccx_models_bk_{pid}.db"));
+        let tgt_path = dir.join(format!("ccx_models_tgt_{pid}.db"));
+        for p in [&src_path, &bk_path, &tgt_path] {
+            let _ = std::fs::remove_file(p);
+        }
+
+        let src = Connection::open(&src_path).unwrap();
+        run_migrations(&src).unwrap();
+        src.execute(
+            "INSERT INTO endpoints(
+                uid,name,api_url,api_key,enabled,use_proxy,transformer,model,models,active_models,model_mappings,remark
+             ) VALUES(
+                '11111111-1111-4111-8111-111111111111','ep','https://example.com','k1',1,0,'openai','',
+                ?1,?2,?3,'r'
+             )",
+            rusqlite::params![
+                r#"["gpt","o3"]"#,
+                r#"["gpt"]"#,
+                r#"[{"from":"gpt-alias","to":"gpt"}]"#,
+            ],
+        )
+        .unwrap();
+        let src_id = src.last_insert_rowid();
+        src.execute(
+            "INSERT INTO endpoint_credentials(endpoint_id, api_key, enabled, sort_order)
+             VALUES(?1, 'cred-a', 1, 0), (?1, 'cred-b', 1, 1)",
+            rusqlite::params![src_id],
+        )
+        .unwrap();
+
+        create_backup_copy(&src, &bk_path).unwrap();
+
+        let mut tgt = Connection::open(&tgt_path).unwrap();
+        run_migrations(&tgt).unwrap();
+        tgt.execute(
+            "INSERT INTO endpoints(uid,name,api_url,api_key,models,active_models,model_mappings)
+             VALUES('11111111-1111-4111-8111-111111111111','ep','https://local.example.com','old',
+                    '[]','[]','[]')",
+            [],
+        )
+        .unwrap();
+        let tgt_id = tgt.last_insert_rowid();
+        tgt.execute(
+            "INSERT INTO endpoint_credentials(endpoint_id, api_key, enabled, sort_order)
+             VALUES(?1, 'old-cred', 1, 0)",
+            rusqlite::params![tgt_id],
+        )
+        .unwrap();
+
+        merge_from_backup(&mut tgt, &bk_path, true, "LOCAL").unwrap();
+
+        let models: String = tgt
+            .query_row(
+                "SELECT models FROM endpoints WHERE uid='11111111-1111-4111-8111-111111111111'",
+                [],
+                |r| r.get(0),
+            )
+            .unwrap();
+        let active: String = tgt
+            .query_row(
+                "SELECT active_models FROM endpoints WHERE uid='11111111-1111-4111-8111-111111111111'",
+                [],
+                |r| r.get(0),
+            )
+            .unwrap();
+        let mappings: String = tgt
+            .query_row(
+                "SELECT model_mappings FROM endpoints WHERE uid='11111111-1111-4111-8111-111111111111'",
+                [],
+                |r| r.get(0),
+            )
+            .unwrap();
+        assert_eq!(models, r#"["gpt","o3"]"#);
+        assert_eq!(active, r#"["gpt"]"#);
+        assert!(mappings.contains("gpt-alias"));
+
+        let cred_count: i64 = tgt
+            .query_row(
+                "SELECT COUNT(*) FROM endpoint_credentials c
+                 JOIN endpoints e ON e.id = c.endpoint_id
+                 WHERE e.uid='11111111-1111-4111-8111-111111111111'",
+                [],
+                |r| r.get(0),
+            )
+            .unwrap();
+        assert_eq!(cred_count, 2);
+        let has_old: i64 = tgt
+            .query_row(
+                "SELECT COUNT(*) FROM endpoint_credentials WHERE api_key='old-cred'",
+                [],
+                |r| r.get(0),
+            )
+            .unwrap();
+        assert_eq!(has_old, 0);
 
         drop(tgt);
         for p in [&src_path, &bk_path, &tgt_path] {

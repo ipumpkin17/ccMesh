@@ -2,6 +2,8 @@ use std::collections::BTreeMap;
 
 use serde::{Deserialize, Serialize};
 
+use crate::models::endpoint::ModelMapping;
+
 fn default_true() -> bool {
     true
 }
@@ -49,9 +51,15 @@ pub struct EndpointExport {
     #[serde(default)]
     pub active_models: Vec<String>,
     #[serde(default)]
+    pub model_mappings: Vec<ModelMapping>,
+    #[serde(default)]
     pub remark: String,
     #[serde(default)]
     pub sort_order: i64,
+    #[serde(default)]
+    pub fast: bool,
+    #[serde(default)]
+    pub fast_sort_order: i64,
     #[serde(default)]
     pub credentials: Vec<CredentialItem>,
 }

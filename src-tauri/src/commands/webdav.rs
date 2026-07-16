@@ -1,6 +1,6 @@
 use chrono::Utc;
 use serde_json::json;
-use tauri::State;
+use tauri::{AppHandle, Emitter, State};
 
 use crate::error::AppResult;
 use crate::models::config::WebDavConfig;
@@ -9,6 +9,8 @@ use crate::modules::storage::config_repo;
 use crate::modules::webdav::client::WebDavClient;
 use crate::modules::webdav::sync;
 use crate::state::AppState;
+
+const ENDPOINTS_CHANGED_EVENT: &str = "endpoints-changed";
 
 fn webdav_cfg(state: &AppState) -> AppResult<WebDavConfig> {
     let conn = state.db_pool.get()?;
@@ -63,6 +65,7 @@ pub async fn webdav_backup(state: State<'_, AppState>) -> AppResult<String> {
 /// 恢复：下载备份并合并；strategy="remote" 覆盖本地，否则保留本地。
 #[tauri::command]
 pub async fn webdav_restore(
+    app: AppHandle,
     state: State<'_, AppState>,
     filename: String,
     strategy: Option<String>,
@@ -80,6 +83,8 @@ pub async fn webdav_restore(
         sync::merge_from_backup(&mut conn, &temp, overwrite, &device_id)?;
     }
     let _ = std::fs::remove_file(&temp);
+    // 恢复后刷新前端端点列表与相关查询。
+    let _ = app.emit(ENDPOINTS_CHANGED_EVENT, ());
     Ok(())
 }
 
