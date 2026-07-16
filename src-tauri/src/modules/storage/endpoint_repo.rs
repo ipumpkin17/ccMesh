@@ -57,21 +57,6 @@ pub fn list_enabled(conn: &Connection) -> AppResult<Vec<Endpoint>> {
     Ok(rows.collect::<rusqlite::Result<Vec<_>>>()?)
 }
 
-/// 代理实际轮询候选：存在启用快速端点时只返回快速端点，否则回退全部启用端点。
-pub fn list_routable(conn: &Connection) -> AppResult<Vec<Endpoint>> {
-    let fast_sql = format!(
-        "SELECT {COLS} FROM endpoints WHERE enabled = 1 AND fast = 1 ORDER BY fast_sort_order ASC, sort_order ASC, id ASC"
-    );
-    let mut stmt = conn.prepare(&fast_sql)?;
-    let fast = stmt
-        .query_map([], row_to_endpoint)?
-        .collect::<rusqlite::Result<Vec<_>>>()?;
-    if !fast.is_empty() {
-        return Ok(fast);
-    }
-    list_enabled(conn)
-}
-
 pub fn get_by_id(conn: &Connection, id: i64) -> AppResult<Option<Endpoint>> {
     let sql = format!("SELECT {COLS} FROM endpoints WHERE id = ?1");
     Ok(conn.query_row(&sql, [id], row_to_endpoint).optional()?)
@@ -604,7 +589,7 @@ mod tests {
     }
 
     #[test]
-    fn fast_queue_roundtrip_routing_and_reorder() {
+    fn fast_queue_roundtrip_and_reorder() {
         let mut c = db();
         let a = create(&c, &req("a")).unwrap();
         let b = create(&c, &req("b")).unwrap();
@@ -637,25 +622,15 @@ mod tests {
         assert!(!disabled.fast);
 
         reorder_fast(&mut c, &[b.id, a.id]).unwrap();
-        let routable = list_routable(&c).unwrap();
-        assert_eq!(
-            routable.iter().map(|e| e.name.as_str()).collect::<Vec<_>>(),
-            vec!["b", "a"]
-        );
+        let a = get_by_id(&c, a.id).unwrap().unwrap();
+        let b = get_by_id(&c, b.id).unwrap().unwrap();
+        assert_eq!(b.fast_sort_order, 0);
+        assert_eq!(a.fast_sort_order, 1);
         let global = list_all(&c).unwrap();
         assert_eq!(
             global.iter().map(|e| e.name.as_str()).collect::<Vec<_>>(),
             vec!["a", "b", "disabled"]
         );
-    }
-
-    #[test]
-    fn list_routable_falls_back_when_no_fast_endpoint() {
-        let c = db();
-        create(&c, &req("a")).unwrap();
-        create(&c, &req("b")).unwrap();
-
-        assert_eq!(list_routable(&c).unwrap().len(), 2);
     }
 
     #[test]

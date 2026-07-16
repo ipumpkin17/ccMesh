@@ -36,6 +36,75 @@ use crate::utils::ua;
 
 const MAX_ERROR_BODY_BYTES: usize = 4096;
 
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+enum InboundProtocol {
+    Claude,
+    OpenAiChat,
+    OpenAiResponses,
+}
+
+impl InboundProtocol {
+    fn from_path(path: &str) -> Self {
+        if path.contains("/chat/completions") {
+            Self::OpenAiChat
+        } else if path.contains("/responses") {
+            Self::OpenAiResponses
+        } else {
+            Self::Claude
+        }
+    }
+
+    fn accepts(self, endpoint: &Endpoint) -> bool {
+        let format = UpstreamFormat::from_transformer_name(&endpoint.transformer);
+        match self {
+            Self::Claude => matches!(format, UpstreamFormat::Claude | UpstreamFormat::OpenAiChat),
+            Self::OpenAiChat => matches!(format, UpstreamFormat::OpenAiChat),
+            Self::OpenAiResponses => {
+                matches!(
+                    format,
+                    UpstreamFormat::OpenAiResponses | UpstreamFormat::OpenAiChat
+                )
+            }
+        }
+    }
+
+    fn no_candidate_message(self) -> &'static str {
+        match self {
+            Self::Claude => "Claude 入站(/v1/messages)无可用的 Claude/OpenAI 端点",
+            Self::OpenAiChat => "OpenAI 入站(/v1/chat/completions)无可用的 OpenAI 端点",
+            Self::OpenAiResponses => "Responses 入站(/v1/responses)无可用的 codex/openai 端点",
+        }
+    }
+
+    fn label(self) -> &'static str {
+        match self {
+            Self::Claude => "claude",
+            Self::OpenAiChat => "openai",
+            Self::OpenAiResponses => "responses",
+        }
+    }
+}
+
+/// 先按入站协议筛出可转换或可透传的端点，再仅在兼容端点内部应用快速队列。
+/// 不同协议互不抢占：例如 codex 快速端点不会屏蔽 Claude CLI 的普通端点。
+fn select_routable_endpoints(
+    enabled: Vec<Endpoint>,
+    inbound: InboundProtocol,
+) -> (Vec<Endpoint>, bool) {
+    let mut compatible: Vec<Endpoint> = enabled
+        .into_iter()
+        .filter(|endpoint| inbound.accepts(endpoint))
+        .collect();
+    let using_fast_queue = compatible.iter().any(|endpoint| endpoint.fast);
+    if using_fast_queue {
+        compatible.retain(|endpoint| endpoint.fast);
+        compatible
+            .sort_by_key(|endpoint| (endpoint.fast_sort_order, endpoint.sort_order, endpoint.id));
+    }
+
+    (compatible, using_fast_queue)
+}
+
 /// 每端点在途请求计数 + 取消令牌（手动切换时中止在途请求）。
 #[derive(Default)]
 pub struct ActiveRequests {
@@ -282,20 +351,9 @@ pub async fn handle_proxy(
     }
 
     // 当前启用端点（每请求读取，反映 CRUD 实时变更）
-    let (enabled, using_fast_queue) = match st.db_pool.get() {
-        Ok(conn) => match endpoint_repo::list_routable(&conn) {
-            Ok(list) => {
-                // 判断是否使用了快速队列：查询快速端点数量
-                let has_fast = conn
-                    .query_row(
-                        "SELECT COUNT(*) FROM endpoints WHERE enabled = 1 AND fast = 1",
-                        [],
-                        |row| row.get::<_, i64>(0),
-                    )
-                    .unwrap_or(0)
-                    > 0;
-                (list, has_fast)
-            }
+    let enabled = match st.db_pool.get() {
+        Ok(conn) => match endpoint_repo::list_enabled(&conn) {
+            Ok(list) => list,
             Err(e) => {
                 return json_error(
                     StatusCode::INTERNAL_SERVER_ERROR,
@@ -314,56 +372,16 @@ pub async fn handle_proxy(
         return json_error(StatusCode::SERVICE_UNAVAILABLE, "没有启用的端点");
     }
 
-    // 入站格式识别：/v1/chat/completions = OpenAI Chat 入站；/v1/responses = Responses 入站（codex）。
-    let inbound_openai = path.contains("/chat/completions");
-    let inbound_responses = path.contains("/responses");
-    let enabled: Vec<Endpoint> = if inbound_openai {
-        // OpenAI Chat 入站只透传到 OpenAI 端点，故候选过滤为 transformer=openai；为空则 400。
-        let filtered: Vec<Endpoint> = enabled
-            .into_iter()
-            .filter(|e| {
-                matches!(
-                    UpstreamFormat::from_transformer_name(&e.transformer),
-                    UpstreamFormat::OpenAiChat
-                )
-            })
-            .collect();
-        if filtered.is_empty() {
-            return json_error(
-                StatusCode::BAD_REQUEST,
-                "OpenAI 入站(/v1/chat/completions)无可用的 OpenAI 端点",
-            );
-        }
-        filtered
-    } else if inbound_responses {
-        // Responses 入站：codex 端点透传、openai 端点转 Chat。候选 = codex + openai，为空则 400。
-        let filtered: Vec<Endpoint> = enabled
-            .into_iter()
-            .filter(|e| {
-                matches!(
-                    UpstreamFormat::from_transformer_name(&e.transformer),
-                    UpstreamFormat::OpenAiResponses | UpstreamFormat::OpenAiChat
-                )
-            })
-            .collect();
-        if filtered.is_empty() {
-            return json_error(
-                StatusCode::BAD_REQUEST,
-                "Responses 入站(/v1/responses)无可用的 codex/openai 端点",
-            );
-        }
-        filtered
-    } else {
-        enabled
-    };
+    // 入站格式识别：/v1/chat/completions = OpenAI Chat；/v1/responses = Responses；其余按 Claude。
+    let inbound = InboundProtocol::from_path(&path);
+    let inbound_openai = inbound == InboundProtocol::OpenAiChat;
+    let inbound_responses = inbound == InboundProtocol::OpenAiResponses;
+    let (enabled, using_fast_queue) = select_routable_endpoints(enabled, inbound);
+    if enabled.is_empty() {
+        return json_error(StatusCode::BAD_REQUEST, inbound.no_candidate_message());
+    }
 
-    let inbound_label = if inbound_openai {
-        "openai"
-    } else if inbound_responses {
-        "responses"
-    } else {
-        "claude"
-    };
+    let inbound_label = inbound.label();
     tracing::debug!(
         path = %path,
         inbound = inbound_label,
@@ -1082,8 +1100,108 @@ fn stream_transform_response(
 
 #[cfg(test)]
 mod tests {
-    use super::{empty_candidates_message, error_body_from_bytes, truncate_error_body};
+    use super::{
+        empty_candidates_message, error_body_from_bytes, select_routable_endpoints,
+        truncate_error_body, InboundProtocol,
+    };
     use axum::body::Bytes;
+
+    use crate::models::endpoint::Endpoint;
+
+    fn endpoint(
+        id: i64,
+        name: &str,
+        transformer: &str,
+        fast: bool,
+        fast_sort_order: i64,
+    ) -> Endpoint {
+        Endpoint {
+            id,
+            name: name.into(),
+            api_url: String::new(),
+            api_key: String::new(),
+            auth_mode: "api_key".into(),
+            enabled: true,
+            use_proxy: false,
+            transformer: transformer.into(),
+            model: String::new(),
+            models: Vec::new(),
+            active_models: Vec::new(),
+            model_mappings: Vec::new(),
+            remark: String::new(),
+            sort_order: id,
+            fast,
+            fast_sort_order,
+            test_status: "unknown".into(),
+            created_at: String::new(),
+            updated_at: String::new(),
+            archived: false,
+        }
+    }
+
+    #[test]
+    fn codex_fast_queue_does_not_override_claude_candidates() {
+        let endpoints = vec![
+            endpoint(1, "claude-normal", "claude", false, 0),
+            endpoint(2, "codex-fast", "codex", true, 0),
+        ];
+
+        let (selected, using_fast_queue) =
+            select_routable_endpoints(endpoints, InboundProtocol::Claude);
+
+        assert_eq!(
+            selected.iter().map(|e| e.name.as_str()).collect::<Vec<_>>(),
+            vec!["claude-normal"]
+        );
+        assert!(!using_fast_queue);
+    }
+
+    #[test]
+    fn responses_falls_back_when_only_unrelated_fast_endpoint_exists() {
+        let endpoints = vec![
+            endpoint(1, "claude-fast", "claude", true, 0),
+            endpoint(2, "codex-normal", "codex", false, 0),
+        ];
+
+        let (selected, using_fast_queue) =
+            select_routable_endpoints(endpoints, InboundProtocol::OpenAiResponses);
+
+        assert_eq!(
+            selected.iter().map(|e| e.name.as_str()).collect::<Vec<_>>(),
+            vec!["codex-normal"]
+        );
+        assert!(!using_fast_queue);
+    }
+
+    #[test]
+    fn fast_queue_keeps_independent_order_within_compatible_endpoints() {
+        let endpoints = vec![
+            endpoint(1, "codex-second", "codex", true, 8),
+            endpoint(2, "claude-unrelated", "claude", true, 0),
+            endpoint(3, "openai-first", "openai", true, 2),
+            endpoint(4, "codex-normal", "codex", false, 0),
+        ];
+
+        let (selected, using_fast_queue) =
+            select_routable_endpoints(endpoints, InboundProtocol::OpenAiResponses);
+
+        assert_eq!(
+            selected.iter().map(|e| e.name.as_str()).collect::<Vec<_>>(),
+            vec!["openai-first", "codex-second"]
+        );
+        assert!(using_fast_queue);
+    }
+
+    #[test]
+    fn claude_never_routes_to_responses_endpoint() {
+        let endpoints = vec![endpoint(1, "codex", "codex", false, 0)];
+
+        let (selected, using_fast_queue) =
+            select_routable_endpoints(endpoints, InboundProtocol::Claude);
+
+        assert!(selected.is_empty());
+        assert!(!using_fast_queue);
+    }
 
     #[test]
     fn empty_candidates_message_prefers_breaker_reason_over_model() {
