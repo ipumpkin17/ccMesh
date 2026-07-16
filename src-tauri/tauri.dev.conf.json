@@ -1,0 +1,12 @@
+{
+  "$schema": "https://schema.tauri.app/config/2",
+  "productName": "ccMesh Dev",
+  "identifier": "com.ccmesh.desktop.dev",
+  "app": {
+    "windows": [
+      {
+        "title": "ccMesh Dev"
+      }
+    ]
+  }
+}

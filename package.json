@@ -7,13 +7,14 @@
     "dev": "vite",
     "build": "tsc && vite build",
     "preview": "vite preview",
+    "tauri:dev": "node scripts/tauri.mjs dev",
+    "tauri": "node scripts/tauri.mjs",
+    "tauri:build": "dotenv -e .env.local -- node scripts/tauri.mjs build",
+    "cargo:build": "pnpm install && cargo build --manifest-path src-tauri/Cargo.toml",
     "test": "vitest run",
+    "check": "pnpm check:front && pnpm check:rust",
     "check:front": "tsc --noEmit",
     "check:rust": "cargo check --manifest-path src-tauri/Cargo.toml --message-format=short",
-    "check": "pnpm check:front && pnpm check:rust",
-    "tauri": "tauri",
-    "tauri:build": "dotenv -e .env.local -- tauri build",
-    "cargo:build": "pnpm install && cargo build --manifest-path src-tauri/Cargo.toml",
     "version:set": "node scripts/update-version.mjs"
   },
   "dependencies": {
