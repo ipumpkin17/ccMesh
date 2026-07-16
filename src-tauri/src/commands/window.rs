@@ -9,11 +9,11 @@ use crate::state::AppState;
 
 const MAIN_WINDOW_STATE_KEY: &str = "mainWindowState";
 const MIN_WINDOW_WIDTH: u32 = 940;
-const MIN_WINDOW_HEIGHT: u32 = 600;
+const MIN_WINDOW_HEIGHT: u32 = 640;
 const MAX_WINDOW_DIMENSION: u32 = 10_000;
 const MIN_VISIBLE_WINDOW_PIXELS: i64 = 100;
 
-#[derive(Debug, Deserialize, Serialize)]
+#[derive(Clone, Copy, Debug, Deserialize, Serialize)]
 #[serde(rename_all = "camelCase")]
 struct MainWindowState {
     x: i32,
@@ -30,31 +30,72 @@ impl MainWindowState {
     }
 }
 
-fn intersects_available_monitor<R: Runtime>(
-    window: &WebviewWindow<R>,
-    state: &MainWindowState,
-) -> bool {
+#[derive(Clone, Copy, Debug)]
+struct MonitorBounds {
+    x: i32,
+    y: i32,
+    width: u32,
+    height: u32,
+}
+
+fn visible_area(state: &MainWindowState, monitor: MonitorBounds) -> i64 {
     let right = i64::from(state.x) + i64::from(state.width);
     let bottom = i64::from(state.y) + i64::from(state.height);
+    let monitor_right = i64::from(monitor.x) + i64::from(monitor.width);
+    let monitor_bottom = i64::from(monitor.y) + i64::from(monitor.height);
+    let visible_width = right.min(monitor_right) - i64::from(state.x).max(i64::from(monitor.x));
+    let visible_height = bottom.min(monitor_bottom) - i64::from(state.y).max(i64::from(monitor.y));
+    visible_width.max(0) * visible_height.max(0)
+}
 
+fn clamp_to_monitor(state: MainWindowState, monitor: MonitorBounds) -> MainWindowState {
+    let width = state.width.min(monitor.width).max(MIN_WINDOW_WIDTH);
+    let height = state.height.min(monitor.height).max(MIN_WINDOW_HEIGHT);
+    let max_x = i64::from(monitor.x) + i64::from(monitor.width) - i64::from(width);
+    let max_y = i64::from(monitor.y) + i64::from(monitor.height) - i64::from(height);
+
+    MainWindowState {
+        x: i64::from(state.x).clamp(i64::from(monitor.x), max_x.max(i64::from(monitor.x))) as i32,
+        y: i64::from(state.y).clamp(i64::from(monitor.y), max_y.max(i64::from(monitor.y))) as i32,
+        width,
+        height,
+        maximized: state.maximized,
+    }
+}
+
+fn matching_monitor_bounds<R: Runtime>(
+    window: &WebviewWindow<R>,
+    state: &MainWindowState,
+) -> Option<MonitorBounds> {
     window
         .available_monitors()
         .map(|monitors| {
-            monitors.iter().any(|monitor| {
-                let position = monitor.position();
-                let size = monitor.size();
-                let monitor_right = i64::from(position.x) + i64::from(size.width);
-                let monitor_bottom = i64::from(position.y) + i64::from(size.height);
-                let visible_width =
-                    right.min(monitor_right) - i64::from(state.x).max(i64::from(position.x));
-                let visible_height =
-                    bottom.min(monitor_bottom) - i64::from(state.y).max(i64::from(position.y));
-                visible_width >= MIN_VISIBLE_WINDOW_PIXELS
-                    && visible_height >= MIN_VISIBLE_WINDOW_PIXELS
-            })
+            monitors
+                .iter()
+                .map(|monitor| {
+                    let position = monitor.position();
+                    let size = monitor.size();
+                    MonitorBounds {
+                        x: position.x,
+                        y: position.y,
+                        width: size.width,
+                        height: size.height,
+                    }
+                })
+                .filter(|monitor| {
+                    let visible_width = (i64::from(state.x) + i64::from(state.width))
+                        .min(i64::from(monitor.x) + i64::from(monitor.width))
+                        - i64::from(state.x).max(i64::from(monitor.x));
+                    let visible_height = (i64::from(state.y) + i64::from(state.height))
+                        .min(i64::from(monitor.y) + i64::from(monitor.height))
+                        - i64::from(state.y).max(i64::from(monitor.y));
+                    visible_width >= MIN_VISIBLE_WINDOW_PIXELS
+                        && visible_height >= MIN_VISIBLE_WINDOW_PIXELS
+                })
+                .max_by_key(|monitor| visible_area(state, *monitor))
         })
-        // 显示器查询失败时保守保留用户位置，避免无故覆盖已有偏好。
-        .unwrap_or(true)
+        .ok()
+        .flatten()
 }
 
 /// 在主窗口首次展示前恢复上次正常退出时保存的位置、尺寸和最大化状态。
@@ -69,10 +110,13 @@ pub fn restore_main_window<R: Runtime>(app: &AppHandle<R>, conn: &Connection) {
     let Some(window) = app.get_webview_window("main") else {
         return;
     };
-    if !intersects_available_monitor(&window, &state) {
-        tracing::info!("上次窗口位置不在当前显示器范围内，使用默认位置");
-        return;
-    }
+    let state = match matching_monitor_bounds(&window, &state) {
+        Some(monitor) => clamp_to_monitor(state, monitor),
+        None => {
+            tracing::info!("上次窗口位置不在当前显示器范围内，使用默认位置");
+            return;
+        }
+    };
 
     if let Err(error) = window.set_size(PhysicalSize::new(state.width, state.height)) {
         tracing::warn!("恢复窗口尺寸失败: {error}");
@@ -120,6 +164,56 @@ pub fn persist_main_window<R: Runtime>(app: &AppHandle<R>) {
             }
         }
         Err(error) => tracing::warn!("获取数据库连接以保存窗口状态失败: {error}"),
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn restored_window_is_clamped_to_a_smaller_monitor() {
+        let restored = clamp_to_monitor(
+            MainWindowState {
+                x: -1_000,
+                y: -500,
+                width: 2_560,
+                height: 1_440,
+                maximized: false,
+            },
+            MonitorBounds {
+                x: 0,
+                y: 0,
+                width: 1_366,
+                height: 768,
+            },
+        );
+
+        assert_eq!((restored.x, restored.y), (0, 0));
+        assert_eq!((restored.width, restored.height), (1_366, 768));
+    }
+
+    #[test]
+    fn restored_window_keeps_its_position_when_it_fits() {
+        let restored = clamp_to_monitor(
+            MainWindowState {
+                x: 120,
+                y: 80,
+                width: 1_200,
+                height: 800,
+                maximized: true,
+            },
+            MonitorBounds {
+                x: 0,
+                y: 0,
+                width: 1_920,
+                height: 1_080,
+            },
+        );
+
+        assert_eq!((restored.x, restored.y), (120, 80));
+        assert_eq!((restored.width, restored.height), (1_200, 800));
+        assert!(restored.maximized);
     }
 }
 
