@@ -418,8 +418,7 @@ mod tests {
                 "remark": "",
                 "sortOrder": 0,
                 "credentials": []
-            }],
-            "config": {}
+            }]
         }))
         .unwrap();
         let mut dst = db();

@@ -139,7 +139,7 @@ export function DnDList({
 
   const containerClass =
     view === "grid"
-      ? "grid grid-cols-[repeat(auto-fit,minmax(min(20rem,100%),1fr))] gap-3"
+      ? "grid grid-cols-[repeat(auto-fit,minmax(min(14rem,100%),1fr))] gap-3"
       : "flex flex-col gap-2";
 
   return (

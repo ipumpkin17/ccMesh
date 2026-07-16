@@ -67,6 +67,7 @@ pub struct ConfigBundle {
     pub exported_at: String,
     pub endpoints: Vec<EndpointExport>,
     /// 仅迁移白名单配置键（不含 device_id / webdav_* 同步凭证）。
+    #[serde(default)]
     pub config: BTreeMap<String, String>,
 }
 
