@@ -56,7 +56,11 @@ pub fn is_enabled(conn: &Connection) -> AppResult<bool> {
 }
 
 pub fn set_enabled(conn: &Connection, enabled: bool) -> AppResult<()> {
-    config_repo::set_value(conn, ICLOUD_ENABLED_KEY, if enabled { "true" } else { "false" })
+    config_repo::set_value(
+        conn,
+        ICLOUD_ENABLED_KEY,
+        if enabled { "true" } else { "false" },
+    )
 }
 
 fn normalize_endpoints(mut endpoints: Vec<EndpointExport>) -> Vec<EndpointExport> {
@@ -194,9 +198,8 @@ pub fn pull_cloud_to_local(
     conn: &mut Connection,
     device_id: &str,
 ) -> AppResult<(ImportSummary, EndpointsBundle)> {
-    let cloud = read_cloud_bundle()?.ok_or_else(|| {
-        AppError::NotFound("iCloud 中尚无端点配置文件".into())
-    })?;
+    let cloud = read_cloud_bundle()?
+        .ok_or_else(|| AppError::NotFound("iCloud 中尚无端点配置文件".into()))?;
     // 防止空快照误覆盖导致本地端点被清空。
     if cloud.endpoints.is_empty() {
         let local_count = build_endpoints_only(conn)?.len();
@@ -218,7 +221,9 @@ pub fn pull_cloud_to_local(
 pub fn status(conn: &Connection, device_id: &str) -> AppResult<ICloudSyncStatus> {
     let available = is_available();
     let enabled = is_enabled(conn)?;
-    let path = endpoints_bundle_path().ok().map(|p| p.display().to_string());
+    let path = endpoints_bundle_path()
+        .ok()
+        .map(|p| p.display().to_string());
     let local = build_bundle(conn, device_id)?;
 
     if !available {

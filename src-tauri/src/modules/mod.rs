@@ -1,5 +1,6 @@
 pub mod backup;
 pub mod cc_switch_migration;
+pub mod icloud;
 pub mod lifecycle;
 pub mod logs;
 pub mod models_cache;
@@ -14,4 +15,3 @@ pub mod tray;
 pub mod usage;
 pub mod usage_local;
 pub mod webdav;
-pub mod icloud;

@@ -136,7 +136,6 @@ pub fn merge_from_backup(
             )?;
         }
 
-
         // 同步端点多凭证：按远端 endpoint.uid 对齐到本地 endpoint 行 id。
         // overwrite 时先清本地相关凭证再重建；keep 时仅补本地尚无凭证的端点。
         if overwrite {

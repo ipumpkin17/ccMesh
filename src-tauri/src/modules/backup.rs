@@ -288,7 +288,6 @@ pub fn import_config_bundle(
     Ok(s)
 }
 
-
 /// 仅导出端点配置（不含应用设置）。
 pub fn build_endpoints_only(conn: &Connection) -> AppResult<Vec<EndpointExport>> {
     let mut endpoints = Vec::new();
@@ -332,7 +331,9 @@ pub fn replace_endpoints(
         let uid = normalize_exported_endpoint_id(ep.id.as_deref())?
             .ok_or_else(|| AppError::InvalidArgument(format!("端点 '{}' 缺少稳定 ID", ep.name)))?;
         if !imported_ids.insert(uid.clone()) {
-            return Err(AppError::InvalidArgument(format!("配置包含重复的端点 ID: {uid}")));
+            return Err(AppError::InvalidArgument(format!(
+                "配置包含重复的端点 ID: {uid}"
+            )));
         }
         if !imported_names.insert(ep.name.clone()) {
             return Err(AppError::InvalidArgument(format!(
@@ -465,9 +466,8 @@ pub fn replace_endpoints(
         }
     } else {
         let placeholders = vec!["?"; imported_ids.len()].join(",");
-        let sql = format!(
-            "SELECT id FROM endpoints WHERE archived = 0 AND uid NOT IN ({placeholders})"
-        );
+        let sql =
+            format!("SELECT id FROM endpoints WHERE archived = 0 AND uid NOT IN ({placeholders})");
         let ids: Vec<i64> = {
             let mut stmt = tx.prepare(&sql)?;
             let rows = stmt.query_map(params_from_iter(imported_ids.iter()), |r| r.get(0))?;
@@ -738,7 +738,11 @@ mod tests {
 
         let mut dst = db();
         import_config_bundle(&mut dst, &bundle, true).unwrap();
-        let ep = endpoint_repo::list_all(&dst).unwrap().into_iter().next().unwrap();
+        let ep = endpoint_repo::list_all(&dst)
+            .unwrap()
+            .into_iter()
+            .next()
+            .unwrap();
         assert_eq!(ep.models, vec!["gpt".to_string(), "o3".to_string()]);
         assert_eq!(ep.active_models, vec!["gpt".to_string()]);
         assert_eq!(ep.model_mappings.len(), 1);

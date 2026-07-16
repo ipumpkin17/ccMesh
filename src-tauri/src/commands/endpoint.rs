@@ -229,13 +229,15 @@ pub async fn test_endpoint(
     let format = UpstreamFormat::from_transformer_name(&ep.transformer);
     // 优先使用前端指定的真实出站模型，否则端点锁定模型，再按协议回落默认模型。
     let fallback = format.default_model();
-    let model_str = model.filter(|value| !value.trim().is_empty()).unwrap_or_else(|| {
-        if ep.model.is_empty() {
-            fallback.to_string()
-        } else {
-            ep.model.clone()
-        }
-    });
+    let model_str = model
+        .filter(|value| !value.trim().is_empty())
+        .unwrap_or_else(|| {
+            if ep.model.is_empty() {
+                fallback.to_string()
+            } else {
+                ep.model.clone()
+            }
+        });
     let model = model_str.as_str();
     let prompt = connectivity_test_prompt();
     let (url, body) = match format {
@@ -319,7 +321,9 @@ mod tests {
     #[test]
     fn connectivity_test_prompts_are_general_questions_without_greetings() {
         assert_eq!(CONNECTIVITY_TEST_PROMPTS.len(), 10);
-        assert!(CONNECTIVITY_TEST_PROMPTS.iter().all(|prompt| !prompt.trim().is_empty()));
+        assert!(CONNECTIVITY_TEST_PROMPTS
+            .iter()
+            .all(|prompt| !prompt.trim().is_empty()));
         assert!(CONNECTIVITY_TEST_PROMPTS
             .iter()
             .all(|prompt| is_connectivity_test_prompt_allowed(prompt)));

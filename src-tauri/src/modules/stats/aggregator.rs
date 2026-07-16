@@ -214,7 +214,8 @@ impl StatsAggregator {
     /// 代理每次成功启动时重置本轮运行态，停止后数据不落库。
     pub fn reset_endpoint_quality(&self) {
         self.endpoint_quality.lock().unwrap().clear();
-        *self.endpoint_quality_started_at.lock().unwrap() = Some(chrono::Utc::now().timestamp_millis());
+        *self.endpoint_quality_started_at.lock().unwrap() =
+            Some(chrono::Utc::now().timestamp_millis());
         let _ = self.app_handle.emit(ENDPOINT_QUALITY_EVENT, ());
     }
 
