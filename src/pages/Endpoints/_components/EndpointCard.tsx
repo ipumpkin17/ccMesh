@@ -3,9 +3,8 @@ import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { openUrl } from '@tauri-apps/plugin-opener'
 import { ActivityIcon, ArchiveIcon, CopyIcon, EllipsisVerticalIcon, GripVerticalIcon, PencilIcon, Trash2Icon, WaypointsIcon } from 'lucide-react'
 import { toast } from 'sonner'
-import { Anthropic, Codex, OpenAI } from '@lobehub/icons'
-import type { ComponentType } from 'react'
-
+import { EndpointBrandIcon } from '@/components/business'
+import { IconButton } from '@/components/ui'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog'
@@ -24,21 +23,14 @@ import { EndpointQualityPanel } from './EndpointQualityStrip'
 import { emptyClass } from '@/lib/typography'
 
 const errMsg = (e: unknown) => (e instanceof Error ? e.message : String(e))
-/** 端点 transformer 类型 → 品牌图标（claude→Anthropic、openai→OpenAI、codex→Codex）。OpenAI 无 Color 用默认 Mono，其余用彩色。 */
-const TRANSFORMER_ICON: Record<string, ComponentType<{ size?: number; className?: string }>> = {
-  claude: Anthropic,
-  openai: OpenAI,
-  codex: Codex.Color,
-}
-export const getTransformerIcon = (transformer: string) => TRANSFORMER_ICON[transformer] ?? OpenAI
 
 function IconAction({ label, onClick, disabled, children }: { label: string; onClick?: () => void; disabled?: boolean; children: React.ReactNode }) {
   return (
     <Tooltip>
       <TooltipTrigger asChild>
-        <Button size="icon" variant="ghost" aria-label={label} onClick={onClick} disabled={disabled}>
+        <IconButton size="default" variant="ghost" aria-label={label} onClick={onClick} disabled={disabled}>
           {children}
-        </Button>
+        </IconButton>
       </TooltipTrigger>
       <TooltipContent>{label}</TooltipContent>
     </Tooltip>
@@ -58,7 +50,6 @@ interface Props {
 export function EndpointCard({ endpoint, onEdit, draggable, dragHandleRef, view = 'list' }: Props) {
   const qc = useQueryClient()
   const invalidate = useCallback(() => qc.invalidateQueries({ queryKey: ['endpoints'] }), [qc])
-  const TransformerIcon = getTransformerIcon(endpoint.transformer)
   const [testOpen, setTestOpen] = useState(false)
   const [mapOpen, setMapOpen] = useState(false)
   const [deleteOpen, setDeleteOpen] = useState(false)
@@ -151,9 +142,9 @@ export function EndpointCard({ endpoint, onEdit, draggable, dragHandleRef, view 
         <Tooltip>
           <TooltipTrigger asChild>
             <PopoverTrigger asChild>
-              <Button size="icon" variant="ghost" aria-label="测试连通性" disabled={test.isPending}>
+              <IconButton size="default" variant="ghost" aria-label="测试连通性" disabled={test.isPending}>
                 <ActivityIcon className="size-4" />
-              </Button>
+              </IconButton>
             </PopoverTrigger>
           </TooltipTrigger>
           <TooltipContent>测试连通性</TooltipContent>
@@ -191,9 +182,9 @@ export function EndpointCard({ endpoint, onEdit, draggable, dragHandleRef, view 
     <>
       <DropdownMenu>
         <DropdownMenuTrigger asChild>
-          <Button size="icon" variant="ghost" aria-label="更多操作">
+          <IconButton size="default" variant="ghost" aria-label="更多操作">
             <EllipsisVerticalIcon className="size-4" />
-          </Button>
+          </IconButton>
         </DropdownMenuTrigger>
         <DropdownMenuContent align="end" className="min-w-40">
           <DropdownMenuItem disabled={clone.isPending} onClick={() => clone.mutate()}>
@@ -310,7 +301,7 @@ export function EndpointCard({ endpoint, onEdit, draggable, dragHandleRef, view 
         <CardContent className="flex flex-col p-0">
           <div className="flex min-w-0 flex-col gap-1 px-4 pt-3 pb-1">
             <div className="flex items-center gap-2 select-none">
-              <TransformerIcon size={16} className="shrink-0" />
+              <EndpointBrandIcon type={endpoint.transformer} size={16} />
               <span className="min-w-0 flex-1 truncate font-medium">{endpoint.name}</span>
               {grip}
             </div>
@@ -338,7 +329,7 @@ export function EndpointCard({ endpoint, onEdit, draggable, dragHandleRef, view 
           <div className="flex shrink-0 items-center select-none">{grip}</div>
           <div className="flex min-w-0 flex-col gap-1">
             <div className="flex min-w-0 items-center gap-2 select-none">
-              <TransformerIcon size={17} className="shrink-0" />
+              <EndpointBrandIcon type={endpoint.transformer} size={16} />
               <span className="min-w-0 truncate font-medium">{endpoint.name}</span>
             </div>
             {meta}

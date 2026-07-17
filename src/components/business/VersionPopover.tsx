@@ -130,10 +130,12 @@ export function VersionPopover({ compact = false }: { compact?: boolean }) {
 
         {/* 下载安装按钮 */}
         {available && progress === null && (
-          <Button size="sm" className="mb-3 w-full" onClick={handleDownload}>
-            <DownloadIcon />
-            下载并安装
-          </Button>
+          <div className="mb-3">
+            <Button size="sm" block onClick={handleDownload}>
+              <DownloadIcon />
+              下载并安装
+            </Button>
+          </div>
         )}
 
         {/* 底部链接 */}

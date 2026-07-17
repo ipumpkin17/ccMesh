@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { ChevronDownIcon, SearchIcon } from 'lucide-react'
 
+import { FieldAffixButton } from '@/components/common'
 import { Input } from '@/components/ui/input'
 import { cn } from '@/lib/utils'
 
@@ -57,15 +58,9 @@ export function ModelCombobox({ value, onChange, options, placeholder, id, class
         onFocus={() => openMenu(false)}
         onClick={() => setOpen(true)}
       />
-      <button
-        type="button"
-        tabIndex={-1}
-        aria-label="选择模型"
-        onClick={() => (open ? setOpen(false) : openMenu(true))}
-        className="text-ink-mute hover:text-ink-secondary absolute inset-y-0 right-0 flex items-center px-2.5"
-      >
+      <FieldAffixButton tabIndex={-1} aria-label="选择模型" onClick={() => (open ? setOpen(false) : openMenu(true))}>
         <ChevronDownIcon className={cn('size-4 transition-transform', open && 'rotate-180')} />
-      </button>
+      </FieldAffixButton>
       {open && (
         <div className="border-edge bg-popover text-popover-foreground shadow-level-2 absolute z-50 mt-1 w-full overflow-hidden rounded-md border">
           <div className="border-edge flex items-center gap-1.5 border-b px-2.5 py-1.5">

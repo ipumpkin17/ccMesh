@@ -43,18 +43,22 @@ export function RequestLogsCleanupDialog({ open, onOpenChange, retentionDays, on
         <div className="text-ink-secondary flex flex-col gap-3 text-sm">
           <p>系统自动清理超过 {retentionLabel} 的记录，你也可以立即执行清理。</p>
 
-          <div className="border-edge-subtle bg-surface-raised rounded-lg border p-3">
-            <div className="text-foreground font-medium">清理过期记录</div>
-            <p className={`mt-1 ${metaClass}`}>删除 {expiredLabel} 的请求明细，等价于立即触发自动清理。</p>
-            <Button className="mt-3" size="sm" variant="outline" disabled={cleanup.isPending} onClick={() => cleanup.mutate('expired')}>
+          <div className="border-edge-subtle bg-surface-raised flex flex-col items-start gap-3 rounded-lg border p-3">
+            <div>
+              <div className="text-foreground font-medium">清理过期记录</div>
+              <p className={`mt-1 ${metaClass}`}>删除 {expiredLabel} 的请求明细，等价于立即触发自动清理。</p>
+            </div>
+            <Button size="sm" variant="outline" disabled={cleanup.isPending} onClick={() => cleanup.mutate('expired')}>
               清理过期记录
             </Button>
           </div>
 
-          <div className="border-destructive/40 rounded-lg border p-3">
-            <div className="text-destructive font-medium">清空全部明细</div>
-            <p className={`mt-1 ${metaClass}`}>删除全部请求明细，不可恢复；统计汇总不会归零。</p>
-            <Button className="mt-3" size="sm" variant="destructive" disabled={cleanup.isPending} onClick={() => cleanup.mutate('all')}>
+          <div className="border-destructive/40 flex flex-col items-start gap-3 rounded-lg border p-3">
+            <div>
+              <div className="text-destructive font-medium">清空全部明细</div>
+              <p className={`mt-1 ${metaClass}`}>删除全部请求明细，不可恢复；统计汇总不会归零。</p>
+            </div>
+            <Button size="sm" variant="destructive" disabled={cleanup.isPending} onClick={() => cleanup.mutate('all')}>
               清空全部明细
             </Button>
           </div>

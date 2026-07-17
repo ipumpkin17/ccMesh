@@ -1,9 +1,10 @@
 import { PlusIcon, Trash2Icon } from 'lucide-react'
 
-import { Button } from '@/components/ui/button'
+import { EmptyState, SurfaceCard } from '@/components/common'
+import { IconButton } from '@/components/ui'
 import { cn } from '@/lib/utils'
 import type { ChannelMeta } from '@/services/modules/tool_config'
-import { panelTitleClass, metaClass } from '@/lib/typography'
+import { panelTitleClass } from '@/lib/typography'
 
 interface Props {
   channels: ChannelMeta[]
@@ -17,18 +18,22 @@ interface Props {
 /** 左栏：已保存渠道列表 + 顶部新增按钮。行内删除按钮与右键菜单都触发 onDelete。 */
 export function ChannelList({ channels, loading, selectedId, onSelect, onNew, onDelete }: Props) {
   return (
-    <div className="border-edge-subtle bg-surface-card flex h-full min-h-0 w-56 shrink-0 flex-col rounded-lg border">
+    <SurfaceCard as="div" padding="none" className="flex h-full min-h-0 w-56 shrink-0 flex-col">
       <div className="border-edge-subtle flex items-center justify-between border-b px-3 py-2">
         <span className={panelTitleClass}>渠道</span>
-        <Button type="button" variant="ghost" size="icon" onClick={onNew} aria-label="新增渠道" title="新增渠道">
+        <IconButton type="button" variant="ghost" size="default" onClick={onNew} aria-label="新增渠道" title="新增渠道">
           <PlusIcon className="size-4" />
-        </Button>
+        </IconButton>
       </div>
       <div className="min-h-0 flex-1 overflow-y-auto p-2">
         {loading ? (
-          <p className={`px-2 py-4 text-center ${metaClass}`}>加载中…</p>
+          <EmptyState align="center" padded>
+            加载中…
+          </EmptyState>
         ) : channels.length === 0 ? (
-          <p className={`px-2 py-4 text-center ${metaClass}`}>暂无渠道，点击右上角 + 新增</p>
+          <EmptyState align="center" padded>
+            暂无渠道，点击右上角 + 新增
+          </EmptyState>
         ) : (
           <ul className="flex flex-col gap-1">
             {channels.map((ch) => (
@@ -64,6 +69,6 @@ export function ChannelList({ channels, loading, selectedId, onSelect, onNew, on
           </ul>
         )}
       </div>
-    </div>
+    </SurfaceCard>
   )
 }

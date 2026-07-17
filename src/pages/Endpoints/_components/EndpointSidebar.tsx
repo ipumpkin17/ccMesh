@@ -49,9 +49,9 @@ export function EndpointSidebar() {
             <h2 className={sectionTitleClass}>端点统计</h2>
             <Tooltip>
               <TooltipTrigger asChild>
-                <Button size="icon" variant="ghost" onClick={() => setArchivedOpen(true)} className="h-auto p-1" aria-label="查看归档">
+                <Button size="xs" variant="ghost" onClick={() => setArchivedOpen(true)} aria-label="查看归档">
                   <ArchiveIcon className="size-4" />
-                  {archivedCount > 0 && <span className="text-ink-secondary ml-1 text-xs">{archivedCount}</span>}
+                  {archivedCount > 0 && <span className="text-ink-secondary text-xs">{archivedCount}</span>}
                 </Button>
               </TooltipTrigger>
               <TooltipContent>查看归档</TooltipContent>

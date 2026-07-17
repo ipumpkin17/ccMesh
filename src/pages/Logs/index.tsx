@@ -2,7 +2,7 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import { ArrowDownIcon } from 'lucide-react'
 import { toast } from 'sonner'
 
-import { emptyClass, PageShell, SurfaceCard } from '@/components/common'
+import { EmptyState, PageShell, SurfaceCard } from '@/components/common'
 import { Button } from '@/components/ui/button'
 import { configApi } from '@/services/modules/config'
 import { logsApi, type LogLine } from '@/services/modules/logs'
@@ -153,7 +153,7 @@ export function Logs() {
       <SurfaceCard as="div" padding="none" className="relative min-h-0 flex-1 overflow-hidden">
         <div ref={scrollRef} onScroll={onScroll} className="h-full overflow-y-auto px-3 py-3">
           {filtered.length === 0 ? (
-            <p className={`px-2 ${emptyClass}`}>{lines.length === 0 ? '暂无日志' : '无匹配日志'}</p>
+            <EmptyState className="px-2">{lines.length === 0 ? '暂无日志' : '无匹配日志'}</EmptyState>
           ) : (
             <div className="flex flex-col gap-1">
               {filtered.map((l, i) => (
@@ -163,9 +163,11 @@ export function Logs() {
           )}
         </div>
         {!atBottom && (
-          <Button variant="secondary" size="sm" onClick={jumpToBottom} className="shadow-level-2 absolute right-3 bottom-3">
-            <ArrowDownIcon className="size-4" /> 回到底部
-          </Button>
+          <div className="absolute right-3 bottom-3">
+            <Button variant="secondary" size="sm" onClick={jumpToBottom} className="shadow-level-2">
+              <ArrowDownIcon className="size-4" /> 回到底部
+            </Button>
+          </div>
         )}
       </SurfaceCard>
     </PageShell>

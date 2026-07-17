@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react'
 
-import { emptyClass, PageShell, SurfaceCard } from '@/components/common'
+import { EmptyState, PageShell, SurfaceCard } from '@/components/common'
 import { useEndpoints } from '@/hooks/useEndpoints'
 import { useEndpointHealthEvents } from '@/hooks/useEndpointHealth'
 import { useEndpointQualityEvents } from '@/hooks/useEndpointQuality'
@@ -55,9 +55,9 @@ export function Endpoints() {
         <div className="flex min-h-0 flex-1 gap-4">
           <SurfaceCard as="div" padding="md" className="min-h-0 min-w-0 flex-1 scrollbar-none overflow-y-auto">
             {isLoading ? (
-              <p className={emptyClass}>加载中…</p>
+              <EmptyState>加载中…</EmptyState>
             ) : filtered.length === 0 ? (
-              <p className={emptyClass}>暂无端点，点击「新建端点」添加。</p>
+              <EmptyState>暂无端点，点击「新建端点」添加。</EmptyState>
             ) : (
               <DnDList endpoints={filtered} allEndpoints={endpoints ?? []} draggable={dragEnabled} typeFilterActive={typeFilterActive} view={view} onEdit={openEdit} />
             )}

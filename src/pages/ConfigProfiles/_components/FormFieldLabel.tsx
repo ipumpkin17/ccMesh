@@ -1,5 +1,6 @@
 import { InfoIcon } from 'lucide-react'
 
+import { HintButton } from '@/components/common'
 import { Label } from '@/components/ui/label'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
 
@@ -9,9 +10,9 @@ export function FormFieldLabel({ htmlFor, label, hint }: { htmlFor?: string; lab
       <Label htmlFor={htmlFor}>{label}</Label>
       <Tooltip>
         <TooltipTrigger asChild>
-          <button type="button" className="text-ink-mute hover:text-ink-secondary transition-colors" aria-label={hint}>
+          <HintButton aria-label={hint}>
             <InfoIcon className="size-3.5" />
-          </button>
+          </HintButton>
         </TooltipTrigger>
         <TooltipContent>{hint}</TooltipContent>
       </Tooltip>

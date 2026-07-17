@@ -1,6 +1,7 @@
 import { LayoutGridIcon, ListIcon, PlusIcon, SlidersHorizontalIcon } from 'lucide-react'
 
 import { SearchBox } from '@/components/common/SearchBox'
+import { IconButton } from '@/components/ui'
 import { Button } from '@/components/ui/button'
 import { Label } from '@/components/ui/label'
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
@@ -28,9 +29,9 @@ export function FilterBar({ onCreate }: { onCreate: () => void }) {
         <SearchBox value={search} onChange={setSearch} placeholder="搜索端点…" ariaLabel="搜索端点" />
         <Popover>
           <PopoverTrigger asChild>
-            <Button variant="ghost" size="icon" aria-label="显示与筛选">
+            <IconButton variant="ghost" size="default" aria-label="显示与筛选">
               <SlidersHorizontalIcon className="size-4" />
-            </Button>
+            </IconButton>
           </PopoverTrigger>
           <PopoverContent align="end" sideOffset={8} className="w-56 rounded-md p-3">
             <div className="grid gap-3">

@@ -1,6 +1,6 @@
 import { Logo } from '@/components/common'
 import { Button } from '@/components/ui/button'
-import { emptyClass } from '@/lib/typography'
+import { EmptyState } from '@/components/common'
 
 export interface SettingsAppInfoLink {
   label: string
@@ -79,5 +79,5 @@ export function SettingsAppInfo({
 }
 
 export function SettingsAppInfoStatus({ checked }: { checked: boolean }) {
-  return checked ? <p className={`mt-4 ${emptyClass}`}>已是最新版本</p> : null
+  return checked ? <EmptyState className="mt-4">已是最新版本</EmptyState> : null
 }

@@ -15,12 +15,13 @@ interface Props {
 
 /** 跨页面业务卡片：标签 + 大号数值 + 可选提示（Statistics / Dashboard 共用）。 */
 export function StatCard({ label, value, hint, hintBelow = false }: Props) {
+  // Card 默认 py-6/gap-6 适合内容块；指标卡需紧凑，在此清零再由 Content 控距
   return (
-    <Card>
-      <CardContent className="flex flex-col gap-1.5 px-5 py-4">
+    <Card className="gap-0 py-0">
+      <CardContent className="flex flex-col gap-1 px-4 py-3">
         <span className={metaClass}>{label}</span>
         <div className={hintBelow ? 'flex flex-col gap-0.5' : 'flex items-center justify-between gap-2'}>
-          <TabularText className="text-foreground text-2xl">{value}</TabularText>
+          <TabularText className="text-foreground text-xl leading-tight font-medium">{value}</TabularText>
           {hint}
         </div>
       </CardContent>

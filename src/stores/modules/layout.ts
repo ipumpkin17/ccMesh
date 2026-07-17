@@ -57,7 +57,7 @@ export const useLayoutStore = create<LayoutState>()(
       sidebarState: 'expanded',
       activeView: 'dashboard',
       lang: 'zh',
-      endpointView: 'list',
+      endpointView: 'grid',
       hiddenNavIds: [],
       setNavMode: (navMode) => set({ navMode }),
       toggleNavMode: () =>

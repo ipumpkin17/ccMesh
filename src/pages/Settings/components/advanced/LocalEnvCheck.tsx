@@ -7,6 +7,7 @@ import { toast } from 'sonner'
 import piLogoUrl from '@/assets/svg/about/pi-logo.svg'
 import { Button } from '@/components/ui/button'
 import { cn } from '@/lib/utils'
+import { SurfaceCard } from '@/components/common'
 import { sectionTitleClass } from '@/lib/typography'
 import { isUpdateAvailable } from '@/lib/version'
 import { toolEnvApi, type ToolInstallation, type ToolInstallationReport, type ToolVersion } from '@/services/modules/toolEnv'
@@ -354,7 +355,7 @@ export function LocalEnvCheck() {
           const conflicts = toolDiagnostics[toolName]
 
           return (
-            <div key={toolName} className="border-edge-subtle bg-surface-card flex min-h-[150px] flex-col gap-3 rounded-lg border p-4">
+            <SurfaceCard key={toolName} as="div" padding="md" className="flex min-h-[150px] flex-col gap-3">
               <div className="flex items-start justify-between gap-3">
                 <div className="flex min-w-0 items-center gap-2">
                   <ToolCardIcon toolName={toolName} />
@@ -426,7 +427,7 @@ export function LocalEnvCheck() {
                   <span className="text-ink-mute text-xs">{isToolLoading ? '检测中…' : '已就绪'}</span>
                 )}
               </div>
-            </div>
+            </SurfaceCard>
           )
         })}
       </div>
@@ -437,7 +438,7 @@ export function LocalEnvCheck() {
           手动安装命令
         </button>
         {showManual ? (
-          <div className="border-edge-subtle bg-surface-card mt-2 rounded-lg border p-4">
+          <SurfaceCard as="div" padding="md" className="mt-2">
             <div className="mb-2 flex items-center justify-between gap-2">
               <p className="text-ink-mute text-xs">一键安装失败时可手动执行</p>
               <Button size="sm" variant="outline" onClick={() => void copyManual()}>
@@ -446,7 +447,7 @@ export function LocalEnvCheck() {
               </Button>
             </div>
             <pre className="bg-surface-raised overflow-x-auto rounded-md p-3 font-mono text-xs">{MANUAL_INSTALL}</pre>
-          </div>
+          </SurfaceCard>
         ) : null}
       </div>
 

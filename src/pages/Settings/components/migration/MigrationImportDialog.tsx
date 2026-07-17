@@ -3,7 +3,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { CheckIcon } from 'lucide-react'
 import { toast } from 'sonner'
 
-import { emptyClass, metaClass } from '@/components/common'
+import { EmptyState, metaClass } from '@/components/common'
 import { Button } from '@/components/ui/button'
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { cn } from '@/lib/utils'
@@ -293,11 +293,11 @@ export function MigrationImportDialog({
   })
 
   const body = (() => {
-    if (preview.isLoading) return <p className={emptyClass}>{loadingText}</p>
+    if (preview.isLoading) return <EmptyState>{loadingText}</EmptyState>
     if (preview.isError) {
-      return <p className={emptyClass}>{errorText(errMsg(preview.error))}</p>
+      return <EmptyState>{errorText(errMsg(preview.error))}</EmptyState>
     }
-    if (items.length === 0) return <p className={emptyClass}>{emptyText}</p>
+    if (items.length === 0) return <EmptyState>{emptyText}</EmptyState>
     return (
       <>
         <PreviewToolbar

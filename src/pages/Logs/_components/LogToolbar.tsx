@@ -1,8 +1,10 @@
-import { CopyIcon, SearchIcon, Trash2Icon } from 'lucide-react'
+import { CopyIcon, Trash2Icon } from 'lucide-react'
 
-import { TabularText } from '@/components/ui'
+import { SearchField } from '@/components/common'
+import { Control, TabularText } from '@/components/ui'
 import { Button } from '@/components/ui/button'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
+import { metaClass } from '@/lib/typography'
 import { cn } from '@/lib/utils'
 import { allChipClass, CAPTURE_LEVELS, levelChipClass, LOG_LEVELS } from './logLevels'
 
@@ -39,19 +41,21 @@ export function LogToolbar({ selected, onToggleLevel, onShowAll, counts, total, 
         ))}
 
         <div className="ml-auto flex items-center gap-2">
-          <Select value={captureLevel} onValueChange={onCaptureLevel}>
-            <SelectTrigger size="sm" className="w-32" title="捕获等级（低于此级别的日志不记录）">
-              <span className="text-ink-mute text-xs">捕获</span>
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              {CAPTURE_LEVELS.map((l) => (
-                <SelectItem key={l} value={l}>
-                  {l}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
+          <Control width="sm">
+            <Select value={captureLevel} onValueChange={onCaptureLevel}>
+              <SelectTrigger size="sm" block title="捕获等级（低于此级别的日志不记录）">
+                <span className={metaClass}>捕获</span>
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {CAPTURE_LEVELS.map((l) => (
+                  <SelectItem key={l} value={l}>
+                    {l}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </Control>
           <Button variant="outline" size="sm" onClick={onCopy}>
             <CopyIcon className="size-4" /> 复制
           </Button>
@@ -61,15 +65,7 @@ export function LogToolbar({ selected, onToggleLevel, onShowAll, counts, total, 
         </div>
       </div>
 
-      <div className="relative">
-        <SearchIcon className="text-ink-mute absolute top-1/2 left-2 size-4 -translate-y-1/2" />
-        <input
-          value={keyword}
-          onChange={(e) => onKeyword(e.target.value)}
-          placeholder="搜索 message / 来源 / 字段…"
-          className="border-input bg-surface-raised text-ink-primary placeholder:text-ink-mute focus-visible:border-ring focus-visible:ring-ring/50 h-8 w-full rounded-sm border pr-2 pl-8 text-sm outline-none focus-visible:ring-[3px]"
-        />
-      </div>
+      <SearchField value={keyword} onChange={onKeyword} placeholder="搜索 message / 来源 / 字段…" />
     </div>
   )
 }

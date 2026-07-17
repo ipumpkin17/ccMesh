@@ -3,12 +3,14 @@ import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { ArrowRightIcon, InfoIcon, PlusIcon, XIcon } from 'lucide-react'
 import { toast } from 'sonner'
 
+import { IconButton } from '@/components/ui'
 import { Button } from '@/components/ui/button'
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { Input } from '@/components/ui/input'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
-import { emptyClass, metaClass } from '@/lib/typography'
+import { EmptyState } from '@/components/common'
+import { metaClass } from '@/lib/typography'
 import { endpointApi, litOutboundModels, type Endpoint, type ModelMapping } from '@/services/modules/endpoint'
 
 const errMsg = (e: unknown) => (e instanceof Error ? e.message : String(e))
@@ -81,15 +83,17 @@ export function ModelMappingDialog({ open, onOpenChange, endpoint }: Props) {
             </div>
 
             {rows.length === 0 ? (
-              <p className={`px-1 ${emptyClass}`}>暂无映射，点击下方「添加映射」。</p>
+              <EmptyState className="px-1">暂无映射，点击下方「添加映射」。</EmptyState>
             ) : (
               rows.map((row, i) => (
                 <div key={i} className="flex items-center gap-2">
-                  <Input className="flex-1" placeholder="gpt-5.5" value={row.from} onChange={(e) => setFrom(i, e.target.value)} />
+                  <div className="min-w-0 flex-1">
+                    <Input placeholder="gpt-5.5" value={row.from} onChange={(e) => setFrom(i, e.target.value)} />
+                  </div>
                   <ArrowRightIcon className="text-ink-mute size-4 shrink-0" />
-                  <div className="flex-1">
+                  <div className="min-w-0 flex-1">
                     <Select value={row.to} onValueChange={(v) => setTo(i, v)}>
-                      <SelectTrigger className="w-full">
+                      <SelectTrigger block>
                         <SelectValue placeholder="选择出站模型" />
                       </SelectTrigger>
                       <SelectContent>
@@ -101,17 +105,19 @@ export function ModelMappingDialog({ open, onOpenChange, endpoint }: Props) {
                       </SelectContent>
                     </Select>
                   </div>
-                  <Button type="button" size="icon" variant="ghost" aria-label="移除该映射" onClick={() => removeRow(i)}>
+                  <IconButton type="button" size="sm" variant="ghost" aria-label="移除该映射" onClick={() => removeRow(i)}>
                     <XIcon className="size-4" />
-                  </Button>
+                  </IconButton>
                 </div>
               ))
             )}
 
-            <Button type="button" variant="outline" size="sm" className="self-start" onClick={addRow}>
-              <PlusIcon className="size-4" />
-              添加映射
-            </Button>
+            <div>
+              <Button type="button" variant="outline" size="sm" onClick={addRow}>
+                <PlusIcon className="size-4" />
+                添加映射
+              </Button>
+            </div>
           </div>
         )}
 

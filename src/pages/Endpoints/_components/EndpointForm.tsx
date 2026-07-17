@@ -4,12 +4,14 @@ import { EyeIcon, EyeOffIcon, InfoIcon, PlusIcon, RefreshCwIcon, XIcon } from 'l
 import { useTheme } from 'next-themes'
 import { toast } from 'sonner'
 
+import { EditorLoading, FieldAffixButton, HintButton } from '@/components/common'
+import { IconButton } from '@/components/ui'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
+import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group'
 import { Switch } from '@/components/ui/switch'
 import { metaClass } from '@/lib/typography'
 import { NEW_API_CONN_PLACEHOLDER, parseNewApiChannelConn } from '@/lib/newApiChannelConn'
@@ -188,12 +190,12 @@ export function EndpointForm({ open, onOpenChange, editing }: Props) {
     onError: (e) => toast.error(errMsg(e)),
   })
 
+  // 备注字段暂时隐藏，表单状态仍保留以便后续恢复/兼容旧数据
   const fields: Array<{ k: keyof FormState; label: string; ph?: string }> = [
     { k: 'name', label: '名称' },
     { k: 'apiUrl', label: 'API URL', ph: 'https://api.anthropic.com' },
     { k: 'apiKey', label: 'API Key' },
     { k: 'model', label: '锁定模型（可选，填则强制覆盖请求 model）' },
-    { k: 'remark', label: '备注（可选）' },
   ]
 
   // api_url 辅助提示：按所选转换器实时预览完整请求地址；/v1 结尾会与后端追加的后缀叠成 /v1/v1。
@@ -203,12 +205,12 @@ export function EndpointForm({ open, onOpenChange, editing }: Props) {
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-2xl overflow-x-hidden sm:max-w-2xl">
+      <DialogContent className="max-w-2xl sm:max-w-2xl">
         <DialogHeader>
           <DialogTitle>{editing ? '编辑端点' : '新建端点'}</DialogTitle>
         </DialogHeader>
 
-        <Tabs value={tab} onValueChange={setTab} className="min-w-0 overflow-hidden">
+        <Tabs value={tab} onValueChange={setTab} className="min-w-0">
           <TabsList>
             <TabsTrigger value="form">表单</TabsTrigger>
             <TabsTrigger value="newapi">NewAPI</TabsTrigger>
@@ -233,14 +235,9 @@ export function EndpointForm({ open, onOpenChange, editing }: Props) {
                       autoCapitalize="off"
                       spellCheck={false}
                     />
-                    <button
-                      type="button"
-                      onClick={() => setShowKey((v) => !v)}
-                      aria-label={showKey ? '隐藏密钥' : '查看密钥'}
-                      className="text-ink-mute hover:text-ink-secondary absolute inset-y-0 right-0 flex items-center px-2.5"
-                    >
+                    <FieldAffixButton onClick={() => setShowKey((v) => !v)} aria-label={showKey ? '隐藏密钥' : '查看密钥'}>
                       {showKey ? <EyeOffIcon className="size-4" /> : <EyeIcon className="size-4" />}
-                    </button>
+                    </FieldAffixButton>
                   </div>
                 ) : (
                   <Input
@@ -272,16 +269,27 @@ export function EndpointForm({ open, onOpenChange, editing }: Props) {
 
             <div className="flex flex-col gap-1.5">
               <Label>转换器</Label>
-              <Select value={form.transformer} onValueChange={(v) => set('transformer', v)}>
-                <SelectTrigger className="w-full">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="claude">claude（直通）</SelectItem>
-                  <SelectItem value="openai">openai（转换）</SelectItem>
-                  <SelectItem value="codex">codex（Responses）</SelectItem>
-                </SelectContent>
-              </Select>
+              <RadioGroup value={form.transformer} onValueChange={(v) => set('transformer', v)} className="grid grid-cols-3 gap-2">
+                {(
+                  [
+                    { value: 'claude', label: 'claude', hint: '直通' },
+                    { value: 'openai', label: 'openai', hint: '转换' },
+                    { value: 'codex', label: 'codex', hint: 'Responses' },
+                  ] as const
+                ).map((opt) => (
+                  <Label
+                    key={opt.value}
+                    htmlFor={`transformer-${opt.value}`}
+                    className="border-input bg-surface-raised hover:bg-surface-hover has-[[data-state=checked]]:border-primary has-[[data-state=checked]]:bg-primary/12 has-[[data-state=checked]]:ring-primary/30 has-[[data-state=checked]]:[&_.opt-label]:text-primary flex cursor-pointer items-center gap-2 rounded-sm border px-3 py-2 font-normal transition-[color,box-shadow,background-color,border-color] has-[[data-state=checked]]:ring-2 has-[[data-state=checked]]:[&_.opt-label]:font-medium"
+                  >
+                    <RadioGroupItem id={`transformer-${opt.value}`} value={opt.value} className="data-[state=checked]:border-primary data-[state=checked]:bg-primary/10" />
+                    <span className="flex min-w-0 flex-col gap-0.5">
+                      <span className="opt-label text-ink-primary text-sm leading-none">{opt.label}</span>
+                      <span className="text-ink-mute text-[11px] leading-none">{opt.hint}</span>
+                    </span>
+                  </Label>
+                ))}
+              </RadioGroup>
             </div>
 
             <div className="flex flex-col gap-1.5">
@@ -290,9 +298,9 @@ export function EndpointForm({ open, onOpenChange, editing }: Props) {
                   <Label>模型清单</Label>
                   <Tooltip>
                     <TooltipTrigger asChild>
-                      <button type="button" aria-label="模型点亮说明" className="text-ink-mute hover:text-ink-secondary">
+                      <HintButton aria-label="模型点亮说明">
                         <InfoIcon className="size-3.5" />
-                      </button>
+                      </HintButton>
                     </TooltipTrigger>
                     <TooltipContent>通过点亮模型对外公布可用模型</TooltipContent>
                   </Tooltip>
@@ -318,21 +326,21 @@ export function EndpointForm({ open, onOpenChange, editing }: Props) {
                   autoCapitalize="off"
                   spellCheck={false}
                 />
-                <Button type="button" variant="outline" size="icon" onClick={addModel} aria-label="添加模型">
+                <IconButton type="button" variant="outline" size="default" onClick={addModel} aria-label="添加模型">
                   <PlusIcon className="size-4" />
-                </Button>
-                <Button type="button" variant="outline" size="icon" onClick={() => refresh.mutate()} disabled={refresh.isPending || !form.apiUrl} aria-label="刷新拉取模型">
+                </IconButton>
+                <IconButton type="button" variant="outline" size="default" onClick={() => refresh.mutate()} disabled={refresh.isPending || !form.apiUrl} aria-label="刷新拉取模型">
                   <RefreshCwIcon className="size-4" />
-                </Button>
+                </IconButton>
               </div>
               {form.models.length > 0 && (
                 <>
-                  <div className="border-input bg-surface-raised flex max-h-40 flex-wrap gap-1.5 overflow-auto rounded-sm border p-2">
+                  <div className="border-input bg-background flex max-h-40 flex-wrap gap-1.5 overflow-auto rounded-sm border p-2">
                     {form.models.map((m) => {
                       const lit = isLit(m)
                       const ModelIcon = getModelIcon(m)
                       return (
-                        <Badge key={m} variant={lit ? 'default' : 'muted'} className="flex items-center gap-1">
+                        <Badge key={m} variant={lit ? 'default' : 'outline'} className={lit ? undefined : 'bg-surface-raised text-ink-secondary'}>
                           <button
                             type="button"
                             onClick={() => toggleModel(m)}
@@ -360,14 +368,17 @@ export function EndpointForm({ open, onOpenChange, editing }: Props) {
               )}
             </div>
 
-            <div className="flex items-center justify-between">
-              <Label>启用代理（经设置中的全局代理地址出网）</Label>
-              <Switch checked={form.useProxy} onCheckedChange={(v) => update({ useProxy: v })} />
+            <div className="flex items-center justify-between gap-3">
+              <div className="flex min-w-0 flex-col gap-0.5">
+                <Label>启用代理</Label>
+                <span className={metaClass}>经设置中的全局代理地址出网</span>
+              </div>
+              <Switch checked={form.useProxy} onCheckedChange={(v) => update({ useProxy: v })} aria-label="启用代理" />
             </div>
 
             {editing?.enabled ? (
-              <div className="border-input bg-surface-raised flex items-center justify-between rounded-sm border px-3 py-2">
-                <div className="flex flex-col gap-0.5">
+              <div className="flex items-center justify-between gap-3">
+                <div className="flex min-w-0 flex-col gap-0.5">
                   <Label>加入快速队列</Label>
                   <span className={metaClass}>快速队列存在时代理只轮询快速端点</span>
                 </div>
@@ -399,7 +410,7 @@ export function EndpointForm({ open, onOpenChange, editing }: Props) {
 
           <TabsContent value="json" className="w-full min-w-0 overflow-hidden">
             {tab === 'json' ? (
-              <Suspense fallback={<div className="text-ink-mute flex h-[240px] items-center justify-center text-xs">加载编辑器…</div>}>
+              <Suspense fallback={<EditorLoading height={240} />}>
                 <JsonEditor value={jsonText} theme={resolvedTheme === 'dark' ? 'dark' : 'light'} onChange={onJsonChange} />
               </Suspense>
             ) : null}

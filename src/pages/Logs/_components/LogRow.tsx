@@ -55,7 +55,9 @@ export function LogRow({ line, keyword }: { line: LogLine; keyword: string }) {
       <div className="text-[11px] leading-snug break-all">
         <span className="mr-1 inline-flex items-center gap-1 align-baseline whitespace-nowrap">
           <span aria-hidden className={cn('inline-block size-1.5 shrink-0 rounded-full', levelDotClass(line.level))} />
-          <Badge className={cn('h-3.5 shrink-0 border-transparent px-1 py-0 text-[9px] leading-none uppercase', levelBadgeClass(line.level))}>{line.level}</Badge>
+          <Badge size="xs" className={levelBadgeClass(line.level)}>
+            {line.level}
+          </Badge>
           <TabularText className="text-ink-mute">{line.time}</TabularText>
         </span>
 

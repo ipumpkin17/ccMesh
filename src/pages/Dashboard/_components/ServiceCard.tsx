@@ -7,8 +7,7 @@ import { DragDropProvider, useDraggable, useDroppable } from '@dnd-kit/react'
 import { useSortable } from '@dnd-kit/react/sortable'
 import { move } from '@dnd-kit/helpers'
 
-import { StatusDot, TabularText } from '@/components/ui'
-import { Button } from '@/components/ui/button'
+import { IconButton, StatusDot, TabularText } from '@/components/ui'
 import { Card, CardContent } from '@/components/ui/card'
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
@@ -25,7 +24,8 @@ import { statsApi } from '@/services/modules/stats'
 import { useLayoutStore } from '@/stores'
 import { ProxyScene } from './ProxyScene'
 import { appendFastId, removeFastId, reorderFastIds, splitEndpointQueues } from './fastQueue'
-import { panelTitleClass, emptyClass, metaClass } from '@/lib/typography'
+import { EmptyState, HintButton } from '@/components/common'
+import { panelTitleClass, metaClass } from '@/lib/typography'
 
 type QueueStatus = 'success' | 'danger' | 'warning' | 'info' | 'idle'
 
@@ -106,11 +106,11 @@ function QueueSection({
   healthById: Map<string, EndpointHealth>
 }) {
   return (
-    <div className="flex flex-col gap-2">
+    <div className="flex flex-col gap-1.5">
       {endpoints.length === 0 ? (
-        <p className={emptyClass}>{empty}</p>
+        <EmptyState>{empty}</EmptyState>
       ) : (
-        <ul className="flex flex-wrap gap-2">
+        <ul className="flex flex-wrap gap-x-2 gap-y-1.5">
           {endpoints.map((endpoint) => (
             <QueueItem key={endpoint.id} endpoint={endpoint} current={current} running={running} healthById={healthById} fast={endpoint.fast} />
           ))}
@@ -210,9 +210,9 @@ function FastQueueTransfer({
           <h3 className={panelTitleClass}>快速队列</h3>
           <Popover>
             <PopoverTrigger asChild>
-              <button type="button" className="text-ink-mute hover:text-ink-secondary inline-flex transition-colors" aria-label="快速队列用法说明">
+              <HintButton aria-label="快速队列用法说明">
                 <HelpCircleIcon className="size-3.5" />
-              </button>
+              </HintButton>
             </PopoverTrigger>
             <PopoverContent side="right" className="w-80">
               <div className="flex flex-col gap-1.5 text-xs">
@@ -230,11 +230,11 @@ function FastQueueTransfer({
         <div className="flex-1 scrollbar-none overflow-y-auto p-4">
           {fastQueue.length === 0 ? (
             <div className="border-edge-subtle bg-surface/40 flex h-full items-center justify-center rounded-lg border-2 border-dashed p-6">
-              <p className={`text-center ${emptyClass}`}>
+              <EmptyState align="center">
                 从右侧拖入启用端点
                 <br />
                 或双击右侧端点加入快速队列
-              </p>
+              </EmptyState>
             </div>
           ) : (
             <div className="flex flex-col gap-2">
@@ -262,11 +262,11 @@ function FastQueueTransfer({
         <div className="flex-1 scrollbar-none overflow-y-auto p-4">
           {enabledQueue.length === 0 ? (
             <div className="border-edge-subtle bg-surface/40 flex h-full items-center justify-center rounded-lg border-2 border-dashed p-6">
-              <p className={`text-center ${emptyClass}`}>
+              <EmptyState align="center">
                 启用队列暂无可加入
                 <br />
                 快速队列的端点
-              </p>
+              </EmptyState>
             </div>
           ) : (
             <div className="flex flex-col gap-2">
@@ -436,10 +436,10 @@ export function ServiceCard() {
 
   return (
     <>
-      <div className="grid grid-cols-1 gap-4 md:grid-cols-3 md:items-stretch">
-        {/* 左 2/3：端点队列 */}
-        <Card className="md:col-span-2 md:min-h-full">
-          <CardContent className="flex flex-col gap-3 px-5 py-4">
+      <div className="grid grid-cols-1 gap-4 md:grid-cols-3 md:items-start">
+        {/* 左 2/3：端点队列（内容高度，不与右卡 stretch 等高） */}
+        <Card className="gap-0 py-0 md:col-span-2">
+          <CardContent className="flex flex-col gap-2 px-4 py-3">
             <div className="flex items-center justify-between gap-2">
               <div className="flex items-center gap-2">
                 <h3 className={panelTitleClass}>端点队列</h3>
@@ -447,9 +447,9 @@ export function ServiceCard() {
                   <TabularText>{allQueueEndpoints.length}</TabularText>
                 </span>
               </div>
-              <Button type="button" size="xs" variant="ghost" onClick={() => setFastEditorOpen(true)} className="h-auto p-1" aria-label="编辑快速队列">
+              <IconButton type="button" size="xs" variant="ghost" onClick={() => setFastEditorOpen(true)} aria-label="编辑快速队列">
                 <ZapIcon className="size-4" />
-              </Button>
+              </IconButton>
             </div>
 
             <QueueSection endpoints={allQueueEndpoints} empty="暂无启用端点" current={current} running={running} healthById={healthById} />
@@ -457,7 +457,7 @@ export function ServiceCard() {
         </Card>
 
         {/* 右 1/3：本地代理信息 + 开关 + 端口跳设置 + 雪山日落场景 */}
-        <Card className="relative overflow-hidden md:col-span-1">
+        <Card className="relative min-h-36 gap-0 overflow-hidden py-0 md:col-span-1">
           <ProxyScene running={running} dark={dark} />
           {/* 文字可读性遮罩：亮色用白雾托底、暗色用深色压底 */}
           <div
@@ -469,11 +469,11 @@ export function ServiceCard() {
           />
           <CardContent
             className={cn(
-              'relative z-10 flex h-full flex-col justify-between gap-3 px-5 py-4',
+              'relative z-10 flex h-full min-h-36 flex-col justify-between gap-2 px-4 py-3',
               dark ? 'text-white [text-shadow:0_1px_3px_rgba(0,0,0,0.55)]' : 'text-slate-800 [text-shadow:0_1px_2px_rgba(255,255,255,0.7)]',
             )}
           >
-            <div className="flex flex-col gap-1.5">
+            <div className="flex flex-col gap-1">
               <span className="text-sm font-medium">本地代理</span>
               <div className="flex items-center gap-1.5 self-start">
                 <button

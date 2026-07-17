@@ -3,13 +3,14 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { ArchiveRestoreIcon, Trash2Icon } from 'lucide-react'
 import { toast } from 'sonner'
 
+import { EndpointLabel } from '@/components/business'
+import { EmptyState } from '@/components/common'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { endpointApi, type Endpoint } from '@/services/modules/endpoint'
-import { getTransformerIcon } from './EndpointCard'
-import { emptyClass, metaClass } from '@/lib/typography'
+import { metaClass } from '@/lib/typography'
 
 const errMsg = (e: unknown) => (e instanceof Error ? e.message : String(e))
 
@@ -61,20 +62,22 @@ export function ArchivedEndpointsDialog({ open, onOpenChange }: Props) {
 
           <div className="max-h-[60vh] scrollbar-none overflow-y-auto">
             {isLoading ? (
-              <p className={`py-8 text-center ${emptyClass}`}>加载中…</p>
+              <EmptyState align="center" className="py-8">
+                加载中…
+              </EmptyState>
             ) : !archived || archived.length === 0 ? (
-              <p className={`py-8 text-center ${emptyClass}`}>暂无归档端点</p>
+              <EmptyState align="center" className="py-8">
+                暂无归档端点
+              </EmptyState>
             ) : (
               <div className="flex flex-col gap-3">
                 {archived.map((ep) => {
-                  const TransformerIcon = getTransformerIcon(ep.transformer)
                   return (
                     <Card key={ep.id}>
                       <CardContent className="flex items-center gap-3 px-4 py-3">
-                        <TransformerIcon size={18} className="shrink-0" />
                         <div className="flex min-w-0 flex-1 flex-col gap-0.5">
                           <div className="flex items-center gap-2">
-                            <span className="truncate font-medium">{ep.name}</span>
+                            <EndpointLabel name={ep.name} type={ep.transformer} size={18} nameClassName="font-medium text-ink-primary" />
                             <Badge variant="muted">{ep.transformer}</Badge>
                           </div>
                           <span className={`truncate ${metaClass}`}>{ep.apiUrl}</span>
@@ -84,7 +87,7 @@ export function ArchivedEndpointsDialog({ open, onOpenChange }: Props) {
                             <ArchiveRestoreIcon className="size-4" />
                             还原
                           </Button>
-                          <Button size="sm" variant="outline" onClick={() => setDeleteTarget(ep)} disabled={del.isPending} className="text-destructive hover:bg-destructive/10">
+                          <Button size="sm" variant="destructive" onClick={() => setDeleteTarget(ep)} disabled={del.isPending}>
                             <Trash2Icon className="size-4" />
                             删除
                           </Button>

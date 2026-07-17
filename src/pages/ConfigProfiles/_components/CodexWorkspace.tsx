@@ -4,6 +4,7 @@ import { EyeIcon, EyeOffIcon, FileCogIcon, RefreshCwIcon } from 'lucide-react'
 import { useTheme } from 'next-themes'
 import { toast } from 'sonner'
 
+import { EditorLoading, FieldAffixButton, SurfaceCard } from '@/components/common'
 import { Button } from '@/components/ui/button'
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { Input } from '@/components/ui/input'
@@ -287,7 +288,7 @@ export function CodexWorkspace() {
         />
 
         {/* 中栏：表单 + auth.json 预览 */}
-        <div className="border-edge-subtle bg-surface-card flex min-h-0 min-w-0 flex-[3] flex-col gap-4 overflow-y-auto rounded-lg border p-4">
+        <SurfaceCard as="div" padding="md" className="flex min-h-0 min-w-0 flex-[3] flex-col gap-4 overflow-y-auto">
           {!loaded ? (
             <div className="text-ink-mute flex h-full flex-col items-center justify-center gap-3">
               <FileCogIcon className="size-10 opacity-40" />
@@ -325,14 +326,9 @@ export function CodexWorkspace() {
                     className="pr-9"
                     placeholder="sk-..."
                   />
-                  <button
-                    type="button"
-                    onClick={() => setShowKey((v) => !v)}
-                    aria-label={showKey ? '隐藏密钥' : '查看密钥'}
-                    className="text-ink-mute hover:text-ink-secondary absolute inset-y-0 right-0 flex items-center px-2.5"
-                  >
+                  <FieldAffixButton onClick={() => setShowKey((v) => !v)} aria-label={showKey ? '隐藏密钥' : '查看密钥'}>
                     {showKey ? <EyeOffIcon className="size-4" /> : <EyeIcon className="size-4" />}
-                  </button>
+                  </FieldAffixButton>
                 </div>
               </div>
 
@@ -389,10 +385,10 @@ export function CodexWorkspace() {
               </div>
             </>
           )}
-        </div>
+        </SurfaceCard>
 
         {/* 右栏：整合 config.toml 编辑器 */}
-        <div className="border-edge-subtle bg-surface-card flex min-h-0 min-w-0 flex-[2] flex-col gap-2 rounded-lg border p-4">
+        <SurfaceCard as="div" padding="md" className="flex min-h-0 min-w-0 flex-[2] flex-col gap-2">
           <div className="flex items-center justify-between">
             <Label>完整配置</Label>
             <label className="text-ink-mute flex items-center gap-1.5 text-xs">
@@ -405,21 +401,23 @@ export function CodexWorkspace() {
               <JsonEditor value={rightText} theme={theme} lang="text" readOnly={!rightEditable} fill highlightPatterns={goalMode ? ['goals'] : []} onChange={setRightText} />
             </Suspense>
           </div>
-        </div>
+        </SurfaceCard>
       </div>
 
-      {/* 底部固定操作区 */}
-      <div className="border-edge-subtle bg-surface-card relative flex items-center justify-center gap-3 rounded-lg border px-4 py-3">
-        <span className="text-ink-mute absolute left-4 hidden text-xs md:block">
+      {/* 底部固定操作区：说明靠左，主操作靠右 */}
+      <SurfaceCard as="div" padding="none" className="flex items-center justify-between gap-3 px-4 py-3">
+        <span className="text-ink-mute min-w-0 flex-1 truncate text-xs">
           应用将先备份再覆写 <code>~/.codex/auth.json</code> 与 <code>config.toml</code>
         </span>
-        <Button variant="outline" disabled={!canSubmit || saveCh.isPending} onClick={() => saveCh.mutate()}>
-          保存渠道
-        </Button>
-        <Button disabled={!canSubmit || applyCfg.isPending || saveCh.isPending} onClick={() => applyCfg.mutate()}>
-          应用
-        </Button>
-      </div>
+        <div className="flex shrink-0 items-center gap-2">
+          <Button variant="outline" disabled={!canSubmit || saveCh.isPending} onClick={() => saveCh.mutate()}>
+            保存渠道
+          </Button>
+          <Button disabled={!canSubmit || applyCfg.isPending || saveCh.isPending} onClick={() => applyCfg.mutate()}>
+            应用
+          </Button>
+        </div>
+      </SurfaceCard>
 
       <Dialog open={!!pendingDelete} onOpenChange={(o) => !o && setPendingDelete(null)}>
         <DialogContent className="max-w-sm">
@@ -444,5 +442,5 @@ export function CodexWorkspace() {
 }
 
 function EditorFallback() {
-  return <div className="text-ink-mute flex h-[120px] items-center justify-center text-xs">加载编辑器…</div>
+  return <EditorLoading height={120} />
 }

@@ -1,7 +1,7 @@
 import { InfoIcon } from 'lucide-react'
 import { toast } from 'sonner'
 
-import { emptyClass, metaClass, sectionTitleClass, SurfaceCard } from '@/components/common'
+import { EmptyState, metaClass, sectionTitleClass, SurfaceCard } from '@/components/common'
 import { cn } from '@/lib/utils'
 import { Badge } from '@/components/ui/badge'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
@@ -53,7 +53,7 @@ export function ModelList() {
         </Tooltip>
       </h2>
       {groups.length === 0 ? (
-        <p className={emptyClass}>暂无模型（在端点中配置模型清单或锁定模型）</p>
+        <EmptyState>暂无模型（在端点中配置模型清单或锁定模型）</EmptyState>
       ) : (
         <div className="flex min-h-0 flex-1 scrollbar-none flex-col gap-3 overflow-y-auto pr-1">
           {groups.map((g) => (

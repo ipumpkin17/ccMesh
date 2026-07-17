@@ -1,7 +1,7 @@
 import { ChevronLeftIcon, ChevronRightIcon } from 'lucide-react'
 
 import { cn } from '@/lib/utils'
-import { Button } from '@/components/ui/button'
+import { IconButton } from '@/components/ui'
 import { Logo } from '@/components/common'
 import { VersionPopover } from '@/components/business'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
@@ -42,9 +42,9 @@ export function SideNav() {
           <div className={cn('flex gap-1', collapsed && 'flex-col')}>
             <Tooltip>
               <TooltipTrigger asChild>
-                <Button variant="ghost" size="icon" aria-label={collapsed ? '展开侧边栏' : '折叠侧边栏'} onClick={toggleSidebar}>
+                <IconButton variant="ghost" size="default" aria-label={collapsed ? '展开侧边栏' : '折叠侧边栏'} onClick={toggleSidebar}>
                   {collapsed ? <ChevronRightIcon className="size-4" /> : <ChevronLeftIcon className="size-4" />}
-                </Button>
+                </IconButton>
               </TooltipTrigger>
               <TooltipContent side="right">{collapsed ? '展开侧边栏' : '折叠侧边栏'}</TooltipContent>
             </Tooltip>
