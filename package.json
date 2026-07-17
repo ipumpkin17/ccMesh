@@ -2,6 +2,7 @@
   "name": "ccmesh",
   "private": true,
   "version": "0.2.1-5",
+  "packageManager": "pnpm@11.10.0",
   "type": "module",
   "scripts": {
     "dev": "vite",
@@ -15,7 +16,29 @@
     "check": "pnpm check:front && pnpm check:rust",
     "check:front": "tsc --noEmit",
     "check:rust": "cargo check --manifest-path src-tauri/Cargo.toml --message-format=short",
+    "lint": "eslint src --max-warnings 0",
+    "lint:fix": "eslint src --fix --max-warnings 0",
+    "format": "eslint src --fix && cargo fmt --manifest-path src-tauri/Cargo.toml",
+    "format:check": "eslint src --max-warnings 0 && cargo fmt --manifest-path src-tauri/Cargo.toml -- --check",
+    "prepare": "simple-git-hooks",
     "version:set": "node scripts/update-version.mjs"
+  },
+  "simple-git-hooks": {
+    "pre-commit": "pnpm lint-staged"
+  },
+  "lint-staged": {
+    "src/**/*.{ts,tsx}": [
+      "eslint --fix --max-warnings 0"
+    ],
+    "src/**/*.{css,md,json}": [
+      "prettier --write"
+    ],
+    "*.{js,mjs,cjs,json,md}": [
+      "prettier --write"
+    ],
+    "src-tauri/**/*.rs": [
+      "rustfmt"
+    ]
   },
   "dependencies": {
     "@codemirror/commands": "^6.10.3",
@@ -52,6 +75,7 @@
     "zustand": "^5.0.14"
   },
   "devDependencies": {
+    "@eslint/js": "^10.0.1",
     "@tauri-apps/cli": "^2",
     "@testing-library/jest-dom": "^6.9.1",
     "@testing-library/react": "^16.3.2",
@@ -60,8 +84,19 @@
     "@types/react-dom": "^19.1.6",
     "@vitejs/plugin-react": "^4.6.0",
     "dotenv-cli": "^11.0.0",
+    "eslint": "^10.7.0",
+    "eslint-config-prettier": "^10.1.8",
+    "eslint-plugin-prettier": "^5.5.6",
+    "eslint-plugin-react-hooks": "^7.1.1",
+    "eslint-plugin-react-refresh": "^0.5.3",
+    "globals": "^17.7.0",
     "jsdom": "^29.1.1",
+    "lint-staged": "^17.0.8",
+    "prettier": "^3.9.5",
+    "prettier-plugin-tailwindcss": "^0.8.1",
+    "simple-git-hooks": "^2.13.1",
     "typescript": "~5.8.3",
+    "typescript-eslint": "^8.64.0",
     "vite": "^7.0.4",
     "vitest": "^4.1.8"
   }
