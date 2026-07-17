@@ -14,6 +14,7 @@ import { RANGE_OPTIONS, rangeMs, startOfTodayMs, type RangeKey } from '@/lib/ran
 import { formatDuration, formatTokenK } from '@/lib/format'
 import { statsApi, type RequestLog } from '@/services/modules/stats'
 import { sectionTitleClass, tableHeadClass } from '@/lib/typography'
+import { hasUnknownCacheCreation } from '@/lib/tokenUsage'
 
 type Mode = 'live' | 'ranged'
 
@@ -268,12 +269,17 @@ function RequestRow({ log }: { log: RequestLog }) {
   )
 }
 
+function formatCacheCreationTokens(log: RequestLog): string {
+  const source = log.transformer ?? log.inboundFormat
+  return hasUnknownCacheCreation(source, log.cacheCreationTokens) ? 'N/A' : formatTokenK(log.cacheCreationTokens)
+}
+
 export function TokenDetail({ log, total }: { log: RequestLog; total: number }) {
-  const rows: [string, number][] = [
-    ['输入', log.inputTokens],
-    ['输出', log.outputTokens],
-    ['缓存创建', log.cacheCreationTokens],
-    ['缓存读取', log.cacheReadTokens],
+  const rows = [
+    { label: '输入', value: formatTokenK(log.inputTokens), title: log.inputTokens.toLocaleString() },
+    { label: '输出', value: formatTokenK(log.outputTokens), title: log.outputTokens.toLocaleString() },
+    { label: '缓存创建', value: formatCacheCreationTokens(log), title: log.cacheCreationTokens > 0 ? log.cacheCreationTokens.toLocaleString() : undefined },
+    { label: '缓存读取', value: formatTokenK(log.cacheReadTokens), title: log.cacheReadTokens.toLocaleString() },
   ]
   return (
     <div className="flex flex-col gap-1.5 text-xs">
@@ -288,11 +294,11 @@ export function TokenDetail({ log, total }: { log: RequestLog; total: number }) 
           <span className="text-info truncate">{log.actualModel || log.model}</span>
         </div>
       )}
-      {rows.map(([k, v]) => (
-        <div key={k} className="flex items-center justify-between gap-4">
-          <span className="text-ink-secondary">{k}</span>
-          <span title={v.toLocaleString()}>
-            <TabularText>{formatTokenK(v)}</TabularText>
+      {rows.map((row) => (
+        <div key={row.label} className="flex items-center justify-between gap-4">
+          <span className="text-ink-secondary">{row.label}</span>
+          <span title={row.title}>
+            <TabularText>{row.value}</TabularText>
           </span>
         </div>
       ))}

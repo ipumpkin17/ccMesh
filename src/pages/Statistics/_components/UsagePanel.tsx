@@ -12,6 +12,7 @@ import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { RANGE_OPTIONS, rangeDates, startOfTodayMs, type RangeKey } from '@/lib/range'
 import { usageApi, type DayModelUsage, type UsageAppFilter } from '@/services/modules/usage'
 import { sectionTitleClass, tableHeadClass } from '@/lib/typography'
+import { hasUnknownCacheCreation } from '@/lib/tokenUsage'
 
 const APP_TABS: { key: UsageAppFilter; label: string }[] = [
   { key: 'all', label: '全部' },
@@ -20,6 +21,8 @@ const APP_TABS: { key: UsageAppFilter; label: string }[] = [
 ]
 
 const fmt = (n: number) => n.toLocaleString()
+export const formatCacheCreationTokens = (usage: Pick<DayModelUsage, 'appType' | 'cacheCreationTokens'>) =>
+  hasUnknownCacheCreation(usage.appType, usage.cacheCreationTokens) ? 'N/A' : fmt(usage.cacheCreationTokens)
 
 function appLabel(app: string): string {
   if (app === 'claude') return 'Claude Code'
@@ -149,7 +152,8 @@ function DayModelTable({ rows }: { rows: DayModelUsage[] }) {
                 <th className={`px-3 py-2 text-right ${tableHeadClass}`}>请求</th>
                 <th className={`px-3 py-2 text-right ${tableHeadClass}`}>输入</th>
                 <th className={`px-3 py-2 text-right ${tableHeadClass}`}>输出</th>
-                <th className={`px-3 py-2 text-right ${tableHeadClass}`}>缓存</th>
+                <th className={`px-3 py-2 text-right ${tableHeadClass}`}>缓存创建</th>
+                <th className={`px-3 py-2 text-right ${tableHeadClass}`}>缓存读取</th>
               </tr>
             </thead>
             <tbody>
@@ -173,7 +177,10 @@ function DayModelTable({ rows }: { rows: DayModelUsage[] }) {
                       <TabularText>{fmt(r.outputTokens)}</TabularText>
                     </td>
                     <td className="px-3 py-2 text-right">
-                      <TabularText>{fmt(r.cacheCreationTokens + r.cacheReadTokens)}</TabularText>
+                      <TabularText>{formatCacheCreationTokens(r)}</TabularText>
+                    </td>
+                    <td className="px-3 py-2 text-right">
+                      <TabularText>{fmt(r.cacheReadTokens)}</TabularText>
                     </td>
                   </tr>
                 )),

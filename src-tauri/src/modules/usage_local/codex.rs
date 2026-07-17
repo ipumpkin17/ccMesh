@@ -47,21 +47,14 @@ pub fn parse_lines(lines: impl Iterator<Item = String>, fallback_date: &str) -> 
             Some("session_meta") if session_id.is_none() => {
                 session_id = v
                     .get("payload")
-                    .and_then(|p| {
-                        p.get("session_id")
-                            .or_else(|| p.get("sessionId"))
-                            .or_else(|| p.get("id"))
-                    })
+                    .and_then(|p| p.get("session_id").or_else(|| p.get("sessionId")).or_else(|| p.get("id")))
                     .and_then(|x| x.as_str())
                     .map(String::from);
             }
             Some("turn_context") => {
                 if let Some(m) = v
                     .get("payload")
-                    .and_then(|p| {
-                        p.get("model")
-                            .or_else(|| p.get("info").and_then(|i| i.get("model")))
-                    })
+                    .and_then(|p| p.get("model").or_else(|| p.get("info").and_then(|i| i.get("model"))))
                     .and_then(|x| x.as_str())
                 {
                     model = normalize_model(m);
@@ -99,15 +92,11 @@ pub fn parse_lines(lines: impl Iterator<Item = String>, fallback_date: &str) -> 
 
                 let (mut d_in, mut d_cached, d_out) = match prev {
                     None => (cur_input, cur_cached, cur_output),
-                    Some((pi, pc, po)) => (
-                        (cur_input - pi).max(0),
-                        (cur_cached - pc).max(0),
-                        (cur_output - po).max(0),
-                    ),
+                    Some((pi, pc, po)) => ((cur_input - pi).max(0), (cur_cached - pc).max(0), (cur_output - po).max(0)),
                 };
                 prev = Some((cur_input, cur_cached, cur_output));
                 d_cached = d_cached.min(d_in); // 钳制：缓存不超过输入
-                d_in -= d_cached; // 拆出非缓存输入，避免与缓存重复计数
+                d_in -= d_cached; // Codex 日志不暴露 cache write，只能拆出净输入与缓存读取。
                 if d_in == 0 && d_cached == 0 && d_out == 0 {
                     continue; // 跳过零 delta（任务边界）
                 }
@@ -172,10 +161,7 @@ fn normalize_model(raw: &str) -> String {
 
 /// 从路径中提取 `YYYY/MM/DD` 作为日期回退；找不到用今天。
 fn date_from_path(path: &Path) -> String {
-    let comps: Vec<String> = path
-        .components()
-        .filter_map(|c| c.as_os_str().to_str().map(String::from))
-        .collect();
+    let comps: Vec<String> = path.components().filter_map(|c| c.as_os_str().to_str().map(String::from)).collect();
     for w in comps.windows(3) {
         let digits = |s: &str, n: usize| s.len() == n && s.chars().all(|c| c.is_ascii_digit());
         if digits(&w[0], 4) && digits(&w[1], 2) && digits(&w[2], 2) {
@@ -199,14 +185,16 @@ mod tests {
         ];
         let recs = parse_lines(lines.into_iter(), "2026-06-07");
         assert_eq!(recs.len(), 2);
-        // 第一次：input=100,cached=20 → 非缓存输入=80，缓存读取=20，输出=30
+        // 第一次：input=100,cached=20 → 净输入=80，缓存读取=20，输出=30
         assert_eq!(recs[0].model, "gpt-5.4");
         assert_eq!(recs[0].input_tokens, 80);
+        assert_eq!(recs[0].cache_creation_tokens, 0);
         assert_eq!(recs[0].cache_read_tokens, 20);
         assert_eq!(recs[0].output_tokens, 30);
         assert_eq!(recs[0].record_key, "codex_session:sess-1:1");
-        // 第二次 delta：input 150,cached 40 → 非缓存=110，缓存=40，输出=60
+        // 第二次 delta：input 150,cached 40 → 净输入=110，缓存=40，输出=60
         assert_eq!(recs[1].input_tokens, 110);
+        assert_eq!(recs[1].cache_creation_tokens, 0);
         assert_eq!(recs[1].cache_read_tokens, 40);
         assert_eq!(recs[1].output_tokens, 60);
     }
@@ -219,6 +207,9 @@ mod tests {
         ];
         let recs = parse_lines(lines.into_iter(), "2026-06-07");
         assert_eq!(recs.len(), 1); // 第二条 delta 为零被跳过
+        assert_eq!(recs[0].input_tokens, 50);
+        assert_eq!(recs[0].cache_creation_tokens, 0);
+        assert_eq!(recs[0].cache_read_tokens, 0);
     }
 
     #[test]

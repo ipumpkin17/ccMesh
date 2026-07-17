@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 
-import { groupByDate } from '@/pages/Statistics/_components/UsagePanel'
+import { formatCacheCreationTokens, groupByDate } from '@/pages/Statistics/_components/UsagePanel'
 import type { DayModelUsage } from '@/services/modules/usage'
 
 const row = (date: string, model: string): DayModelUsage => ({
@@ -26,5 +26,16 @@ describe('groupByDate', () => {
 
   it('空输入返回空组', () => {
     expect(groupByDate([])).toEqual([])
+  })
+})
+
+describe('formatCacheCreationTokens', () => {
+  it('Codex 未上报缓存创建时显示未知而不是 0', () => {
+    expect(formatCacheCreationTokens({ appType: 'codex', cacheCreationTokens: 0 })).toBe('N/A')
+  })
+
+  it('非 Codex 或已有缓存创建数时显示数字', () => {
+    expect(formatCacheCreationTokens({ appType: 'claude', cacheCreationTokens: 0 })).toBe('0')
+    expect(formatCacheCreationTokens({ appType: 'codex', cacheCreationTokens: 42 })).toBe('42')
   })
 })
