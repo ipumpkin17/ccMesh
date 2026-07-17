@@ -24,6 +24,10 @@ import {
 } from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
 import { metaClass } from "@/lib/typography";
+import {
+  NEW_API_CONN_PLACEHOLDER,
+  parseNewApiChannelConn,
+} from "@/lib/newApiChannelConn";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { getModelIcon } from "@/lib/model-icons";
@@ -79,6 +83,8 @@ export function EndpointForm({ open, onOpenChange, editing }: Props) {
   const [form, setForm] = useState<FormState>(EMPTY);
   const [jsonText, setJsonText] = useState("");
   const [jsonErr, setJsonErr] = useState("");
+  const [newApiText, setNewApiText] = useState("");
+  const [newApiErr, setNewApiErr] = useState("");
   const [modelInput, setModelInput] = useState("");
   const [showKey, setShowKey] = useState(false);
   const [tab, setTab] = useState("form");
@@ -102,6 +108,8 @@ export function EndpointForm({ open, onOpenChange, editing }: Props) {
     setForm(init);
     setJsonText(JSON.stringify(init, null, 2));
     setJsonErr("");
+    setNewApiText("");
+    setNewApiErr("");
     setModelInput("");
     setShowKey(false);
     setTab("form");
@@ -168,6 +176,30 @@ export function EndpointForm({ open, onOpenChange, editing }: Props) {
     }
   };
 
+  /** 解析 NewAPI 连接信息并填入表单；不改 transformer。 */
+  const applyNewApiConn = () => {
+    try {
+      const conn = parseNewApiChannelConn(newApiText);
+      update({
+        name: conn.name,
+        apiUrl: conn.apiUrl,
+        apiKey: conn.apiKey,
+      });
+      setNewApiErr("");
+      setTab("form");
+      toast.success("已填入 NewAPI 连接信息");
+    } catch (e) {
+      const msg = errMsg(e);
+      setNewApiErr(msg);
+      toast.error(msg);
+    }
+  };
+
+  const onNewApiTextChange = (value: string) => {
+    setNewApiText(value);
+    if (newApiErr) setNewApiErr("");
+  };
+
   const save = useMutation({
     mutationFn: () =>
       editing ? endpointApi.update(editing.id, form) : endpointApi.create(form),
@@ -202,6 +234,7 @@ export function EndpointForm({ open, onOpenChange, editing }: Props) {
         <Tabs value={tab} onValueChange={setTab} className="min-w-0 overflow-hidden">
           <TabsList>
             <TabsTrigger value="form">表单</TabsTrigger>
+            <TabsTrigger value="newapi">NewAPI</TabsTrigger>
             <TabsTrigger value="json">JSON</TabsTrigger>
           </TabsList>
 
@@ -407,6 +440,31 @@ export function EndpointForm({ open, onOpenChange, editing }: Props) {
                 />
               </div>
             ) : null}
+          </TabsContent>
+
+          <TabsContent value="newapi" className="flex flex-col gap-3">
+            <div className="flex flex-col gap-1.5">
+              <Label htmlFor="newapi-conn">连接信息</Label>
+              <textarea
+                id="newapi-conn"
+                value={newApiText}
+                onChange={(e) => onNewApiTextChange(e.target.value)}
+                placeholder={NEW_API_CONN_PLACEHOLDER}
+                rows={8}
+                className="min-h-[180px] w-full resize-y rounded-md border border-input bg-transparent px-3 py-2 font-mono text-xs text-ink-primary outline-none placeholder:text-ink-mute focus-visible:border-ring focus-visible:ring-2 focus-visible:ring-ring/40"
+              />
+              <p className={metaClass}>
+                粘贴单条 NewAPI 渠道连接 JSON。名称由 url 推导，不修改转换器。
+              </p>
+              {newApiErr ? (
+                <p className="text-xs text-destructive">{newApiErr}</p>
+              ) : null}
+            </div>
+            <div className="flex justify-end">
+              <Button type="button" size="sm" onClick={applyNewApiConn}>
+                解析填入
+              </Button>
+            </div>
           </TabsContent>
 
           <TabsContent value="json" className="w-full min-w-0 overflow-hidden">
