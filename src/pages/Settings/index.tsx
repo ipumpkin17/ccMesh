@@ -18,7 +18,7 @@ import { configApi } from "@/services/modules/config";
 import { AppInfoSection, StartupCard } from "./components/application";
 import { AdvancedCard, LocalEnvCheck } from "./components/advanced";
 import { GeneralCard, NavVisibilityCard } from "./components/general";
-import { CcSwitchImport } from "./components/migration";
+import { ExternalMigrationPanel } from "./components/migration";
 import { ProxyCard } from "./components/network";
 import { ICloudSync, LocalBackup, RemoteBackupPanel } from "./components/sync";
 import { IS_MAC } from "@/lib/platform";
@@ -154,7 +154,7 @@ export function Settings() {
       id: "external",
       label: "外部迁移",
       icon: ArrowRightLeftIcon,
-      content: <CcSwitchImport />,
+      content: <ExternalMigrationPanel />,
     },
   ];
 

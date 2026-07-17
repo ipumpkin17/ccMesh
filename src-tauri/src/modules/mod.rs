@@ -1,5 +1,5 @@
 pub mod backup;
-pub mod cc_switch_migration;
+pub mod external_migration;
 pub mod icloud;
 pub mod lifecycle;
 pub mod logs;

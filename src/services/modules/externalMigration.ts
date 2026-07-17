@@ -1,16 +1,17 @@
 import { request } from "../request";
 
-/** 预览项：cc-switch 识别到的单个端点（不写库、不探测）。 */
+/** 预览项：外部迁移识别到的端点候选（不写库、不探测）。 */
 export interface PreviewItem {
-  /** 复合键 `{appType}:{id}`，与 cc-switch 主键一致。 */
-  ccSwitchId: string;
-  appType: string; // "claude" | "codex"
+  /** 来源内唯一键，用于勾选与导入。 */
+  sourceId: string;
+  /** 筛选维度（由各来源定义，如 claude/codex）。 */
+  category: string;
   name: string;
   /** 规整前原始地址；skipped 项为空。 */
   apiUrl: string;
   /** 脱敏密钥：sk-***xxxx（仅展示）。 */
   apiKeyMasked: string;
-  transformer: string; // "claude" | "openai"
+  transformer: string;
   modelsHint: string[];
   status: "ok" | "skipped";
   skipReason?: string;
@@ -33,11 +34,16 @@ export interface ImportSummary {
   items: ImportItem[];
 }
 
-export const ccSwitchApi = {
-  /** 只读识别 cc-switch 供应商，不写库、不探测。dbPath 省略用默认候选。 */
-  preview: (dbPath?: string) =>
+/** 某一外部源的预览 / 导入 API 绑定。 */
+export interface ExternalMigrationSourceApi {
+  preview: (path?: string) => Promise<PreviewItem[]>;
+  import: (ids: string[], path?: string) => Promise<ImportSummary>;
+}
+
+/** cc-switch 源：命令名保留兼容，payload 字段已通用化。 */
+export const ccSwitchSourceApi: ExternalMigrationSourceApi = {
+  preview: (dbPath) =>
     request<PreviewItem[]>("preview_cc_switch_import", { dbPath }),
-  /** 对勾选项探测模型并写入 endpoints；同名加 (cc-switch) 后缀。 */
-  import: (ids: string[], dbPath?: string) =>
+  import: (ids, dbPath) =>
     request<ImportSummary>("import_cc_switch_providers", { ids, dbPath }),
 };

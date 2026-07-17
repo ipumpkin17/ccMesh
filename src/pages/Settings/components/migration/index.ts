@@ -1,1 +1,1 @@
-export { CcSwitchImport } from "./CcSwitchImport";
+export { ExternalMigrationPanel } from "./ExternalMigrationPanel";
