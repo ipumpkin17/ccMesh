@@ -4,7 +4,7 @@ import { invoke } from '@tauri-apps/api/core'
 import { describe, expect, it, vi } from 'vitest'
 import type { ReactNode } from 'react'
 
-import { ErrorDetail, fmtDateTime, fmtTime, RequestLogTable, TokenDetail } from '@/components/business/RequestMonitor'
+import { ErrorDetail, fmtDateTime, fmtTime, formatRequestModel, RequestLogTable, TokenDetail } from '@/components/business/RequestMonitor'
 import { RequestLogsCleanupDialog } from '@/components/business/RequestLogsCleanupDialog'
 import type { RequestLog } from '@/services/modules/stats'
 
@@ -42,7 +42,7 @@ function renderWithQuery(ui: ReactNode, qc = new QueryClient()) {
 
 describe('RequestLogTable', () => {
   it('渲染请求行、状态码与 Token 合计', () => {
-    render(<RequestLogTable items={[log]} />)
+    renderWithQuery(<RequestLogTable items={[log]} />)
     expect(screen.getByText('ep-a')).toBeInTheDocument()
     expect(screen.getByText('200')).toBeInTheDocument()
     // Token 合计 = 10 + 5 + 2 + 3
@@ -50,7 +50,7 @@ describe('RequestLogTable', () => {
   })
 
   it('入站/出站展示真实路由路径', () => {
-    render(<RequestLogTable items={[log]} />)
+    renderWithQuery(<RequestLogTable items={[log]} />)
     expect(screen.getByText('/v1/messages')).toBeInTheDocument()
     expect(screen.getByText('/v1/chat/completions')).toBeInTheDocument()
   })
@@ -63,13 +63,13 @@ describe('RequestLogTable', () => {
       inboundPath: '',
       upstreamPath: '',
     }
-    render(<RequestLogTable items={[legacy]} />)
+    renderWithQuery(<RequestLogTable items={[legacy]} />)
     // 入站与出站都兜底为 openai 路由
     expect(screen.getAllByText('/v1/chat/completions')).toHaveLength(2)
   })
 
   it('成功行展示用时/首字', () => {
-    render(<RequestLogTable items={[log]} />)
+    renderWithQuery(<RequestLogTable items={[log]} />)
     expect(screen.getByText('0.12s')).toBeInTheDocument() // 用时 120ms
     expect(screen.getByText('0.08s')).toBeInTheDocument() // 首字 80ms
   })
@@ -81,7 +81,7 @@ describe('RequestLogTable', () => {
       statusCode: 500,
       isError: true,
     }
-    render(<RequestLogTable items={[failed]} />)
+    renderWithQuery(<RequestLogTable items={[failed]} />)
     // 计时单元格应为占位符，且不出现秒数值
     expect(screen.queryByText('0.12s')).not.toBeInTheDocument()
     expect(screen.queryByText('0.08s')).not.toBeInTheDocument()
@@ -96,12 +96,12 @@ describe('RequestLogTable', () => {
       isError: true,
       errorBody: '{"error":{"code":"channel:client_restricted"}}',
     }
-    render(<RequestLogTable items={[failed]} />)
+    renderWithQuery(<RequestLogTable items={[failed]} />)
     expect(screen.getByRole('button', { name: '查看错误详情' })).toBeInTheDocument()
   })
 
   it('空数据显示占位', () => {
-    render(<RequestLogTable items={[]} />)
+    renderWithQuery(<RequestLogTable items={[]} />)
     expect(screen.getByText('暂无请求记录')).toBeInTheDocument()
   })
 })
@@ -174,18 +174,34 @@ describe('fmtDateTime', () => {
   })
 })
 
+describe('formatRequestModel', () => {
+  it('透传或同名只显示一个模型', () => {
+    expect(formatRequestModel('gpt-5.5', null).display).toBe('gpt-5.5')
+    expect(formatRequestModel('gpt-5.5', 'gpt-5.5').display).toBe('gpt-5.5')
+  })
+
+  it('改写时显示 入站 -> 出站', () => {
+    expect(formatRequestModel('glm-5.2', 'z-ai/glm-5.2').display).toBe('glm-5.2 -> z-ai/glm-5.2')
+  })
+
+  it('空模型显示占位', () => {
+    expect(formatRequestModel(null, null).display).toBe('—')
+  })
+})
+
 describe('TokenDetail 实际模型', () => {
-  it('映射生效时展示实际模型（值为蓝色）', () => {
+  it('映射生效时展示入站/出站模型（出站值为蓝色）', () => {
     const mapped: RequestLog = { ...log, model: 'claude-opus-4-8', actualModel: 'gpt-5.5' }
     render(<TokenDetail log={mapped} total={20} />)
-    expect(screen.getByText('模型：claude-opus-4-8')).toBeInTheDocument()
-    expect(screen.getByText(/实际模型/)).toBeInTheDocument()
+    expect(screen.getByText(/入站模型：claude-opus-4-8/)).toBeInTheDocument()
+    expect(screen.getByText(/出站模型/)).toBeInTheDocument()
     const val = screen.getByText('gpt-5.5')
     expect(val.className).toContain('text-info')
   })
 
-  it('无映射(透传)时不展示实际模型', () => {
+  it('无映射(透传)时出站回退为入站模型', () => {
     render(<TokenDetail log={{ ...log, actualModel: null }} total={20} />)
-    expect(screen.queryByText(/实际模型/)).not.toBeInTheDocument()
+    expect(screen.getByText(/入站模型：claude-3/)).toBeInTheDocument()
+    expect(screen.getByText('claude-3')).toBeInTheDocument()
   })
 })

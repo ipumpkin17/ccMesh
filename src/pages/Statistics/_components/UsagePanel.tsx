@@ -4,13 +4,14 @@ import { RefreshCwIcon } from 'lucide-react'
 import { toast } from 'sonner'
 
 import { StatCard, TokenHint } from '@/components/business'
-import { TabularText } from '@/components/ui'
+import { EmptyState, SurfaceCard } from '@/components/common'
+import { Control, TabularText } from '@/components/ui'
 import { Button } from '@/components/ui/button'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { RANGE_OPTIONS, rangeDates, startOfTodayMs, type RangeKey } from '@/lib/range'
 import { usageApi, type DayModelUsage, type UsageAppFilter } from '@/services/modules/usage'
-import { sectionTitleClass, emptyClass, tableHeadClass } from '@/lib/typography'
+import { sectionTitleClass, tableHeadClass } from '@/lib/typography'
 
 const APP_TABS: { key: UsageAppFilter; label: string }[] = [
   { key: 'all', label: '全部' },
@@ -75,18 +76,20 @@ export function UsagePanel() {
           </TabsList>
         </Tabs>
         <div className="flex items-center gap-2">
-          <Select value={range} onValueChange={(v) => setRange(v as RangeKey)}>
-            <SelectTrigger className="w-32">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              {RANGE_OPTIONS.map((r) => (
-                <SelectItem key={r.key} value={r.key}>
-                  {r.label}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
+          <Control width="sm">
+            <Select value={range} onValueChange={(v) => setRange(v as RangeKey)}>
+              <SelectTrigger block>
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {RANGE_OPTIONS.map((r) => (
+                  <SelectItem key={r.key} value={r.key}>
+                    {r.label}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </Control>
           <Button variant="outline" size="sm" disabled={sync.isPending} onClick={() => sync.mutate()}>
             <RefreshCwIcon className={sync.isPending ? 'size-4 animate-spin' : 'size-4'} />
             刷新
@@ -134,9 +137,9 @@ function DayModelTable({ rows }: { rows: DayModelUsage[] }) {
     <section className="flex flex-col gap-2">
       <h2 className={sectionTitleClass}>按日期 · 模型</h2>
       {rows.length === 0 ? (
-        <p className={emptyClass}>暂无用量数据</p>
+        <EmptyState>暂无用量数据</EmptyState>
       ) : (
-        <div className="border-edge-subtle bg-surface-card overflow-hidden rounded-lg border">
+        <SurfaceCard as="div" padding="none" className="overflow-hidden">
           <table className="w-full text-sm">
             <thead>
               <tr className="border-edge-subtle border-b">
@@ -177,7 +180,7 @@ function DayModelTable({ rows }: { rows: DayModelUsage[] }) {
               )}
             </tbody>
           </table>
-        </div>
+        </SurfaceCard>
       )}
     </section>
   )

@@ -8,7 +8,7 @@ import type { PeriodStats } from '@/services/modules/stats'
 import { EndpointStatsTable } from './EndpointStatsTable'
 import { HistoryDialog } from './HistoryDialog'
 import { TrendBadge } from './TrendBadge'
-import { emptyClass } from '@/lib/typography'
+import { EmptyState } from '@/components/common'
 
 const PERIODS = [
   { key: 'today', label: '今日' },
@@ -44,7 +44,7 @@ export function EndpointStatsPanel() {
       </div>
 
       {isLoading ? (
-        <p className={emptyClass}>加载中…</p>
+        <EmptyState>加载中…</EmptyState>
       ) : (
         <>
           <div className="grid grid-cols-4 gap-4">

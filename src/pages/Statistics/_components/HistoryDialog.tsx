@@ -3,12 +3,14 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { HistoryIcon, Trash2Icon } from 'lucide-react'
 import { toast } from 'sonner'
 
+import { EndpointLabel } from '@/components/business'
+import { EmptyState, SurfaceCard } from '@/components/common'
 import { TabularText } from '@/components/ui'
 import { Button } from '@/components/ui/button'
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog'
 import { Pagination } from '@/components/ui/Pagination'
 import { statsApi } from '@/services/modules/stats'
-import { emptyClass } from '@/lib/typography'
+import { tableHeadClass } from '@/lib/typography'
 
 const PAGE_SIZE = 12
 
@@ -69,23 +71,23 @@ export function HistoryDialog() {
         </DialogHeader>
 
         {isLoading ? (
-          <p className={emptyClass}>加载中…</p>
+          <EmptyState>加载中…</EmptyState>
         ) : rows.length === 0 ? (
-          <p className={emptyClass}>暂无历史记录</p>
+          <EmptyState>暂无历史记录</EmptyState>
         ) : (
           <div className="flex flex-col gap-3">
-            <div className="border-edge-subtle bg-surface-card max-h-[60vh] overflow-auto rounded-lg border">
+            <SurfaceCard as="div" padding="none" className="max-h-[60vh] overflow-auto">
               <table className="w-full text-sm">
                 <thead>
                   <tr className="border-edge-subtle bg-background sticky top-0 border-b">
-                    <th className="px-3 py-2 text-left font-medium">日期</th>
-                    <th className="px-3 py-2 text-left font-medium">端点</th>
-                    <th className="px-3 py-2 text-right font-medium whitespace-nowrap">请求</th>
-                    <th className="px-3 py-2 text-right font-medium whitespace-nowrap">错误</th>
-                    <th className="px-3 py-2 text-right font-medium whitespace-nowrap">输入</th>
-                    <th className="px-3 py-2 text-right font-medium whitespace-nowrap">输出</th>
-                    <th className="px-3 py-2 text-right font-medium whitespace-nowrap">缓存</th>
-                    <th className="px-3 py-2 text-right font-medium whitespace-nowrap">操作</th>
+                    <th className={`px-3 py-2 text-left ${tableHeadClass}`}>日期</th>
+                    <th className={`px-3 py-2 text-left ${tableHeadClass}`}>端点</th>
+                    <th className={`px-3 py-2 text-right whitespace-nowrap ${tableHeadClass}`}>请求</th>
+                    <th className={`px-3 py-2 text-right whitespace-nowrap ${tableHeadClass}`}>错误</th>
+                    <th className={`px-3 py-2 text-right whitespace-nowrap ${tableHeadClass}`}>输入</th>
+                    <th className={`px-3 py-2 text-right whitespace-nowrap ${tableHeadClass}`}>输出</th>
+                    <th className={`px-3 py-2 text-right whitespace-nowrap ${tableHeadClass}`}>缓存</th>
+                    <th className={`px-3 py-2 text-right whitespace-nowrap ${tableHeadClass}`}>操作</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -94,7 +96,9 @@ export function HistoryDialog() {
                       <td className="px-3 py-2">
                         <TabularText>{r.date}</TabularText>
                       </td>
-                      <td className="px-3 py-2">{r.endpointName}</td>
+                      <td className="px-3 py-2">
+                        <EndpointLabel name={r.endpointName} endpointId={r.endpointId} size={14} nameClassName="text-sm text-ink-primary" />
+                      </td>
                       <td className="px-3 py-2 text-right whitespace-nowrap">
                         <TabularText>{r.requests}</TabularText>
                       </td>
@@ -135,7 +139,7 @@ export function HistoryDialog() {
                   ))}
                 </tbody>
               </table>
-            </div>
+            </SurfaceCard>
             <Pagination page={page} pageSize={PAGE_SIZE} total={total} onPageChange={setPage} />
           </div>
         )}

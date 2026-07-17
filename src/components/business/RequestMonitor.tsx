@@ -1,20 +1,19 @@
 import { useMemo, useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { InfoIcon, TriangleAlertIcon, Trash2Icon } from 'lucide-react'
-import { Anthropic, Codex, OpenAI } from '@lobehub/icons'
-import type { ComponentType } from 'react'
 
-import { StatusDot, TabularText } from '@/components/ui'
+import { EmptyState, SurfaceCard } from '@/components/common'
+import { Control, IconButton, StatusDot, TabularText } from '@/components/ui'
 import { HoverCard, HoverCardContent, HoverCardTrigger } from '@/components/ui/hover-card'
 import { Pagination } from '@/components/ui/Pagination'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
-import { Button } from '@/components/ui/button'
 import { useRequestLogs } from '@/hooks/useRequestLogs'
+import { EndpointLabel } from '@/components/business/EndpointLabel'
 import { RequestLogsCleanupDialog } from '@/components/business/RequestLogsCleanupDialog'
 import { RANGE_OPTIONS, rangeMs, startOfTodayMs, type RangeKey } from '@/lib/range'
 import { formatDuration, formatTokenK } from '@/lib/format'
 import { statsApi, type RequestLog } from '@/services/modules/stats'
-import { sectionTitleClass, emptyClass, tableHeadClass } from '@/lib/typography'
+import { sectionTitleClass, tableHeadClass } from '@/lib/typography'
 
 type Mode = 'live' | 'ranged'
 
@@ -62,34 +61,36 @@ export function RequestMonitor({ mode, endpointFilter, pageSize = 20, title }: P
         <h2 className={sectionTitleClass}>{title ?? (mode === 'live' ? '实时请求监控' : '端点请求记录')}</h2>
         <div className="flex shrink-0 items-center gap-2">
           {mode === 'ranged' && (
-            <Select
-              value={rangeKey}
-              onValueChange={(v) => {
-                setRangeKey(v as RangeKey)
-                setPage(1)
-              }}
-            >
-              <SelectTrigger className="w-32">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                {RANGE_OPTIONS.map((r) => (
-                  <SelectItem key={r.key} value={r.key}>
-                    {r.label}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+            <Control width="sm">
+              <Select
+                value={rangeKey}
+                onValueChange={(v) => {
+                  setRangeKey(v as RangeKey)
+                  setPage(1)
+                }}
+              >
+                <SelectTrigger block>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {RANGE_OPTIONS.map((r) => (
+                    <SelectItem key={r.key} value={r.key}>
+                      {r.label}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </Control>
           )}
-          <Button size="sm" variant="ghost" onClick={() => setCleanupOpen(true)} className="hover:text-destructive h-8 w-8 p-0" aria-label="清理请求明细">
+          <IconButton size="sm" variant="ghost" onClick={() => setCleanupOpen(true)} className="hover:text-destructive" aria-label="清理请求明细">
             <Trash2Icon className="size-4" />
-          </Button>
+          </IconButton>
         </div>
       </div>
 
       <RequestLogsCleanupDialog open={cleanupOpen} onOpenChange={setCleanupOpen} retentionDays={retentionDays} onCleaned={() => setPage(1)} />
 
-      {isLoading ? <p className={emptyClass}>加载中…</p> : <RequestLogTable items={items} />}
+      {isLoading ? <EmptyState>加载中…</EmptyState> : <RequestLogTable items={items} />}
 
       {total > pageSize && <Pagination page={page} pageSize={pageSize} total={total} onPageChange={setPage} />}
     </section>
@@ -99,23 +100,22 @@ export function RequestMonitor({ mode, endpointFilter, pageSize = 20, title }: P
 /** 纯展示：请求明细表（空态自处理），便于复用与单测。 */
 export function RequestLogTable({ items }: { items: RequestLog[] }) {
   if (items.length === 0) {
-    return <p className={emptyClass}>暂无请求记录</p>
+    return <EmptyState>暂无请求记录</EmptyState>
   }
   return (
-    <div className="border-edge-subtle bg-surface-card overflow-hidden rounded-lg border">
-      <table className="text-ink-secondary w-full text-xs">
+    <SurfaceCard as="div" padding="none" className="overflow-hidden">
+      <table className="text-ink-secondary w-full table-fixed text-xs">
         <thead>
           <tr className="border-edge-subtle border-b">
-            <th className={`p-2 text-left ${tableHeadClass}`}>时间</th>
-            <th className={`p-2 text-left ${tableHeadClass}`}>端点</th>
-            <th className={`p-2 text-left ${tableHeadClass}`}>入站模型</th>
-            <th className={`p-2 text-left ${tableHeadClass}`}>出站模型</th>
-            <th className={`p-2 text-left ${tableHeadClass}`}>入站</th>
-            <th className={`p-2 text-left ${tableHeadClass}`}>出站</th>
-            <th className={`w-[5.5rem] p-2 text-left ${tableHeadClass}`}>状态</th>
-            <th className={`p-2 text-right ${tableHeadClass}`}>用时</th>
-            <th className={`p-2 text-right ${tableHeadClass}`}>首字</th>
-            <th className={`p-2 text-right ${tableHeadClass}`}>Token</th>
+            <th className={`w-[9.5rem] p-2 text-left whitespace-nowrap ${tableHeadClass}`}>时间</th>
+            <th className={`min-w-0 p-2 text-left whitespace-nowrap ${tableHeadClass}`}>端点</th>
+            <th className={`min-w-0 p-2 text-left whitespace-nowrap ${tableHeadClass}`}>模型</th>
+            <th className={`min-w-0 p-2 text-left whitespace-nowrap ${tableHeadClass}`}>入站</th>
+            <th className={`min-w-0 p-2 text-left whitespace-nowrap ${tableHeadClass}`}>出站</th>
+            <th className={`w-[4.25rem] px-1.5 py-2 text-left whitespace-nowrap ${tableHeadClass}`}>状态</th>
+            <th className={`w-14 p-2 text-right whitespace-nowrap ${tableHeadClass}`}>用时</th>
+            <th className={`w-14 p-2 text-right whitespace-nowrap ${tableHeadClass}`}>首字</th>
+            <th className={`w-[5.5rem] p-2 text-right whitespace-nowrap ${tableHeadClass}`}>Token</th>
           </tr>
         </thead>
         <tbody>
@@ -124,7 +124,7 @@ export function RequestLogTable({ items }: { items: RequestLog[] }) {
           ))}
         </tbody>
       </table>
-    </div>
+    </SurfaceCard>
   )
 }
 
@@ -179,73 +179,57 @@ function inferPath(format: string): string {
   return '—'
 }
 
-/** 端点类型（transformer 优先，回退 inboundFormat）→ 品牌图标。
- *  transformer 值：claude / openai / openai_chat / openai2 / codex / openai_responses / openai-responses / ...
- *  inboundFormat 值：claude / openai / responses（旧行回退）。
- *  与端点卡片视觉一致：claude→Anthropic、openai 系→OpenAI、codex/responses 系→Codex。 */
-const ENDPOINT_ICON: Record<string, ComponentType<{ size?: number; className?: string }>> = {
-  claude: Anthropic,
-  openai: OpenAI,
-  openai_chat: OpenAI,
-  'openai-chat': OpenAI,
-  openai2: OpenAI,
-  codex: Codex.Color,
-  responses: Codex.Color,
-  openai_responses: Codex.Color,
-  'openai-responses': Codex.Color,
-}
-const getEndpointIcon = (type: string | null | undefined): ComponentType<{ size?: number; className?: string }> => {
-  if (type) {
-    const icon = ENDPOINT_ICON[type.toLowerCase()]
-    if (icon) return icon
-  }
-  return OpenAI
-}
-
 /** 表格正文：统一字号与次要色；路径类技术字段才用等宽。 */
 const CELL = 'p-2 text-xs text-ink-secondary'
 const CELL_PATH = `${CELL} font-mono`
 const NUM = 'text-xs text-ink-secondary tabular-nums tracking-tight'
 
+/**
+ * 合并入站/出站模型展示：
+ * - 透传或同名 → 只显示一个
+ * - 改写 → `入站 -> 出站`
+ */
+export function formatRequestModel(model: string | null, actualModel: string | null): { display: string; title?: string } {
+  const inbound = model?.trim() || ''
+  const outbound = actualModel?.trim() || inbound
+  if (!inbound && !outbound) return { display: '—' }
+
+  const rewritten = Boolean(actualModel?.trim()) && inbound !== outbound
+  if (rewritten) {
+    return {
+      display: `${inbound || '—'} -> ${outbound || '—'}`,
+      title: `入站 ${inbound || '—'} → 出站 ${outbound || '—'}`,
+    }
+  }
+
+  const display = inbound || outbound || '—'
+  return { display, title: display === '—' ? undefined : display }
+}
+
 function RequestRow({ log }: { log: RequestLog }) {
-  // 优先 transformer（端点配置类型，更准确），旧行/未记录回退 inboundFormat
-  const FormatIcon = getEndpointIcon(log.transformer ?? log.inboundFormat)
-  // model=客户端请求模型 (入站)；actualModel=映射/锁定后的上游模型 (出站，透传时为空)
-  const inboundModel = log.model?.trim() || '—'
-  const outboundModel = log.actualModel?.trim() || log.model?.trim() || '—'
+  const { display: modelDisplay, title: modelTitle } = formatRequestModel(log.model, log.actualModel)
   const total = log.inputTokens + log.outputTokens + log.cacheCreationTokens + log.cacheReadTokens
   return (
     <tr className="border-edge-subtle border-b last:border-0">
-      <td className={`${CELL} whitespace-nowrap ${NUM}`} title={new Date(log.ts).toLocaleString()}>
+      <td className={`w-[9.5rem] ${CELL} whitespace-nowrap ${NUM}`} title={fmtDateTime(log.ts)}>
         {fmtDateTime(log.ts)}
       </td>
-      <td className={CELL}>
-        <div className="flex items-center gap-1.5">
-          <FormatIcon size={12} className="shrink-0" />
-          <span className="truncate">{log.endpointName}</span>
-        </div>
+      <td className={`min-w-0 ${CELL}`}>
+        <EndpointLabel name={log.endpointName} type={log.transformer ?? log.inboundFormat} endpointId={log.endpointId} />
       </td>
-      <td className={`max-w-[10rem] truncate ${CELL}`} title={inboundModel === '—' ? undefined : inboundModel}>
-        {inboundModel}
+      <td className={`min-w-0 truncate ${CELL}`} title={modelTitle}>
+        {modelDisplay}
       </td>
-      <td
-        className={`max-w-[10rem] truncate ${CELL}`}
-        title={outboundModel === '—' ? undefined : log.actualModel ? `出站（已改写）：${outboundModel}` : `出站（透传）：${outboundModel}`}
-      >
-        {outboundModel}
-      </td>
-      <td className={CELL_PATH} title={`入站协议：${log.inboundFormat}`}>
+      <td className={`min-w-0 truncate ${CELL_PATH}`} title={`入站协议：${log.inboundFormat}`}>
         {log.inboundPath || inferPath(log.inboundFormat)}
       </td>
-      <td className={`max-w-[200px] truncate ${CELL_PATH}`} title={log.upstreamUrl ? `${log.upstreamUrl}${log.upstreamPath}` : undefined}>
+      <td className={`min-w-0 truncate ${CELL_PATH}`} title={log.upstreamUrl ? `${log.upstreamUrl}${log.upstreamPath}` : undefined}>
         {log.upstreamPath || inferPath(log.inboundFormat)}
       </td>
-      <td className={`w-[5.5rem] ${CELL}`}>
-        <div className="flex items-center justify-between">
-          <span className="inline-flex items-center gap-1.5">
-            <StatusDot status={statusDot(log.statusCode)} />
-            <span className={`inline-block w-8 text-left ${NUM}`}>{log.statusCode ?? 'ERR'}</span>
-          </span>
+      <td className={`text-ink-secondary w-[4.25rem] px-1.5 py-2 text-xs`}>
+        <div className="inline-flex items-center gap-1">
+          <StatusDot status={statusDot(log.statusCode)} />
+          <span className={NUM}>{log.statusCode ?? 'ERR'}</span>
           {log.isError && log.errorBody ? (
             <HoverCard openDelay={100} closeDelay={50}>
               <HoverCardTrigger asChild>
@@ -262,19 +246,17 @@ function RequestRow({ log }: { log: RequestLog }) {
                 <ErrorDetail errorBody={log.errorBody} />
               </HoverCardContent>
             </HoverCard>
-          ) : (
-            <span className="inline-block size-3 shrink-0" aria-hidden="true" />
-          )}
+          ) : null}
         </div>
       </td>
       <td className={`${CELL} text-right ${NUM}`}>{!log.isError && log.durationMs != null ? formatDuration(log.durationMs) : '—'}</td>
       <td className={`${CELL} text-right ${NUM}`}>{!log.isError && log.firstByteMs != null ? formatDuration(log.firstByteMs) : '—'}</td>
-      <td className={`${CELL} text-right`}>
+      <td className={`w-[5.5rem] ${CELL} text-right`}>
         <HoverCard openDelay={100} closeDelay={50}>
           <HoverCardTrigger asChild>
-            <button type="button" className="text-ink-secondary hover:text-foreground inline-flex items-center gap-1 text-xs transition-colors">
+            <button type="button" className="text-ink-secondary hover:text-foreground inline-flex items-center justify-end gap-1 text-xs whitespace-nowrap transition-colors">
               <span className={NUM}>{total}</span>
-              <InfoIcon className="size-3" />
+              <InfoIcon className="size-3 shrink-0" />
             </button>
           </HoverCardTrigger>
           <HoverCardContent align="end" className="w-56">

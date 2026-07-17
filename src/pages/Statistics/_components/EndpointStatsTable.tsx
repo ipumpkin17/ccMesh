@@ -1,6 +1,8 @@
+import { EndpointLabel } from '@/components/business'
+import { EmptyState, SurfaceCard } from '@/components/common'
 import { TabularText } from '@/components/ui'
 import type { EndpointStat } from '@/services/modules/stats'
-import { emptyClass, tableHeadClass } from '@/lib/typography'
+import { tableHeadClass } from '@/lib/typography'
 
 interface Props {
   rows: EndpointStat[]
@@ -9,10 +11,10 @@ interface Props {
 /** 每端点统计明细表。 */
 export function EndpointStatsTable({ rows }: Props) {
   if (rows.length === 0) {
-    return <p className={emptyClass}>该周期暂无数据</p>
+    return <EmptyState>该周期暂无数据</EmptyState>
   }
   return (
-    <div className="border-edge-subtle bg-surface-card overflow-hidden rounded-lg border">
+    <SurfaceCard as="div" padding="none" className="overflow-hidden">
       <table className="w-full text-sm">
         <thead>
           <tr className="border-edge-subtle border-b">
@@ -28,7 +30,9 @@ export function EndpointStatsTable({ rows }: Props) {
         <tbody>
           {rows.map((r) => (
             <tr key={r.endpointId} className="border-edge-subtle border-b last:border-0">
-              <td className="px-4 py-2">{r.endpointName}</td>
+              <td className="px-4 py-2">
+                <EndpointLabel name={r.endpointName} endpointId={r.endpointId} size={14} nameClassName="text-sm text-ink-primary" />
+              </td>
               <td className="px-4 py-2 text-right">
                 <TabularText>{r.requests}</TabularText>
               </td>
@@ -51,6 +55,6 @@ export function EndpointStatsTable({ rows }: Props) {
           ))}
         </tbody>
       </table>
-    </div>
+    </SurfaceCard>
   )
 }
