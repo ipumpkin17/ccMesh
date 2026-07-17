@@ -1,27 +1,20 @@
 import type { ReactNode } from 'react'
 
 import { Button } from '@/components/ui/button'
+import { Control, Controls, type ControlWidth } from '@/components/ui/control'
 import { Input } from '@/components/ui/input'
-import { cn } from '@/lib/utils'
 
-const WIDTH: Record<'xs' | 'sm' | 'md' | 'lg', string> = {
-  xs: 'w-28',
-  sm: 'w-32',
-  md: 'w-36',
-  lg: 'w-56',
+/** 设置行控件宽度外壳（委托通用 Control，业务不写 w-*）。 */
+export function SettingsControl({ children, width }: { children: ReactNode; width: ControlWidth }) {
+  return <Control width={width}>{children}</Control>
 }
 
-/** 为 Select、Input 等控件提供统一宽度，不在业务层写宽度 class。 */
-export function SettingsControl({ children, width }: { children: ReactNode; width: keyof typeof WIDTH }) {
-  return <div className={cn('shrink-0 [&>*]:w-full', WIDTH[width])}>{children}</div>
-}
-
-/** 行内的多个设置控件使用统一间距。 */
+/** 行内多个设置控件的统一间距。 */
 export function SettingsControls({ children }: { children: ReactNode }) {
-  return <div className="flex items-center gap-2">{children}</div>
+  return <Controls>{children}</Controls>
 }
 
-/** 长文本设置控件，输入框优先占满右侧空间，末尾保留单个辅助操作。 */
+/** 长文本设置控件：输入占满右侧，末尾单一辅助操作。 */
 export function SettingsTextField({
   value,
   placeholder,

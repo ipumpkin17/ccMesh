@@ -26,3 +26,9 @@ export const sectionDescClass = 'text-xs leading-relaxed text-ink-mute'
 export const metaClass = 'text-xs text-ink-mute'
 
 export const tableHeadClass = 'text-xs font-medium text-ink-secondary'
+
+/** 模型名、路径、密钥等 mono 元信息 */
+export const monoMetaClass = 'font-mono text-xs text-ink-secondary'
+
+/** 更密的次要信息（迁移列表 URL / 掩码密钥） */
+export const denseMetaClass = 'text-[10px] text-ink-mute'

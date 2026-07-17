@@ -27,10 +27,17 @@ interface Props {
  * 支持 readOnly 切换、固定高度或 fill 填满父容器、JSON/纯文本模式。
  * 供配置文件页的操作字段编辑器与整合编辑器复用。
  */
+/** 编辑区紧凑字号（12px），覆盖 CodeMirror 默认 14px。 */
+const editorFont = EditorView.theme({
+  '&': { fontSize: '12px' },
+  '.cm-content': { fontFamily: 'ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace' },
+  '.cm-gutters': { fontSize: '11px' },
+})
+
 export default function JsonEditor({ value, theme, onChange, readOnly = false, height = '240px', fill = false, lang = 'json', highlightPatterns }: Props) {
   const patternKey = (highlightPatterns ?? []).join('\u0001')
   const extensions = useMemo(() => {
-    const ext: Extension[] = [EditorView.lineWrapping]
+    const ext: Extension[] = [editorFont, EditorView.lineWrapping]
     if (lang === 'json') ext.push(json())
     const patterns = patternKey ? patternKey.split('\u0001') : []
     if (patterns.length > 0) ext.push(...lineHighlight(patterns))
@@ -52,7 +59,7 @@ export default function JsonEditor({ value, theme, onChange, readOnly = false, h
         editable={!readOnly}
         extensions={extensions}
         onChange={(val) => onChange?.(val)}
-        className={'w-full text-sm' + (fill ? ' h-full' : '')}
+        className={'w-full' + (fill ? ' h-full' : '')}
         basicSetup={{ lineNumbers: true, foldGutter: false }}
       />
     </div>

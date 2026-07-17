@@ -38,15 +38,18 @@ function Button({
   className,
   variant = 'default',
   size = 'default',
+  block = false,
   asChild = false,
   ...props
 }: React.ComponentProps<'button'> &
   VariantProps<typeof buttonVariants> & {
     asChild?: boolean
+    /** 占满父级宽度（业务不要写 w-full class） */
+    block?: boolean
   }) {
   const Comp = asChild ? Slot.Root : 'button'
 
-  return <Comp data-slot="button" data-variant={variant} data-size={size} className={cn(buttonVariants({ variant, size, className }))} {...props} />
+  return <Comp data-slot="button" data-variant={variant} data-size={size} className={cn(buttonVariants({ variant, size }), block && 'w-full', className)} {...props} />
 }
 
 export { Button, buttonVariants }

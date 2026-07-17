@@ -2,7 +2,19 @@ import type { ElementType, ReactNode } from 'react'
 
 import { cn } from '@/lib/utils'
 
-export { emptyClass, metaClass, pageTitleClass, panelTitleClass, sectionDescClass, sectionTitleClass, bodyClass, bodySecondaryClass, tableHeadClass } from '@/lib/typography'
+export {
+  emptyClass,
+  metaClass,
+  monoMetaClass,
+  denseMetaClass,
+  pageTitleClass,
+  panelTitleClass,
+  sectionDescClass,
+  sectionTitleClass,
+  bodyClass,
+  bodySecondaryClass,
+  tableHeadClass,
+} from '@/lib/typography'
 
 type SurfacePadding = 'none' | 'md' | 'lg'
 

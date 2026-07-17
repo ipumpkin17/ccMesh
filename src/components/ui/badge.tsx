@@ -5,7 +5,7 @@ import { Slot } from 'radix-ui'
 import { cn } from '@/lib/utils'
 
 const badgeVariants = cva(
-  'inline-flex w-fit shrink-0 items-center justify-center gap-1 overflow-hidden rounded-full border border-transparent px-2 py-0.5 text-xs font-medium whitespace-nowrap transition-[color,box-shadow] focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50 aria-invalid:border-destructive aria-invalid:ring-destructive/20 dark:aria-invalid:ring-destructive/40 [&>svg]:pointer-events-none [&>svg]:size-3',
+  'inline-flex w-fit shrink-0 items-center justify-center gap-1 overflow-hidden rounded-full border border-transparent font-medium whitespace-nowrap transition-[color,box-shadow] focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50 aria-invalid:border-destructive aria-invalid:ring-destructive/20 dark:aria-invalid:ring-destructive/40 [&>svg]:pointer-events-none [&>svg]:size-3',
   {
     variants: {
       variant: {
@@ -19,19 +19,32 @@ const badgeVariants = cva(
         warning: 'border-transparent bg-warning/12 text-warning',
         info: 'border-transparent bg-info/12 text-info',
         danger: 'border-transparent bg-destructive/12 text-destructive',
-        muted: 'border-transparent bg-accent text-muted-foreground',
+        muted: 'border-border/70 bg-surface-raised text-ink-secondary',
+      },
+      size: {
+        default: 'px-2 py-0.5 text-xs',
+        /** 列表内紧凑标签（日志等级等） */
+        xs: 'h-3.5 px-1 py-0 text-[9px] leading-none uppercase',
+        sm: 'px-1.5 py-0.5 text-[10px] leading-none',
       },
     },
     defaultVariants: {
       variant: 'default',
+      size: 'default',
     },
   },
 )
 
-function Badge({ className, variant = 'default', asChild = false, ...props }: React.ComponentProps<'span'> & VariantProps<typeof badgeVariants> & { asChild?: boolean }) {
+function Badge({
+  className,
+  variant = 'default',
+  size = 'default',
+  asChild = false,
+  ...props
+}: React.ComponentProps<'span'> & VariantProps<typeof badgeVariants> & { asChild?: boolean }) {
   const Comp = asChild ? Slot.Root : 'span'
 
-  return <Comp data-slot="badge" data-variant={variant} className={cn(badgeVariants({ variant }), className)} {...props} />
+  return <Comp data-slot="badge" data-variant={variant} data-size={size} className={cn(badgeVariants({ variant, size }), className)} {...props} />
 }
 
 export { Badge, badgeVariants }
