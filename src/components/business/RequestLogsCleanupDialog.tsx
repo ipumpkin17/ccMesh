@@ -1,49 +1,37 @@
-import { useMutation, useQueryClient } from "@tanstack/react-query";
-import { toast } from "sonner";
+import { useMutation, useQueryClient } from '@tanstack/react-query'
+import { toast } from 'sonner'
 
-import { Button } from "@/components/ui/button";
-import {
-  Dialog,
-  DialogContent,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog";
-import { statsApi } from "@/services/modules/stats";
-import { metaClass } from "@/lib/typography";
+import { Button } from '@/components/ui/button'
+import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog'
+import { statsApi } from '@/services/modules/stats'
+import { metaClass } from '@/lib/typography'
 
-const errMsg = (e: unknown) => (e instanceof Error ? e.message : String(e));
+const errMsg = (e: unknown) => (e instanceof Error ? e.message : String(e))
 
-type CleanupKind = "expired" | "all";
+type CleanupKind = 'expired' | 'all'
 
 interface Props {
-  open: boolean;
-  onOpenChange: (open: boolean) => void;
-  retentionDays?: number;
-  onCleaned: () => void;
+  open: boolean
+  onOpenChange: (open: boolean) => void
+  retentionDays?: number
+  onCleaned: () => void
 }
 
-export function RequestLogsCleanupDialog({
-  open,
-  onOpenChange,
-  retentionDays,
-  onCleaned,
-}: Props) {
-  const qc = useQueryClient();
+export function RequestLogsCleanupDialog({ open, onOpenChange, retentionDays, onCleaned }: Props) {
+  const qc = useQueryClient()
   const cleanup = useMutation({
-    mutationFn: (kind: CleanupKind) =>
-      kind === "expired" ? statsApi.pruneRequestLogs() : statsApi.clearRequestLogs(),
+    mutationFn: (kind: CleanupKind) => (kind === 'expired' ? statsApi.pruneRequestLogs() : statsApi.clearRequestLogs()),
     onSuccess: (removed, kind) => {
-      toast.success(`${kind === "expired" ? "已清理过期记录" : "已清空请求明细"}：${removed} 条`);
-      qc.invalidateQueries({ queryKey: ["request-logs"] });
-      onCleaned();
-      onOpenChange(false);
+      toast.success(`${kind === 'expired' ? '已清理过期记录' : '已清空请求明细'}：${removed} 条`)
+      qc.invalidateQueries({ queryKey: ['request-logs'] })
+      onCleaned()
+      onOpenChange(false)
     },
     onError: (e) => toast.error(errMsg(e)),
-  });
+  })
 
-  const retentionLabel = retentionDays == null ? "保留期限" : `${retentionDays} 天`;
-  const expiredLabel = retentionDays == null ? "保留期限外" : `${retentionDays} 天前`;
+  const retentionLabel = retentionDays == null ? '保留期限' : `${retentionDays} 天`
+  const expiredLabel = retentionDays == null ? '保留期限外' : `${retentionDays} 天前`
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -52,33 +40,21 @@ export function RequestLogsCleanupDialog({
           <DialogTitle>清理请求明细</DialogTitle>
         </DialogHeader>
 
-        <div className="flex flex-col gap-3 text-sm text-ink-secondary">
+        <div className="text-ink-secondary flex flex-col gap-3 text-sm">
           <p>系统自动清理超过 {retentionLabel} 的记录，你也可以立即执行清理。</p>
 
-          <div className="rounded-lg border border-edge-subtle bg-surface-raised p-3">
-            <div className="font-medium text-foreground">清理过期记录</div>
+          <div className="border-edge-subtle bg-surface-raised rounded-lg border p-3">
+            <div className="text-foreground font-medium">清理过期记录</div>
             <p className={`mt-1 ${metaClass}`}>删除 {expiredLabel} 的请求明细，等价于立即触发自动清理。</p>
-            <Button
-              className="mt-3"
-              size="sm"
-              variant="outline"
-              disabled={cleanup.isPending}
-              onClick={() => cleanup.mutate("expired")}
-            >
+            <Button className="mt-3" size="sm" variant="outline" disabled={cleanup.isPending} onClick={() => cleanup.mutate('expired')}>
               清理过期记录
             </Button>
           </div>
 
-          <div className="rounded-lg border border-destructive/40 p-3">
-            <div className="font-medium text-destructive">清空全部明细</div>
+          <div className="border-destructive/40 rounded-lg border p-3">
+            <div className="text-destructive font-medium">清空全部明细</div>
             <p className={`mt-1 ${metaClass}`}>删除全部请求明细，不可恢复；统计汇总不会归零。</p>
-            <Button
-              className="mt-3"
-              size="sm"
-              variant="destructive"
-              disabled={cleanup.isPending}
-              onClick={() => cleanup.mutate("all")}
-            >
+            <Button className="mt-3" size="sm" variant="destructive" disabled={cleanup.isPending} onClick={() => cleanup.mutate('all')}>
               清空全部明细
             </Button>
           </div>
@@ -91,5 +67,5 @@ export function RequestLogsCleanupDialog({
         </DialogFooter>
       </DialogContent>
     </Dialog>
-  );
+  )
 }

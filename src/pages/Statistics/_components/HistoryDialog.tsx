@@ -1,67 +1,60 @@
-import { useState } from "react";
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { HistoryIcon, Trash2Icon } from "lucide-react";
-import { toast } from "sonner";
+import { useState } from 'react'
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import { HistoryIcon, Trash2Icon } from 'lucide-react'
+import { toast } from 'sonner'
 
-import { TabularText } from "@/components/ui";
-import { Button } from "@/components/ui/button";
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogTrigger,
-} from "@/components/ui/dialog";
-import { Pagination } from "@/components/ui/Pagination";
-import { statsApi } from "@/services/modules/stats";
-import { emptyClass } from "@/lib/typography";
+import { TabularText } from '@/components/ui'
+import { Button } from '@/components/ui/button'
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog'
+import { Pagination } from '@/components/ui/Pagination'
+import { statsApi } from '@/services/modules/stats'
+import { emptyClass } from '@/lib/typography'
 
-const PAGE_SIZE = 12;
+const PAGE_SIZE = 12
 
 function errMsg(e: unknown): string {
-  return e instanceof Error ? e.message : String(e);
+  return e instanceof Error ? e.message : String(e)
 }
 
 /** 历史记录弹窗：分页查看按端点×日聚合明细，支持按行 / 按整天删除。 */
 export function HistoryDialog() {
-  const qc = useQueryClient();
-  const [open, setOpen] = useState(false);
-  const [page, setPage] = useState(1);
+  const qc = useQueryClient()
+  const [open, setOpen] = useState(false)
+  const [page, setPage] = useState(1)
 
   const { data, isLoading } = useQuery({
-    queryKey: ["stats-history", page],
+    queryKey: ['stats-history', page],
     queryFn: () => statsApi.getStatsHistory(page, PAGE_SIZE),
     enabled: open,
-  });
+  })
 
   const invalidate = () => {
-    qc.invalidateQueries({ queryKey: ["stats-history"] });
-    qc.invalidateQueries({ queryKey: ["stats"] });
-  };
+    qc.invalidateQueries({ queryKey: ['stats-history'] })
+    qc.invalidateQueries({ queryKey: ['stats'] })
+  }
 
   const delRow = useMutation({
-    mutationFn: (v: { endpointId: string; date: string }) =>
-      statsApi.deleteDailyStat(v.endpointId, v.date),
+    mutationFn: (v: { endpointId: string; date: string }) => statsApi.deleteDailyStat(v.endpointId, v.date),
     onSuccess: () => {
-      toast.success("已删除该记录");
-      invalidate();
+      toast.success('已删除该记录')
+      invalidate()
     },
     onError: (e) => toast.error(`删除失败：${errMsg(e)}`),
-  });
+  })
 
   const delDay = useMutation({
     mutationFn: (date: string) => statsApi.deleteStatsByDate(date),
     onSuccess: (n) => {
-      toast.success(`已删除该日 ${n} 条记录`);
-      setPage(1);
-      invalidate();
+      toast.success(`已删除该日 ${n} 条记录`)
+      setPage(1)
+      invalidate()
     },
     onError: (e) => toast.error(`删除失败：${errMsg(e)}`),
-  });
+  })
 
-  const rows = data?.items ?? [];
-  const total = data?.total ?? 0;
-  const pending = delRow.isPending || delDay.isPending;
+  const rows = data?.items ?? []
+  const total = data?.total ?? 0
+  const pending = delRow.isPending || delDay.isPending
 
   return (
     <Dialog open={open} onOpenChange={setOpen}>
@@ -81,10 +74,10 @@ export function HistoryDialog() {
           <p className={emptyClass}>暂无历史记录</p>
         ) : (
           <div className="flex flex-col gap-3">
-            <div className="max-h-[60vh] overflow-auto rounded-lg border border-edge-subtle bg-surface-card">
+            <div className="border-edge-subtle bg-surface-card max-h-[60vh] overflow-auto rounded-lg border">
               <table className="w-full text-sm">
                 <thead>
-                  <tr className="sticky top-0 border-b border-edge-subtle bg-background">
+                  <tr className="border-edge-subtle bg-background sticky top-0 border-b">
                     <th className="px-3 py-2 text-left font-medium">日期</th>
                     <th className="px-3 py-2 text-left font-medium">端点</th>
                     <th className="px-3 py-2 text-right font-medium whitespace-nowrap">请求</th>
@@ -97,10 +90,7 @@ export function HistoryDialog() {
                 </thead>
                 <tbody>
                   {rows.map((r, i) => (
-                    <tr
-                      key={`${r.date}-${r.endpointId}-${i}`}
-                      className="border-b border-edge-subtle last:border-0"
-                    >
+                    <tr key={`${r.date}-${r.endpointId}-${i}`} className="border-edge-subtle border-b last:border-0">
                       <td className="px-3 py-2">
                         <TabularText>{r.date}</TabularText>
                       </td>
@@ -118,9 +108,7 @@ export function HistoryDialog() {
                         <TabularText>{r.outputTokens}</TabularText>
                       </td>
                       <td className="px-3 py-2 text-right whitespace-nowrap">
-                        <TabularText>
-                          {r.cacheCreationTokens + r.cacheReadTokens}
-                        </TabularText>
+                        <TabularText>{r.cacheCreationTokens + r.cacheReadTokens}</TabularText>
                       </td>
                       <td className="px-3 py-2">
                         <div className="flex items-center justify-end gap-1">
@@ -138,12 +126,7 @@ export function HistoryDialog() {
                           >
                             <Trash2Icon />
                           </Button>
-                          <Button
-                            variant="ghost"
-                            size="xs"
-                            disabled={pending}
-                            onClick={() => delDay.mutate(r.date)}
-                          >
+                          <Button variant="ghost" size="xs" disabled={pending} onClick={() => delDay.mutate(r.date)}>
                             整天
                           </Button>
                         </div>
@@ -153,15 +136,10 @@ export function HistoryDialog() {
                 </tbody>
               </table>
             </div>
-            <Pagination
-              page={page}
-              pageSize={PAGE_SIZE}
-              total={total}
-              onPageChange={setPage}
-            />
+            <Pagination page={page} pageSize={PAGE_SIZE} total={total} onPageChange={setPage} />
           </div>
         )}
       </DialogContent>
     </Dialog>
-  );
+  )
 }

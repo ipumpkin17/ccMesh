@@ -1,40 +1,26 @@
-import { PlusIcon, Trash2Icon } from "lucide-react";
+import { PlusIcon, Trash2Icon } from 'lucide-react'
 
-import { Button } from "@/components/ui/button";
-import { cn } from "@/lib/utils";
-import type { ChannelMeta } from "@/services/modules/tool_config";
-import { panelTitleClass, metaClass } from "@/lib/typography";
+import { Button } from '@/components/ui/button'
+import { cn } from '@/lib/utils'
+import type { ChannelMeta } from '@/services/modules/tool_config'
+import { panelTitleClass, metaClass } from '@/lib/typography'
 
 interface Props {
-  channels: ChannelMeta[];
-  loading: boolean;
-  selectedId: string | null;
-  onSelect: (id: string) => void;
-  onNew: () => void;
-  onDelete: (channel: ChannelMeta) => void;
+  channels: ChannelMeta[]
+  loading: boolean
+  selectedId: string | null
+  onSelect: (id: string) => void
+  onNew: () => void
+  onDelete: (channel: ChannelMeta) => void
 }
 
 /** 左栏：已保存渠道列表 + 顶部新增按钮。行内删除按钮与右键菜单都触发 onDelete。 */
-export function ChannelList({
-  channels,
-  loading,
-  selectedId,
-  onSelect,
-  onNew,
-  onDelete,
-}: Props) {
+export function ChannelList({ channels, loading, selectedId, onSelect, onNew, onDelete }: Props) {
   return (
-    <div className="flex h-full min-h-0 w-56 shrink-0 flex-col rounded-lg border border-edge-subtle bg-surface-card">
-      <div className="flex items-center justify-between border-b border-edge-subtle px-3 py-2">
+    <div className="border-edge-subtle bg-surface-card flex h-full min-h-0 w-56 shrink-0 flex-col rounded-lg border">
+      <div className="border-edge-subtle flex items-center justify-between border-b px-3 py-2">
         <span className={panelTitleClass}>渠道</span>
-        <Button
-          type="button"
-          variant="ghost"
-          size="icon"
-          onClick={onNew}
-          aria-label="新增渠道"
-          title="新增渠道"
-        >
+        <Button type="button" variant="ghost" size="icon" onClick={onNew} aria-label="新增渠道" title="新增渠道">
           <PlusIcon className="size-4" />
         </Button>
       </div>
@@ -42,24 +28,20 @@ export function ChannelList({
         {loading ? (
           <p className={`px-2 py-4 text-center ${metaClass}`}>加载中…</p>
         ) : channels.length === 0 ? (
-          <p className={`px-2 py-4 text-center ${metaClass}`}>
-            暂无渠道，点击右上角 + 新增
-          </p>
+          <p className={`px-2 py-4 text-center ${metaClass}`}>暂无渠道，点击右上角 + 新增</p>
         ) : (
           <ul className="flex flex-col gap-1">
             {channels.map((ch) => (
               <li key={ch.id}>
                 <div
                   className={cn(
-                    "group flex cursor-pointer items-center justify-between rounded-md px-2.5 py-2 text-sm transition-colors",
-                    selectedId === ch.id
-                      ? "bg-primary/10 font-medium text-primary"
-                      : "text-ink-secondary hover:bg-surface-hover hover:text-ink-primary",
+                    'group flex cursor-pointer items-center justify-between rounded-md px-2.5 py-2 text-sm transition-colors',
+                    selectedId === ch.id ? 'bg-primary/10 text-primary font-medium' : 'text-ink-secondary hover:bg-surface-hover hover:text-ink-primary',
                   )}
                   onClick={() => onSelect(ch.id)}
                   onContextMenu={(e) => {
-                    e.preventDefault();
-                    onDelete(ch);
+                    e.preventDefault()
+                    onDelete(ch)
                   }}
                 >
                   <span className="truncate" title={ch.name}>
@@ -68,10 +50,10 @@ export function ChannelList({
                   <button
                     type="button"
                     aria-label={`删除 ${ch.name}`}
-                    className="ml-2 hidden shrink-0 text-ink-mute hover:text-destructive group-hover:block"
+                    className="text-ink-mute hover:text-destructive ml-2 hidden shrink-0 group-hover:block"
                     onClick={(e) => {
-                      e.stopPropagation();
-                      onDelete(ch);
+                      e.stopPropagation()
+                      onDelete(ch)
                     }}
                   >
                     <Trash2Icon className="size-3.5" />
@@ -83,5 +65,5 @@ export function ChannelList({
         )}
       </div>
     </div>
-  );
+  )
 }

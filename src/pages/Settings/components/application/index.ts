@@ -1,2 +1,2 @@
-export { AppInfoSection } from "./AppInfoSection";
-export { StartupCard } from "./StartupCard";
+export { AppInfoSection } from './AppInfoSection'
+export { StartupCard } from './StartupCard'

@@ -1,96 +1,81 @@
-import { lazy, Suspense, useEffect, useState } from "react";
-import { useMutation, useQueryClient } from "@tanstack/react-query";
-import { EyeIcon, EyeOffIcon, InfoIcon, PlusIcon, RefreshCwIcon, XIcon } from "lucide-react";
-import { useTheme } from "next-themes";
-import { toast } from "sonner";
+import { lazy, Suspense, useEffect, useState } from 'react'
+import { useMutation, useQueryClient } from '@tanstack/react-query'
+import { EyeIcon, EyeOffIcon, InfoIcon, PlusIcon, RefreshCwIcon, XIcon } from 'lucide-react'
+import { useTheme } from 'next-themes'
+import { toast } from 'sonner'
 
-import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
-import {
-  Dialog,
-  DialogContent,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
-import { Switch } from "@/components/ui/switch";
-import { metaClass } from "@/lib/typography";
-import {
-  NEW_API_CONN_PLACEHOLDER,
-  parseNewApiChannelConn,
-} from "@/lib/newApiChannelConn";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
-import { getModelIcon } from "@/lib/model-icons";
-import { endpointApi, type Endpoint } from "@/services/modules/endpoint";
+import { Badge } from '@/components/ui/badge'
+import { Button } from '@/components/ui/button'
+import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog'
+import { Input } from '@/components/ui/input'
+import { Label } from '@/components/ui/label'
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
+import { Switch } from '@/components/ui/switch'
+import { metaClass } from '@/lib/typography'
+import { NEW_API_CONN_PLACEHOLDER, parseNewApiChannelConn } from '@/lib/newApiChannelConn'
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
+import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
+import { getModelIcon } from '@/lib/model-icons'
+import { endpointApi, type Endpoint } from '@/services/modules/endpoint'
 
-const JsonEditor = lazy(() => import("@/components/common/JsonEditor"));
+const JsonEditor = lazy(() => import('@/components/common/JsonEditor'))
 
 interface FormState {
-  name: string;
-  apiUrl: string;
-  apiKey: string;
-  transformer: string;
-  model: string;
-  models: string[];
+  name: string
+  apiUrl: string
+  apiKey: string
+  transformer: string
+  model: string
+  models: string[]
   /** 点亮（对外公布）的模型子集：models 的子集。空数组=全部公布（兼容旧端点）。 */
-  activeModels: string[];
-  useProxy: boolean;
-  fast: boolean;
-  remark: string;
+  activeModels: string[]
+  useProxy: boolean
+  fast: boolean
+  remark: string
 }
 
 const EMPTY: FormState = {
-  name: "",
-  apiUrl: "",
-  apiKey: "",
-  transformer: "claude",
-  model: "",
+  name: '',
+  apiUrl: '',
+  apiKey: '',
+  transformer: 'claude',
+  model: '',
   models: [],
   activeModels: [],
   useProxy: false,
   fast: false,
-  remark: "",
-};
+  remark: '',
+}
 
-const errMsg = (e: unknown) => (e instanceof Error ? e.message : String(e));
+const errMsg = (e: unknown) => (e instanceof Error ? e.message : String(e))
 
 /** 各转换器实际拼接的主请求路径（与后端 forward/test 拼法一致：base 去尾斜杠 + 完整后缀）。 */
 const PATH_BY_TRANSFORMER: Record<string, string> = {
-  claude: "/v1/messages",
-  openai: "/v1/chat/completions",
-  codex: "/v1/responses",
-};
+  claude: '/v1/messages',
+  openai: '/v1/chat/completions',
+  codex: '/v1/responses',
+}
 
 interface Props {
-  open: boolean;
-  onOpenChange: (o: boolean) => void;
-  editing: Endpoint | null;
+  open: boolean
+  onOpenChange: (o: boolean) => void
+  editing: Endpoint | null
 }
 
 export function EndpointForm({ open, onOpenChange, editing }: Props) {
-  const qc = useQueryClient();
-  const { resolvedTheme } = useTheme();
-  const [form, setForm] = useState<FormState>(EMPTY);
-  const [jsonText, setJsonText] = useState("");
-  const [jsonErr, setJsonErr] = useState("");
-  const [newApiText, setNewApiText] = useState("");
-  const [newApiErr, setNewApiErr] = useState("");
-  const [modelInput, setModelInput] = useState("");
-  const [showKey, setShowKey] = useState(false);
-  const [tab, setTab] = useState("form");
+  const qc = useQueryClient()
+  const { resolvedTheme } = useTheme()
+  const [form, setForm] = useState<FormState>(EMPTY)
+  const [jsonText, setJsonText] = useState('')
+  const [jsonErr, setJsonErr] = useState('')
+  const [newApiText, setNewApiText] = useState('')
+  const [newApiErr, setNewApiErr] = useState('')
+  const [modelInput, setModelInput] = useState('')
+  const [showKey, setShowKey] = useState(false)
+  const [tab, setTab] = useState('form')
 
   useEffect(() => {
-    if (!open) return;
+    if (!open) return
     const init: FormState = editing
       ? {
           name: editing.name,
@@ -104,131 +89,123 @@ export function EndpointForm({ open, onOpenChange, editing }: Props) {
           fast: editing.fast ?? false,
           remark: editing.remark,
         }
-      : EMPTY;
-    setForm(init);
-    setJsonText(JSON.stringify(init, null, 2));
-    setJsonErr("");
-    setNewApiText("");
-    setNewApiErr("");
-    setModelInput("");
-    setShowKey(false);
-    setTab("form");
-  }, [open, editing]);
+      : EMPTY
+    setForm(init)
+    setJsonText(JSON.stringify(init, null, 2))
+    setJsonErr('')
+    setNewApiText('')
+    setNewApiErr('')
+    setModelInput('')
+    setShowKey(false)
+    setTab('form')
+  }, [open, editing])
 
   const update = (patch: Partial<FormState>) =>
     setForm((f) => {
-      const next = { ...f, ...patch };
-      setJsonText(JSON.stringify(next, null, 2));
-      return next;
-    });
+      const next = { ...f, ...patch }
+      setJsonText(JSON.stringify(next, null, 2))
+      return next
+    })
 
-  const set = (k: keyof FormState, v: string) =>
-    update({ [k]: v } as Partial<FormState>);
+  const set = (k: keyof FormState, v: string) => update({ [k]: v } as Partial<FormState>)
 
   const addModel = () => {
-    const m = modelInput.trim();
-    setModelInput("");
-    if (!m || form.models.includes(m)) return;
-    update({ models: [...form.models, m] });
-  };
+    const m = modelInput.trim()
+    setModelInput('')
+    if (!m || form.models.includes(m)) return
+    update({ models: [...form.models, m] })
+  }
   const removeModel = (m: string) =>
     update({
       models: form.models.filter((x) => x !== m),
       // 移除模型时同步从点亮子集剔除，避免脏数据（后端也会规整）。
       activeModels: form.activeModels.filter((x) => x !== m),
-    });
+    })
 
   // 点亮判定：仅 activeModels 中的模型显示为点亮。空集=未显式点亮任何项（由下方提示说明默认全部公布），
   // 这样点击某模型只影响它自身，不会牵连其它模型。
-  const isLit = (m: string) => form.activeModels.includes(m);
+  const isLit = (m: string) => form.activeModels.includes(m)
   // 切换点亮：仅增删该模型自身；保持与 models 一致的顺序并剔除已不存在项。
   const toggleModel = (m: string) => {
-    const next = form.activeModels.includes(m)
-      ? form.activeModels.filter((x) => x !== m)
-      : [...form.activeModels, m];
-    update({ activeModels: form.models.filter((x) => next.includes(x)) });
-  };
+    const next = form.activeModels.includes(m) ? form.activeModels.filter((x) => x !== m) : [...form.activeModels, m]
+    update({ activeModels: form.models.filter((x) => next.includes(x)) })
+  }
 
   const refresh = useMutation({
-    mutationFn: () =>
-      endpointApi.fetchModels(form.apiUrl, form.apiKey, form.transformer, form.useProxy),
+    mutationFn: () => endpointApi.fetchModels(form.apiUrl, form.apiKey, form.transformer, form.useProxy),
     onSuccess: (ids) => {
-      const merged = Array.from(new Set([...form.models, ...ids]));
+      const merged = Array.from(new Set([...form.models, ...ids]))
       // activeModels 为空=全部公布（默认行为），保持空；已有值=用户显式点亮，保留并剔除已移除模型。
-      const autoActive =
-        form.activeModels.length === 0
-          ? []
-          : form.activeModels.filter((m) => merged.includes(m));
-      update({ models: merged, activeModels: autoActive });
-      toast.success(`拉取到 ${ids.length} 个模型`);
+      const autoActive = form.activeModels.length === 0 ? [] : form.activeModels.filter((m) => merged.includes(m))
+      update({ models: merged, activeModels: autoActive })
+      toast.success(`拉取到 ${ids.length} 个模型`)
     },
     onError: (e) => toast.error(errMsg(e)),
-  });
+  })
 
   const onJsonChange = (val: string) => {
-    setJsonText(val);
+    setJsonText(val)
     try {
-      const parsed = JSON.parse(val);
-      setForm((f) => ({ ...f, ...parsed }));
-      setJsonErr("");
+      const parsed = JSON.parse(val)
+      setForm((f) => ({ ...f, ...parsed }))
+      setJsonErr('')
     } catch {
-      setJsonErr("JSON 格式错误");
+      setJsonErr('JSON 格式错误')
     }
-  };
+  }
 
   /** 解析 NewAPI 连接信息并填入表单；不改 transformer。 */
   const applyNewApiConn = () => {
     try {
-      const conn = parseNewApiChannelConn(newApiText);
+      const conn = parseNewApiChannelConn(newApiText)
       update({
         name: conn.name,
         apiUrl: conn.apiUrl,
         apiKey: conn.apiKey,
-      });
-      setNewApiErr("");
-      setTab("form");
-      toast.success("已填入 NewAPI 连接信息");
+      })
+      setNewApiErr('')
+      setTab('form')
+      toast.success('已填入 NewAPI 连接信息')
     } catch (e) {
-      const msg = errMsg(e);
-      setNewApiErr(msg);
-      toast.error(msg);
+      const msg = errMsg(e)
+      setNewApiErr(msg)
+      toast.error(msg)
     }
-  };
+  }
 
   const onNewApiTextChange = (value: string) => {
-    setNewApiText(value);
-    if (newApiErr) setNewApiErr("");
-  };
+    setNewApiText(value)
+    if (newApiErr) setNewApiErr('')
+  }
 
   const save = useMutation({
-    mutationFn: () =>
-      editing ? endpointApi.update(editing.id, form) : endpointApi.create(form),
+    mutationFn: () => (editing ? endpointApi.update(editing.id, form) : endpointApi.create(form)),
     onSuccess: () => {
-      toast.success(editing ? "已更新" : "已创建");
-      qc.invalidateQueries({ queryKey: ["endpoints"] });
-      onOpenChange(false);
+      toast.success(editing ? '已更新' : '已创建')
+      qc.invalidateQueries({ queryKey: ['endpoints'] })
+      onOpenChange(false)
     },
     onError: (e) => toast.error(errMsg(e)),
-  });
+  })
 
   const fields: Array<{ k: keyof FormState; label: string; ph?: string }> = [
-    { k: "name", label: "名称" },
-    { k: "apiUrl", label: "API URL", ph: "https://api.anthropic.com" },
-    { k: "apiKey", label: "API Key" },
-    { k: "model", label: "锁定模型（可选，填则强制覆盖请求 model）" },
-    { k: "remark", label: "备注（可选）" },
-  ];
+    { k: 'name', label: '名称' },
+    { k: 'apiUrl', label: 'API URL', ph: 'https://api.anthropic.com' },
+    { k: 'apiKey', label: 'API Key' },
+    { k: 'model', label: '锁定模型（可选，填则强制覆盖请求 model）' },
+    { k: 'remark', label: '备注（可选）' },
+  ]
 
   // api_url 辅助提示：按所选转换器实时预览完整请求地址；/v1 结尾会与后端追加的后缀叠成 /v1/v1。
-  const apiUrlBase = form.apiUrl.trim().replace(/\/+$/, "");
-  const hasV1Suffix = /\/v1$/i.test(apiUrlBase);
-  const previewPath = PATH_BY_TRANSFORMER[form.transformer] ?? PATH_BY_TRANSFORMER.claude;
+  const apiUrlBase = form.apiUrl.trim().replace(/\/+$/, '')
+  const hasV1Suffix = /\/v1$/i.test(apiUrlBase)
+  const previewPath = PATH_BY_TRANSFORMER[form.transformer] ?? PATH_BY_TRANSFORMER.claude
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-2xl overflow-x-hidden sm:max-w-2xl">
         <DialogHeader>
-          <DialogTitle>{editing ? "编辑端点" : "新建端点"}</DialogTitle>
+          <DialogTitle>{editing ? '编辑端点' : '新建端点'}</DialogTitle>
         </DialogHeader>
 
         <Tabs value={tab} onValueChange={setTab} className="min-w-0 overflow-hidden">
@@ -242,11 +219,11 @@ export function EndpointForm({ open, onOpenChange, editing }: Props) {
             {fields.map((f) => (
               <div key={f.k} className="flex flex-col gap-1.5">
                 <Label htmlFor={f.k}>{f.label}</Label>
-                {f.k === "apiKey" ? (
+                {f.k === 'apiKey' ? (
                   <div className="relative">
                     <Input
                       id={f.k}
-                      type={showKey ? "text" : "password"}
+                      type={showKey ? 'text' : 'password'}
                       placeholder={f.ph}
                       value={form.apiKey}
                       onChange={(e) => set(f.k, e.target.value)}
@@ -259,14 +236,10 @@ export function EndpointForm({ open, onOpenChange, editing }: Props) {
                     <button
                       type="button"
                       onClick={() => setShowKey((v) => !v)}
-                      aria-label={showKey ? "隐藏密钥" : "查看密钥"}
-                      className="absolute inset-y-0 right-0 flex items-center px-2.5 text-ink-mute hover:text-ink-secondary"
+                      aria-label={showKey ? '隐藏密钥' : '查看密钥'}
+                      className="text-ink-mute hover:text-ink-secondary absolute inset-y-0 right-0 flex items-center px-2.5"
                     >
-                      {showKey ? (
-                        <EyeOffIcon className="size-4" />
-                      ) : (
-                        <EyeIcon className="size-4" />
-                      )}
+                      {showKey ? <EyeOffIcon className="size-4" /> : <EyeIcon className="size-4" />}
                     </button>
                   </div>
                 ) : (
@@ -282,15 +255,15 @@ export function EndpointForm({ open, onOpenChange, editing }: Props) {
                     spellCheck={false}
                   />
                 )}
-                {f.k === "apiUrl" &&
+                {f.k === 'apiUrl' &&
                   (hasV1Suffix ? (
-                    <p className="px-1 text-xs text-destructive">
+                    <p className="text-destructive px-1 text-xs">
                       URL 不应以 /v1 结尾：实际请求会拼成 {apiUrlBase}
                       {previewPath}，出现重复的 /v1，请去掉结尾的 /v1
                     </p>
                   ) : (
                     <p className={`px-1 ${metaClass}`}>
-                      完整请求地址：{apiUrlBase || "{url}"}
+                      完整请求地址：{apiUrlBase || '{url}'}
                       {previewPath}
                     </p>
                   ))}
@@ -299,7 +272,7 @@ export function EndpointForm({ open, onOpenChange, editing }: Props) {
 
             <div className="flex flex-col gap-1.5">
               <Label>转换器</Label>
-              <Select value={form.transformer} onValueChange={(v) => set("transformer", v)}>
+              <Select value={form.transformer} onValueChange={(v) => set('transformer', v)}>
                 <SelectTrigger className="w-full">
                   <SelectValue />
                 </SelectTrigger>
@@ -317,11 +290,7 @@ export function EndpointForm({ open, onOpenChange, editing }: Props) {
                   <Label>模型清单</Label>
                   <Tooltip>
                     <TooltipTrigger asChild>
-                      <button
-                        type="button"
-                        aria-label="模型点亮说明"
-                        className="text-ink-mute hover:text-ink-secondary"
-                      >
+                      <button type="button" aria-label="模型点亮说明" className="text-ink-mute hover:text-ink-secondary">
                         <InfoIcon className="size-3.5" />
                       </button>
                     </TooltipTrigger>
@@ -339,9 +308,9 @@ export function EndpointForm({ open, onOpenChange, editing }: Props) {
                   value={modelInput}
                   onChange={(e) => setModelInput(e.target.value)}
                   onKeyDown={(e) => {
-                    if (e.key === "Enter") {
-                      e.preventDefault();
-                      addModel();
+                    if (e.key === 'Enter') {
+                      e.preventDefault()
+                      addModel()
                     }
                   }}
                   autoComplete="off"
@@ -349,69 +318,41 @@ export function EndpointForm({ open, onOpenChange, editing }: Props) {
                   autoCapitalize="off"
                   spellCheck={false}
                 />
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="icon"
-                  onClick={addModel}
-                  aria-label="添加模型"
-                >
+                <Button type="button" variant="outline" size="icon" onClick={addModel} aria-label="添加模型">
                   <PlusIcon className="size-4" />
                 </Button>
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="icon"
-                  onClick={() => refresh.mutate()}
-                  disabled={refresh.isPending || !form.apiUrl}
-                  aria-label="刷新拉取模型"
-                >
+                <Button type="button" variant="outline" size="icon" onClick={() => refresh.mutate()} disabled={refresh.isPending || !form.apiUrl} aria-label="刷新拉取模型">
                   <RefreshCwIcon className="size-4" />
                 </Button>
               </div>
               {form.models.length > 0 && (
                 <>
-                  <div className="flex max-h-40 flex-wrap gap-1.5 overflow-auto rounded-sm border border-input bg-surface-raised p-2">
+                  <div className="border-input bg-surface-raised flex max-h-40 flex-wrap gap-1.5 overflow-auto rounded-sm border p-2">
                     {form.models.map((m) => {
-                      const lit = isLit(m);
-                      const ModelIcon = getModelIcon(m);
+                      const lit = isLit(m)
+                      const ModelIcon = getModelIcon(m)
                       return (
-                        <Badge
-                          key={m}
-                          variant={lit ? "default" : "muted"}
-                          className="flex items-center gap-1"
-                        >
+                        <Badge key={m} variant={lit ? 'default' : 'muted'} className="flex items-center gap-1">
                           <button
                             type="button"
                             onClick={() => toggleModel(m)}
-                            aria-label={`${lit ? "取消点亮" : "点亮"} ${m}`}
+                            aria-label={`${lit ? '取消点亮' : '点亮'} ${m}`}
                             aria-pressed={lit}
                             className="flex cursor-pointer items-center gap-1"
                           >
                             <ModelIcon size={14} className="shrink-0" />
                             {m}
                           </button>
-                          <button
-                            type="button"
-                            onClick={() => removeModel(m)}
-                            aria-label={`移除 ${m}`}
-                            className="cursor-pointer"
-                          >
+                          <button type="button" onClick={() => removeModel(m)} aria-label={`移除 ${m}`} className="cursor-pointer">
                             <XIcon className="size-3" />
                           </button>
                         </Badge>
-                      );
+                      )
                     })}
                   </div>
                   <div className="flex items-center justify-between">
-                    <span className={metaClass}>
-                      全部未点亮时默认全部公布
-                    </span>
-                    <button
-                      type="button"
-                      className={`${metaClass} hover:text-ink-secondary`}
-                      onClick={() => update({ models: [], activeModels: [] })}
-                    >
+                    <span className={metaClass}>全部未点亮时默认全部公布</span>
+                    <button type="button" className={`${metaClass} hover:text-ink-secondary`} onClick={() => update({ models: [], activeModels: [] })}>
                       清除全部
                     </button>
                   </div>
@@ -421,23 +362,16 @@ export function EndpointForm({ open, onOpenChange, editing }: Props) {
 
             <div className="flex items-center justify-between">
               <Label>启用代理（经设置中的全局代理地址出网）</Label>
-              <Switch
-                checked={form.useProxy}
-                onCheckedChange={(v) => update({ useProxy: v })}
-              />
+              <Switch checked={form.useProxy} onCheckedChange={(v) => update({ useProxy: v })} />
             </div>
 
             {editing?.enabled ? (
-              <div className="flex items-center justify-between rounded-sm border border-input bg-surface-raised px-3 py-2">
+              <div className="border-input bg-surface-raised flex items-center justify-between rounded-sm border px-3 py-2">
                 <div className="flex flex-col gap-0.5">
                   <Label>加入快速队列</Label>
                   <span className={metaClass}>快速队列存在时代理只轮询快速端点</span>
                 </div>
-                <Switch
-                  checked={form.fast}
-                  onCheckedChange={(v) => update({ fast: v })}
-                  aria-label="加入快速队列"
-                />
+                <Switch checked={form.fast} onCheckedChange={(v) => update({ fast: v })} aria-label="加入快速队列" />
               </div>
             ) : null}
           </TabsContent>
@@ -451,14 +385,10 @@ export function EndpointForm({ open, onOpenChange, editing }: Props) {
                 onChange={(e) => onNewApiTextChange(e.target.value)}
                 placeholder={NEW_API_CONN_PLACEHOLDER}
                 rows={8}
-                className="min-h-[180px] w-full resize-y rounded-md border border-input bg-transparent px-3 py-2 font-mono text-xs text-ink-primary outline-none placeholder:text-ink-mute focus-visible:border-ring focus-visible:ring-2 focus-visible:ring-ring/40"
+                className="border-input text-ink-primary placeholder:text-ink-mute focus-visible:border-ring focus-visible:ring-ring/40 min-h-[180px] w-full resize-y rounded-md border bg-transparent px-3 py-2 font-mono text-xs outline-none focus-visible:ring-2"
               />
-              <p className={metaClass}>
-                粘贴单条 NewAPI 渠道连接 JSON。名称由 url 推导，不修改转换器。
-              </p>
-              {newApiErr ? (
-                <p className="text-xs text-destructive">{newApiErr}</p>
-              ) : null}
+              <p className={metaClass}>粘贴单条 NewAPI 渠道连接 JSON。名称由 url 推导，不修改转换器。</p>
+              {newApiErr ? <p className="text-destructive text-xs">{newApiErr}</p> : null}
             </div>
             <div className="flex justify-end">
               <Button type="button" size="sm" onClick={applyNewApiConn}>
@@ -468,22 +398,12 @@ export function EndpointForm({ open, onOpenChange, editing }: Props) {
           </TabsContent>
 
           <TabsContent value="json" className="w-full min-w-0 overflow-hidden">
-            {tab === "json" ? (
-              <Suspense
-                fallback={
-                  <div className="flex h-[240px] items-center justify-center text-xs text-ink-mute">
-                    加载编辑器…
-                  </div>
-                }
-              >
-                <JsonEditor
-                  value={jsonText}
-                  theme={resolvedTheme === "dark" ? "dark" : "light"}
-                  onChange={onJsonChange}
-                />
+            {tab === 'json' ? (
+              <Suspense fallback={<div className="text-ink-mute flex h-[240px] items-center justify-center text-xs">加载编辑器…</div>}>
+                <JsonEditor value={jsonText} theme={resolvedTheme === 'dark' ? 'dark' : 'light'} onChange={onJsonChange} />
               </Suspense>
             ) : null}
-            {jsonErr ? <p className="mt-1 text-xs text-destructive">{jsonErr}</p> : null}
+            {jsonErr ? <p className="text-destructive mt-1 text-xs">{jsonErr}</p> : null}
           </TabsContent>
         </Tabs>
 
@@ -491,14 +411,11 @@ export function EndpointForm({ open, onOpenChange, editing }: Props) {
           <Button variant="outline" onClick={() => onOpenChange(false)}>
             取消
           </Button>
-          <Button
-            onClick={() => save.mutate()}
-            disabled={!!jsonErr || !form.name || !form.apiUrl || save.isPending}
-          >
+          <Button onClick={() => save.mutate()} disabled={!!jsonErr || !form.name || !form.apiUrl || save.isPending}>
             保存
           </Button>
         </DialogFooter>
       </DialogContent>
     </Dialog>
-  );
+  )
 }

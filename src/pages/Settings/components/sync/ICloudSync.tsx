@@ -48,7 +48,7 @@ function ICloudFileRow({ status, busy, onOpenSync }: { status: ICloudSyncStatus;
             同步配置
           </Button>
         ) : (
-          <span className="rounded-full border border-success/30 bg-success/10 px-2 py-1 text-xs leading-none text-success">本地一致</span>
+          <span className="border-success/30 bg-success/10 text-success rounded-full border px-2 py-1 text-xs leading-none">本地一致</span>
         )
       }
     />

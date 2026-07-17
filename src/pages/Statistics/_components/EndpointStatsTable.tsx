@@ -1,21 +1,21 @@
-import { TabularText } from "@/components/ui";
-import type { EndpointStat } from "@/services/modules/stats";
-import { emptyClass, tableHeadClass } from "@/lib/typography";
+import { TabularText } from '@/components/ui'
+import type { EndpointStat } from '@/services/modules/stats'
+import { emptyClass, tableHeadClass } from '@/lib/typography'
 
 interface Props {
-  rows: EndpointStat[];
+  rows: EndpointStat[]
 }
 
 /** 每端点统计明细表。 */
 export function EndpointStatsTable({ rows }: Props) {
   if (rows.length === 0) {
-    return <p className={emptyClass}>该周期暂无数据</p>;
+    return <p className={emptyClass}>该周期暂无数据</p>
   }
   return (
-    <div className="overflow-hidden rounded-lg border border-edge-subtle bg-surface-card">
+    <div className="border-edge-subtle bg-surface-card overflow-hidden rounded-lg border">
       <table className="w-full text-sm">
         <thead>
-          <tr className="border-b border-edge-subtle">
+          <tr className="border-edge-subtle border-b">
             <th className={`px-4 py-2 text-left ${tableHeadClass}`}>端点</th>
             <th className={`px-4 py-2 text-right ${tableHeadClass}`}>请求</th>
             <th className={`px-4 py-2 text-right ${tableHeadClass}`}>错误</th>
@@ -27,10 +27,7 @@ export function EndpointStatsTable({ rows }: Props) {
         </thead>
         <tbody>
           {rows.map((r) => (
-            <tr
-              key={r.endpointId}
-              className="border-b border-edge-subtle last:border-0"
-            >
+            <tr key={r.endpointId} className="border-edge-subtle border-b last:border-0">
               <td className="px-4 py-2">{r.endpointName}</td>
               <td className="px-4 py-2 text-right">
                 <TabularText>{r.requests}</TabularText>
@@ -55,5 +52,5 @@ export function EndpointStatsTable({ rows }: Props) {
         </tbody>
       </table>
     </div>
-  );
+  )
 }

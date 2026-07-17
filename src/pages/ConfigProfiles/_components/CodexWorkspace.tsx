@@ -1,45 +1,34 @@
-import { lazy, Suspense, useEffect, useMemo, useState } from "react";
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { EyeIcon, EyeOffIcon, FileCogIcon, RefreshCwIcon } from "lucide-react";
-import { useTheme } from "next-themes";
-import { toast } from "sonner";
+import { lazy, Suspense, useEffect, useMemo, useState } from 'react'
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import { EyeIcon, EyeOffIcon, FileCogIcon, RefreshCwIcon } from 'lucide-react'
+import { useTheme } from 'next-themes'
+import { toast } from 'sonner'
 
-import { Button } from "@/components/ui/button";
-import {
-  Dialog,
-  DialogContent,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { Switch } from "@/components/ui/switch";
-import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { cn } from "@/lib/utils";
-import { useEndpoints } from "@/hooks/useEndpoints";
-import { useToolConfigChannels } from "@/hooks/useToolConfigChannels";
-import { gatewayBaseUrl } from "@/lib/toolConfig";
-import { advertisedModels, endpointApi } from "@/services/modules/endpoint";
-import { configApi } from "@/services/modules/config";
-import {
-  toolConfigApi,
-  type ChannelMeta,
-  type CodexOperationFields,
-  type CodexSnapshot,
-} from "@/services/modules/tool_config";
-import { ChannelList } from "./ChannelList";
-import { FormFieldLabel } from "./FormFieldLabel";
-import { ModelCombobox } from "./ModelCombobox";
+import { Button } from '@/components/ui/button'
+import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog'
+import { Input } from '@/components/ui/input'
+import { Label } from '@/components/ui/label'
+import { Switch } from '@/components/ui/switch'
+import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs'
+import { cn } from '@/lib/utils'
+import { useEndpoints } from '@/hooks/useEndpoints'
+import { useToolConfigChannels } from '@/hooks/useToolConfigChannels'
+import { gatewayBaseUrl } from '@/lib/toolConfig'
+import { advertisedModels, endpointApi } from '@/services/modules/endpoint'
+import { configApi } from '@/services/modules/config'
+import { toolConfigApi, type ChannelMeta, type CodexOperationFields, type CodexSnapshot } from '@/services/modules/tool_config'
+import { ChannelList } from './ChannelList'
+import { FormFieldLabel } from './FormFieldLabel'
+import { ModelCombobox } from './ModelCombobox'
 
-const JsonEditor = lazy(() => import("@/components/common/JsonEditor"));
+const JsonEditor = lazy(() => import('@/components/common/JsonEditor'))
 
 const EMPTY: CodexOperationFields = {
-  apiKey: "",
-  baseUrl: "",
-  model: "",
-  reviewModel: "",
-};
+  apiKey: '',
+  baseUrl: '',
+  model: '',
+  reviewModel: '',
+}
 
 /** 源缺失时的 config.toml 模板（来自需求文档）；base_url 用当前网关端口动态生成，避免写死 3000。 */
 const defaultCodexToml = (gateway: string) => `model_provider = "OpenAI"
@@ -55,236 +44,235 @@ requires_openai_auth = true
 wire_api = "responses"
 base_url = "${gateway}"
 name = "OpenAI"
-`;
+`
 
-const errMsg = (e: unknown) => (e instanceof Error ? e.message : String(e));
+const errMsg = (e: unknown) => (e instanceof Error ? e.message : String(e))
 
 export function CodexWorkspace() {
-  const qc = useQueryClient();
-  const { resolvedTheme } = useTheme();
-  const theme = resolvedTheme === "dark" ? "dark" : "light";
+  const qc = useQueryClient()
+  const { resolvedTheme } = useTheme()
+  const theme = resolvedTheme === 'dark' ? 'dark' : 'light'
 
-  const channelsQ = useToolConfigChannels("codex");
-  const cfgQ = useQuery({ queryKey: ["config"], queryFn: configApi.getConfig });
-  const epQ = useEndpoints();
+  const channelsQ = useToolConfigChannels('codex')
+  const cfgQ = useQuery({ queryKey: ['config'], queryFn: configApi.getConfig })
+  const epQ = useEndpoints()
 
-  const port = cfgQ.data?.port ?? 3000;
-  const gateway = gatewayBaseUrl(port, "codex");
+  const port = cfgQ.data?.port ?? 3000
+  const gateway = gatewayBaseUrl(port, 'codex')
   const advertised = useMemo(() => {
-    const out: string[] = [];
-    const seen = new Set<string>();
+    const out: string[] = []
+    const seen = new Set<string>()
     for (const ep of epQ.data ?? []) {
-      if (!ep.enabled) continue;
+      if (!ep.enabled) continue
       for (const m of advertisedModels(ep)) {
-        const k = m.toLowerCase();
+        const k = m.toLowerCase()
         if (!seen.has(k)) {
-          seen.add(k);
-          out.push(m);
+          seen.add(k)
+          out.push(m)
         }
       }
     }
-    return out;
-  }, [epQ.data]);
+    return out
+  }, [epQ.data])
 
-  const [selectedId, setSelectedId] = useState<string | null>(null);
-  const [loaded, setLoaded] = useState(false);
-  const [name, setName] = useState("");
-  const [subTab, setSubTab] = useState<"endpoint" | "custom">("endpoint");
-  const [base, setBase] = useState<CodexSnapshot>({ auth: {}, configToml: "" });
-  const [fields, setFields] = useState<CodexOperationFields>(EMPTY);
-  const [rightText, setRightText] = useState("");
-  const [rightEditable, setRightEditable] = useState(false);
-  const [goalMode, setGoalMode] = useState(false);
-  const [fetchedModels, setFetchedModels] = useState<string[]>([]);
-  const [showKey, setShowKey] = useState(false);
-  const [pendingDelete, setPendingDelete] = useState<ChannelMeta | null>(null);
+  const [selectedId, setSelectedId] = useState<string | null>(null)
+  const [loaded, setLoaded] = useState(false)
+  const [name, setName] = useState('')
+  const [subTab, setSubTab] = useState<'endpoint' | 'custom'>('endpoint')
+  const [base, setBase] = useState<CodexSnapshot>({ auth: {}, configToml: '' })
+  const [fields, setFields] = useState<CodexOperationFields>(EMPTY)
+  const [rightText, setRightText] = useState('')
+  const [rightEditable, setRightEditable] = useState(false)
+  const [goalMode, setGoalMode] = useState(false)
+  const [fetchedModels, setFetchedModels] = useState<string[]>([])
+  const [showKey, setShowKey] = useState(false)
+  const [pendingDelete, setPendingDelete] = useState<ChannelMeta | null>(null)
 
-  const [authText, setAuthText] = useState("{}");
+  const [authText, setAuthText] = useState('{}')
 
   /** 改秘钥：同步 auth.json 文本里的 OPENAI_API_KEY。 */
   const updateApiKey = (v: string) => {
-    setFields((f) => ({ ...f, apiKey: v }));
+    setFields((f) => ({ ...f, apiKey: v }))
     setAuthText((prev) => {
-      let obj: Record<string, unknown>;
+      let obj: Record<string, unknown>
       try {
-        obj = JSON.parse(prev) as Record<string, unknown>;
+        obj = JSON.parse(prev) as Record<string, unknown>
       } catch {
-        obj = {};
+        obj = {}
       }
-      if (v) obj.OPENAI_API_KEY = v;
-      else delete obj.OPENAI_API_KEY;
-      return JSON.stringify(obj, null, 2);
-    });
-  };
+      if (v) obj.OPENAI_API_KEY = v
+      else delete obj.OPENAI_API_KEY
+      return JSON.stringify(obj, null, 2)
+    })
+  }
 
   /** 直接编辑 auth.json：解析回填秘钥；非法 JSON 保留输入不回填。 */
   const onAuthChange = (text: string) => {
-    setAuthText(text);
+    setAuthText(text)
     try {
-      const o = JSON.parse(text);
-      const k = typeof o?.OPENAI_API_KEY === "string" ? o.OPENAI_API_KEY : "";
-      setFields((f) => ({ ...f, apiKey: k }));
+      const o = JSON.parse(text)
+      const k = typeof o?.OPENAI_API_KEY === 'string' ? o.OPENAI_API_KEY : ''
+      setFields((f) => ({ ...f, apiKey: k }))
     } catch {
       // 保持输入
     }
-  };
+  }
 
   useEffect(() => {
-    if (!loaded || rightEditable) return;
-    let cancelled = false;
+    if (!loaded || rightEditable) return
+    let cancelled = false
     const t = setTimeout(() => {
       toolConfigApi
-        .previewCodex(base.configToml ?? "", fields, goalMode)
+        .previewCodex(base.configToml ?? '', fields, goalMode)
         .then((toml) => {
-          if (!cancelled) setRightText(toml);
+          if (!cancelled) setRightText(toml)
         })
         .catch((e) => {
-          if (!cancelled) toast.error(errMsg(e));
-        });
-    }, 250);
+          if (!cancelled) toast.error(errMsg(e))
+        })
+    }, 250)
     return () => {
-      cancelled = true;
-      clearTimeout(t);
-    };
-  }, [fields, base, goalMode, loaded, rightEditable]);
+      cancelled = true
+      clearTimeout(t)
+    }
+  }, [fields, base, goalMode, loaded, rightEditable])
 
-  const readGoals = (cfg: unknown): boolean =>
-    Boolean((cfg as { features?: { goals?: unknown } } | null)?.features?.goals);
+  const readGoals = (cfg: unknown): boolean => Boolean((cfg as { features?: { goals?: unknown } } | null)?.features?.goals)
 
   const resetEditor = () => {
-    setLoaded(false);
-    setSelectedId(null);
-    setName("");
-    setFields(EMPTY);
-    setGoalMode(false);
-    setFetchedModels([]);
-    setAuthText("{}");
-    setRightText("");
-    setRightEditable(false);
-  };
+    setLoaded(false)
+    setSelectedId(null)
+    setName('')
+    setFields(EMPTY)
+    setGoalMode(false)
+    setFetchedModels([])
+    setAuthText('{}')
+    setRightText('')
+    setRightEditable(false)
+  }
 
   const startNew = async () => {
     try {
-      const { snapshot } = await toolConfigApi.extract("codex");
-      const snap = (snapshot as CodexSnapshot) ?? { auth: {}, configToml: "" };
-      const configToml = snap.configToml?.trim() ? snap.configToml : defaultCodexToml(gateway);
+      const { snapshot } = await toolConfigApi.extract('codex')
+      const snap = (snapshot as CodexSnapshot) ?? { auth: {}, configToml: '' }
+      const configToml = snap.configToml?.trim() ? snap.configToml : defaultCodexToml(gateway)
       const baseSnap: CodexSnapshot = {
         auth: snap.auth ?? {},
         configToml,
         config: snap.config,
-      };
-      setBase(baseSnap);
-      setSelectedId(null);
-      setName("");
-      setSubTab("endpoint");
-      const f = await toolConfigApi.parseCodex(baseSnap.auth, baseSnap.configToml);
-      setFields({ ...f, baseUrl: gateway });
-      setAuthText(JSON.stringify(baseSnap.auth ?? {}, null, 2));
-      setGoalMode(readGoals(baseSnap.config));
-      setFetchedModels([]);
-      setRightEditable(false);
-      setLoaded(true);
+      }
+      setBase(baseSnap)
+      setSelectedId(null)
+      setName('')
+      setSubTab('endpoint')
+      const f = await toolConfigApi.parseCodex(baseSnap.auth, baseSnap.configToml)
+      setFields({ ...f, baseUrl: gateway })
+      setAuthText(JSON.stringify(baseSnap.auth ?? {}, null, 2))
+      setGoalMode(readGoals(baseSnap.config))
+      setFetchedModels([])
+      setRightEditable(false)
+      setLoaded(true)
     } catch (e) {
-      toast.error(errMsg(e));
+      toast.error(errMsg(e))
     }
-  };
+  }
 
   const loadChannel = async (id: string) => {
     try {
-      const ch = await toolConfigApi.get("codex", id);
-      const snap = (ch.snapshot as CodexSnapshot) ?? { auth: {}, configToml: "" };
-      setBase({ auth: snap.auth ?? {}, configToml: snap.configToml ?? "", config: snap.config });
-      setSelectedId(id);
-      setName(ch.name);
-      setSubTab("custom");
-      const f = await toolConfigApi.parseCodex(snap.auth ?? {}, snap.configToml ?? "");
-      setFields(f);
-      setAuthText(JSON.stringify(snap.auth ?? {}, null, 2));
-      setGoalMode(readGoals(snap.config));
-      setFetchedModels([]);
-      setRightEditable(false);
-      setLoaded(true);
+      const ch = await toolConfigApi.get('codex', id)
+      const snap = (ch.snapshot as CodexSnapshot) ?? { auth: {}, configToml: '' }
+      setBase({ auth: snap.auth ?? {}, configToml: snap.configToml ?? '', config: snap.config })
+      setSelectedId(id)
+      setName(ch.name)
+      setSubTab('custom')
+      const f = await toolConfigApi.parseCodex(snap.auth ?? {}, snap.configToml ?? '')
+      setFields(f)
+      setAuthText(JSON.stringify(snap.auth ?? {}, null, 2))
+      setGoalMode(readGoals(snap.config))
+      setFetchedModels([])
+      setRightEditable(false)
+      setLoaded(true)
     } catch (e) {
-      toast.error(errMsg(e));
+      toast.error(errMsg(e))
     }
-  };
+  }
 
   const buildAuth = (): Record<string, unknown> => {
     try {
-      const o = JSON.parse(authText);
-      if (o && typeof o === "object" && !Array.isArray(o)) {
-        return o as Record<string, unknown>;
+      const o = JSON.parse(authText)
+      if (o && typeof o === 'object' && !Array.isArray(o)) {
+        return o as Record<string, unknown>
       }
     } catch {
       // auth.json 文本非法 → 回退到 base.auth + 秘钥
     }
-    const auth: Record<string, unknown> = { ...(base.auth ?? {}) };
-    if (fields.apiKey) auth.OPENAI_API_KEY = fields.apiKey;
-    else delete auth.OPENAI_API_KEY;
-    return auth;
-  };
+    const auth: Record<string, unknown> = { ...(base.auth ?? {}) }
+    if (fields.apiKey) auth.OPENAI_API_KEY = fields.apiKey
+    else delete auth.OPENAI_API_KEY
+    return auth
+  }
 
   const saveCh = useMutation({
     mutationFn: async () =>
-      toolConfigApi.save("codex", {
+      toolConfigApi.save('codex', {
         id: selectedId,
         name,
         snapshot: { auth: buildAuth(), configToml: rightText, config: base.config },
       }),
     onSuccess: (meta) => {
-      toast.success("已保存渠道，点击「应用」后系统配置才会生效");
-      setSelectedId(meta.id);
-      qc.invalidateQueries({ queryKey: ["profile-channels", "codex"] });
+      toast.success('已保存渠道，点击「应用」后系统配置才会生效')
+      setSelectedId(meta.id)
+      qc.invalidateQueries({ queryKey: ['profile-channels', 'codex'] })
     },
     onError: (e) => toast.error(errMsg(e)),
-  });
+  })
 
   const applyCfg = useMutation({
     mutationFn: async () => {
-      const auth = buildAuth();
-      const meta = await toolConfigApi.save("codex", {
+      const auth = buildAuth()
+      const meta = await toolConfigApi.save('codex', {
         id: selectedId,
         name,
         snapshot: { auth, configToml: rightText, config: base.config },
-      });
-      await toolConfigApi.apply("codex", { auth, configToml: rightText });
-      return meta;
+      })
+      await toolConfigApi.apply('codex', { auth, configToml: rightText })
+      return meta
     },
     onSuccess: (meta) => {
-      setSelectedId(meta.id);
-      qc.invalidateQueries({ queryKey: ["profile-channels", "codex"] });
-      toast.success("已保存渠道并应用，已覆写 ~/.codex/auth.json + config.toml");
+      setSelectedId(meta.id)
+      qc.invalidateQueries({ queryKey: ['profile-channels', 'codex'] })
+      toast.success('已保存渠道并应用，已覆写 ~/.codex/auth.json + config.toml')
     },
     onError: (e) => toast.error(errMsg(e)),
-  });
+  })
 
   const delCh = useMutation({
-    mutationFn: (id: string) => toolConfigApi.remove("codex", id),
+    mutationFn: (id: string) => toolConfigApi.remove('codex', id),
     onSuccess: (_d, id) => {
-      toast.success("已删除渠道");
-      if (selectedId === id) resetEditor();
-      qc.invalidateQueries({ queryKey: ["profile-channels", "codex"] });
-      setPendingDelete(null);
+      toast.success('已删除渠道')
+      if (selectedId === id) resetEditor()
+      qc.invalidateQueries({ queryKey: ['profile-channels', 'codex'] })
+      setPendingDelete(null)
     },
     onError: (e) => {
-      toast.error(errMsg(e));
-      setPendingDelete(null);
+      toast.error(errMsg(e))
+      setPendingDelete(null)
     },
-  });
+  })
 
   const fetchModels = useMutation({
-    mutationFn: () => endpointApi.fetchModels(fields.baseUrl, fields.apiKey, "codex"),
+    mutationFn: () => endpointApi.fetchModels(fields.baseUrl, fields.apiKey, 'codex'),
     onSuccess: (ids) => {
-      setFetchedModels(ids);
-      toast.success(`拉取到 ${ids.length} 个模型`);
+      setFetchedModels(ids)
+      toast.success(`拉取到 ${ids.length} 个模型`)
     },
     onError: (e) => toast.error(errMsg(e)),
-  });
+  })
 
   /** 端点模式用 ccMesh 对外模型；自定义模式用从该地址拉取的模型。 */
-  const modelOptions = subTab === "custom" ? fetchedModels : advertised;
+  const modelOptions = subTab === 'custom' ? fetchedModels : advertised
 
-  const canSubmit = loaded && name.trim().length > 0;
+  const canSubmit = loaded && name.trim().length > 0
 
   return (
     <div className="flex h-full min-h-0 flex-col gap-3">
@@ -299,9 +287,9 @@ export function CodexWorkspace() {
         />
 
         {/* 中栏：表单 + auth.json 预览 */}
-        <div className="flex min-h-0 min-w-0 flex-[3] flex-col gap-4 overflow-y-auto rounded-lg border border-edge-subtle bg-surface-card p-4">
+        <div className="border-edge-subtle bg-surface-card flex min-h-0 min-w-0 flex-[3] flex-col gap-4 overflow-y-auto rounded-lg border p-4">
           {!loaded ? (
-            <div className="flex h-full flex-col items-center justify-center gap-3 text-ink-mute">
+            <div className="text-ink-mute flex h-full flex-col items-center justify-center gap-3">
               <FileCogIcon className="size-10 opacity-40" />
               <p className="text-sm">点击左侧「+」新增，或选择一个渠道开始编辑</p>
             </div>
@@ -309,20 +297,15 @@ export function CodexWorkspace() {
             <>
               <div className="flex flex-col gap-1.5">
                 <Label htmlFor="cx-name">渠道名称</Label>
-                <Input
-                  id="cx-name"
-                  value={name}
-                  onChange={(e) => setName(e.target.value)}
-                  placeholder="例如：渠道M"
-                />
+                <Input id="cx-name" value={name} onChange={(e) => setName(e.target.value)} placeholder="例如：渠道M" />
               </div>
 
               <Tabs
                 value={subTab}
                 onValueChange={(v) => {
-                  const t = v as "endpoint" | "custom";
-                  setSubTab(t);
-                  if (t === "endpoint") setFields((f) => ({ ...f, baseUrl: gateway }));
+                  const t = v as 'endpoint' | 'custom'
+                  setSubTab(t)
+                  if (t === 'endpoint') setFields((f) => ({ ...f, baseUrl: gateway }))
                 }}
               >
                 <TabsList>
@@ -336,7 +319,7 @@ export function CodexWorkspace() {
                 <div className="relative">
                   <Input
                     id="cx-key"
-                    type={showKey ? "text" : "password"}
+                    type={showKey ? 'text' : 'password'}
                     value={fields.apiKey}
                     onChange={(e) => updateApiKey(e.target.value)}
                     className="pr-9"
@@ -345,8 +328,8 @@ export function CodexWorkspace() {
                   <button
                     type="button"
                     onClick={() => setShowKey((v) => !v)}
-                    aria-label={showKey ? "隐藏密钥" : "查看密钥"}
-                    className="absolute inset-y-0 right-0 flex items-center px-2.5 text-ink-mute hover:text-ink-secondary"
+                    aria-label={showKey ? '隐藏密钥' : '查看密钥'}
+                    className="text-ink-mute hover:text-ink-secondary absolute inset-y-0 right-0 flex items-center px-2.5"
                   >
                     {showKey ? <EyeOffIcon className="size-4" /> : <EyeIcon className="size-4" />}
                   </button>
@@ -358,40 +341,24 @@ export function CodexWorkspace() {
                 <Input
                   id="cx-base"
                   value={fields.baseUrl}
-                  readOnly={subTab === "endpoint"}
+                  readOnly={subTab === 'endpoint'}
                   onChange={(e) => setFields((f) => ({ ...f, baseUrl: e.target.value }))}
                   placeholder="http://127.0.0.1:3000/v1"
                 />
-                {subTab === "endpoint" && (
-                  <p className="px-1 text-xs text-ink-mute">端点模式：自动指向本机网关 {gateway}</p>
-                )}
+                {subTab === 'endpoint' && <p className="text-ink-mute px-1 text-xs">端点模式：自动指向本机网关 {gateway}</p>}
               </div>
 
               <div className="flex flex-col gap-1.5">
                 <div className="flex items-center justify-between gap-2">
                   <FormFieldLabel htmlFor="cx-model" label="默认模型" hint="model" />
-                  {subTab === "custom" && (
-                    <Button
-                      type="button"
-                      variant="outline"
-                      size="xs"
-                      disabled={fetchModels.isPending || !fields.baseUrl}
-                      onClick={() => fetchModels.mutate()}
-                    >
-                      <RefreshCwIcon
-                        className={cn("size-3", fetchModels.isPending && "animate-spin")}
-                      />
+                  {subTab === 'custom' && (
+                    <Button type="button" variant="outline" size="xs" disabled={fetchModels.isPending || !fields.baseUrl} onClick={() => fetchModels.mutate()}>
+                      <RefreshCwIcon className={cn('size-3', fetchModels.isPending && 'animate-spin')} />
                       拉取模型
                     </Button>
                   )}
                 </div>
-                <ModelCombobox
-                  id="cx-model"
-                  value={fields.model}
-                  onChange={(v) => setFields((f) => ({ ...f, model: v }))}
-                  options={modelOptions}
-                  placeholder="gpt-5.5"
-                />
+                <ModelCombobox id="cx-model" value={fields.model} onChange={(v) => setFields((f) => ({ ...f, model: v }))} options={modelOptions} placeholder="gpt-5.5" />
               </div>
 
               <div className="flex flex-col gap-1.5">
@@ -407,24 +374,17 @@ export function CodexWorkspace() {
 
               <div className="flex flex-col gap-2">
                 <Label>配置开关</Label>
-                <label className="inline-flex w-fit cursor-pointer items-center gap-1.5 text-sm text-ink-secondary">
+                <label className="text-ink-secondary inline-flex w-fit cursor-pointer items-center gap-1.5 text-sm">
                   <Switch checked={goalMode} onCheckedChange={setGoalMode} />
                   启用 Goal mode（features.goals）
                 </label>
-                <p className="px-1 text-xs text-ink-mute">
-                  远程压缩 / 写入通用配置依赖代理命名约定与通用配置库，暂未接入。
-                </p>
+                <p className="text-ink-mute px-1 text-xs">远程压缩 / 写入通用配置依赖代理命名约定与通用配置库，暂未接入。</p>
               </div>
 
               <div className="flex flex-col gap-1.5">
                 <Label>关键环境配置</Label>
                 <Suspense fallback={<EditorFallback />}>
-                  <JsonEditor
-                    value={authText}
-                    theme={theme}
-                    height="120px"
-                    onChange={onAuthChange}
-                  />
+                  <JsonEditor value={authText} theme={theme} height="120px" onChange={onAuthChange} />
                 </Suspense>
               </div>
             </>
@@ -432,44 +392,28 @@ export function CodexWorkspace() {
         </div>
 
         {/* 右栏：整合 config.toml 编辑器 */}
-        <div className="flex min-h-0 min-w-0 flex-[2] flex-col gap-2 rounded-lg border border-edge-subtle bg-surface-card p-4">
+        <div className="border-edge-subtle bg-surface-card flex min-h-0 min-w-0 flex-[2] flex-col gap-2 rounded-lg border p-4">
           <div className="flex items-center justify-between">
             <Label>完整配置</Label>
-            <label className="flex items-center gap-1.5 text-xs text-ink-mute">
-              <Switch
-                checked={rightEditable}
-                disabled={!loaded}
-                onCheckedChange={setRightEditable}
-              />
+            <label className="text-ink-mute flex items-center gap-1.5 text-xs">
+              <Switch checked={rightEditable} disabled={!loaded} onCheckedChange={setRightEditable} />
               可编辑
             </label>
           </div>
           <div className="min-h-0 flex-1">
             <Suspense fallback={<EditorFallback />}>
-              <JsonEditor
-                value={rightText}
-                theme={theme}
-                lang="text"
-                readOnly={!rightEditable}
-                fill
-                highlightPatterns={goalMode ? ["goals"] : []}
-                onChange={setRightText}
-              />
+              <JsonEditor value={rightText} theme={theme} lang="text" readOnly={!rightEditable} fill highlightPatterns={goalMode ? ['goals'] : []} onChange={setRightText} />
             </Suspense>
           </div>
         </div>
       </div>
 
       {/* 底部固定操作区 */}
-      <div className="relative flex items-center justify-center gap-3 rounded-lg border border-edge-subtle bg-surface-card px-4 py-3">
-        <span className="absolute left-4 hidden text-xs text-ink-mute md:block">
+      <div className="border-edge-subtle bg-surface-card relative flex items-center justify-center gap-3 rounded-lg border px-4 py-3">
+        <span className="text-ink-mute absolute left-4 hidden text-xs md:block">
           应用将先备份再覆写 <code>~/.codex/auth.json</code> 与 <code>config.toml</code>
         </span>
-        <Button
-          variant="outline"
-          disabled={!canSubmit || saveCh.isPending}
-          onClick={() => saveCh.mutate()}
-        >
+        <Button variant="outline" disabled={!canSubmit || saveCh.isPending} onClick={() => saveCh.mutate()}>
           保存渠道
         </Button>
         <Button disabled={!canSubmit || applyCfg.isPending || saveCh.isPending} onClick={() => applyCfg.mutate()}>
@@ -482,31 +426,23 @@ export function CodexWorkspace() {
           <DialogHeader>
             <DialogTitle>删除渠道</DialogTitle>
           </DialogHeader>
-          <p className="text-sm text-ink-secondary">
+          <p className="text-ink-secondary text-sm">
             确定删除渠道「<span className="font-medium">{pendingDelete?.name}</span>」吗？该操作不影响系统配置文件。
           </p>
           <DialogFooter>
             <Button variant="outline" onClick={() => setPendingDelete(null)}>
               取消
             </Button>
-            <Button
-              variant="destructive"
-              disabled={delCh.isPending}
-              onClick={() => pendingDelete && delCh.mutate(pendingDelete.id)}
-            >
+            <Button variant="destructive" disabled={delCh.isPending} onClick={() => pendingDelete && delCh.mutate(pendingDelete.id)}>
               删除
             </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
     </div>
-  );
+  )
 }
 
 function EditorFallback() {
-  return (
-    <div className="flex h-[120px] items-center justify-center text-xs text-ink-mute">
-      加载编辑器…
-    </div>
-  );
+  return <div className="text-ink-mute flex h-[120px] items-center justify-center text-xs">加载编辑器…</div>
 }

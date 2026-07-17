@@ -81,7 +81,7 @@ export function RequestMonitor({ mode, endpointFilter, pageSize = 20, title }: P
               </SelectContent>
             </Select>
           )}
-          <Button size="sm" variant="ghost" onClick={() => setCleanupOpen(true)} className="h-8 w-8 p-0 hover:text-destructive" aria-label="清理请求明细">
+          <Button size="sm" variant="ghost" onClick={() => setCleanupOpen(true)} className="hover:text-destructive h-8 w-8 p-0" aria-label="清理请求明细">
             <Trash2Icon className="size-4" />
           </Button>
         </div>
@@ -102,10 +102,10 @@ export function RequestLogTable({ items }: { items: RequestLog[] }) {
     return <p className={emptyClass}>暂无请求记录</p>
   }
   return (
-    <div className="overflow-hidden rounded-lg border border-edge-subtle bg-surface-card">
-      <table className="w-full text-xs text-ink-secondary">
+    <div className="border-edge-subtle bg-surface-card overflow-hidden rounded-lg border">
+      <table className="text-ink-secondary w-full text-xs">
         <thead>
-          <tr className="border-b border-edge-subtle">
+          <tr className="border-edge-subtle border-b">
             <th className={`p-2 text-left ${tableHeadClass}`}>时间</th>
             <th className={`p-2 text-left ${tableHeadClass}`}>端点</th>
             <th className={`p-2 text-left ${tableHeadClass}`}>入站模型</th>
@@ -166,7 +166,7 @@ export function ErrorDetail({ errorBody }: { errorBody: string }) {
   return (
     <div className="flex flex-col gap-2">
       <div className="text-sm font-medium">错误详情</div>
-      <pre className="whitespace-pre-wrap break-words font-mono text-xs text-ink-secondary">{formatErrorBody(errorBody)}</pre>
+      <pre className="text-ink-secondary font-mono text-xs break-words whitespace-pre-wrap">{formatErrorBody(errorBody)}</pre>
     </div>
   )
 }
@@ -215,7 +215,7 @@ function RequestRow({ log }: { log: RequestLog }) {
   const outboundModel = log.actualModel?.trim() || log.model?.trim() || '—'
   const total = log.inputTokens + log.outputTokens + log.cacheCreationTokens + log.cacheReadTokens
   return (
-    <tr className="border-b border-edge-subtle last:border-0">
+    <tr className="border-edge-subtle border-b last:border-0">
       <td className={`${CELL} whitespace-nowrap ${NUM}`} title={new Date(log.ts).toLocaleString()}>
         {fmtDateTime(log.ts)}
       </td>
@@ -253,7 +253,7 @@ function RequestRow({ log }: { log: RequestLog }) {
                   type="button"
                   aria-label="查看错误详情"
                   title="查看错误详情"
-                  className="inline-flex shrink-0 items-center text-warning/60 transition-colors hover:text-warning"
+                  className="text-warning/60 hover:text-warning inline-flex shrink-0 items-center transition-colors"
                 >
                   <TriangleAlertIcon className="size-3" />
                 </button>
@@ -272,7 +272,7 @@ function RequestRow({ log }: { log: RequestLog }) {
       <td className={`${CELL} text-right`}>
         <HoverCard openDelay={100} closeDelay={50}>
           <HoverCardTrigger asChild>
-            <button type="button" className="inline-flex items-center gap-1 text-xs text-ink-secondary transition-colors hover:text-foreground">
+            <button type="button" className="text-ink-secondary hover:text-foreground inline-flex items-center gap-1 text-xs transition-colors">
               <span className={NUM}>{total}</span>
               <InfoIcon className="size-3" />
             </button>
@@ -296,14 +296,14 @@ export function TokenDetail({ log, total }: { log: RequestLog; total: number }) 
   return (
     <div className="flex flex-col gap-1.5 text-xs">
       {log.model && (
-        <div className="truncate text-ink-secondary" title={log.model}>
+        <div className="text-ink-secondary truncate" title={log.model}>
           入站模型：{log.model}
         </div>
       )}
       {(log.actualModel || log.model) && (
         <div title={log.actualModel || log.model || undefined} className="text-ink-secondary">
           出站模型：
-          <span className="truncate text-info">{log.actualModel || log.model}</span>
+          <span className="text-info truncate">{log.actualModel || log.model}</span>
         </div>
       )}
       {rows.map(([k, v]) => (
@@ -314,20 +314,20 @@ export function TokenDetail({ log, total }: { log: RequestLog; total: number }) 
           </span>
         </div>
       ))}
-      <div className="mt-1 flex items-center justify-between gap-4 border-t border-edge-subtle pt-1.5 font-medium">
+      <div className="border-edge-subtle mt-1 flex items-center justify-between gap-4 border-t pt-1.5 font-medium">
         <span>合计</span>
         <span title={total.toLocaleString()}>
           <TabularText>{formatTokenK(total)}</TabularText>
         </span>
       </div>
       {!log.isError && log.firstByteMs != null && (
-        <div className="flex items-center justify-between gap-4 text-ink-secondary">
+        <div className="text-ink-secondary flex items-center justify-between gap-4">
           <span>首字</span>
           <TabularText>{formatDuration(log.firstByteMs)}</TabularText>
         </div>
       )}
       {!log.isError && log.durationMs != null && (
-        <div className="flex items-center justify-between gap-4 text-ink-secondary">
+        <div className="text-ink-secondary flex items-center justify-between gap-4">
           <span>耗时</span>
           <TabularText>{formatDuration(log.durationMs)}</TabularText>
         </div>

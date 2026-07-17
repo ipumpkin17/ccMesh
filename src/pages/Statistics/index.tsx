@@ -1,26 +1,22 @@
-import { useState } from "react";
+import { useState } from 'react'
 
-import { PageShell } from "@/components/common";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { EndpointStatsPanel } from "./_components/EndpointStatsPanel";
-import { UsagePanel } from "./_components/UsagePanel";
+import { PageShell } from '@/components/common'
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
+import { EndpointStatsPanel } from './_components/EndpointStatsPanel'
+import { UsagePanel } from './_components/UsagePanel'
 
 const TOP_TABS = [
-  { key: "endpoint", label: "端点统计" },
-  { key: "usage", label: "用量统计" },
-] as const;
+  { key: 'endpoint', label: '端点统计' },
+  { key: 'usage', label: '用量统计' },
+] as const
 
-type TopKey = (typeof TOP_TABS)[number]["key"];
+type TopKey = (typeof TOP_TABS)[number]['key']
 
 export function Statistics() {
-  const [tab, setTab] = useState<TopKey>("endpoint");
+  const [tab, setTab] = useState<TopKey>('endpoint')
 
   return (
-    <Tabs
-      value={tab}
-      onValueChange={(v) => setTab(v as TopKey)}
-      className="h-full min-h-0"
-    >
+    <Tabs value={tab} onValueChange={(v) => setTab(v as TopKey)} className="h-full min-h-0">
       <PageShell
         title="统计"
         className="flex-1"
@@ -43,5 +39,5 @@ export function Statistics() {
         </TabsContent>
       </PageShell>
     </Tabs>
-  );
+  )
 }

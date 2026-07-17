@@ -1,1 +1,1 @@
-export { ProxyCard } from "./ProxyCard";
+export { ProxyCard } from './ProxyCard'

@@ -1,133 +1,133 @@
-import type { UnlistenFn } from "@tauri-apps/api/event";
+import type { UnlistenFn } from '@tauri-apps/api/event'
 
-import { Events, request, subscribe } from "../request";
+import { Events, request, subscribe } from '../request'
 
 export interface EndpointStat {
-  endpointId: string;
-  endpointName: string;
-  requests: number;
-  errors: number;
-  inputTokens: number;
-  outputTokens: number;
-  cacheCreationTokens: number;
-  cacheReadTokens: number;
+  endpointId: string
+  endpointName: string
+  requests: number
+  errors: number
+  inputTokens: number
+  outputTokens: number
+  cacheCreationTokens: number
+  cacheReadTokens: number
 }
 
 export interface PeriodStats {
-  requests: number;
-  errors: number;
-  inputTokens: number;
-  outputTokens: number;
-  cacheCreationTokens: number;
-  cacheReadTokens: number;
-  endpoints: EndpointStat[];
+  requests: number
+  errors: number
+  inputTokens: number
+  outputTokens: number
+  cacheCreationTokens: number
+  cacheReadTokens: number
+  endpoints: EndpointStat[]
 }
 
 export interface TrendCompare {
-  requestsPct: number;
-  inputTokensPct: number;
-  outputTokensPct: number;
+  requestsPct: number
+  inputTokensPct: number
+  outputTokensPct: number
 }
 
 export interface StatsOverview {
-  today: PeriodStats;
-  yesterday: PeriodStats;
-  thisWeek: PeriodStats;
-  thisMonth: PeriodStats;
-  trend: TrendCompare;
+  today: PeriodStats
+  yesterday: PeriodStats
+  thisWeek: PeriodStats
+  thisMonth: PeriodStats
+  trend: TrendCompare
 }
 
 export interface DailyStat {
-  endpointId: string;
-  endpointName: string;
-  date: string;
-  requests: number;
-  errors: number;
-  inputTokens: number;
-  outputTokens: number;
-  cacheCreationTokens: number;
-  cacheReadTokens: number;
+  endpointId: string
+  endpointName: string
+  date: string
+  requests: number
+  errors: number
+  inputTokens: number
+  outputTokens: number
+  cacheCreationTokens: number
+  cacheReadTokens: number
 }
 
 /** 逐条请求明细。事件推送时 id 为 0（尚未落库），列表以 ts 作为 key。 */
 export interface RequestLog {
-  id: number;
+  id: number
   /** 请求时间（Unix 毫秒，UTC）。 */
-  ts: number;
-  endpointId: string;
-  endpointName: string;
-  inboundFormat: string;
+  ts: number
+  endpointId: string
+  endpointName: string
+  inboundFormat: string
   /** 端点 transformer 快照（claude/openai/codex 等）。旧行/未记录为 null，前端回退 inboundFormat。 */
-  transformer: string | null;
-  upstreamUrl: string;
+  transformer: string | null
+  upstreamUrl: string
   /** 真实入站路由路径（如 /v1/messages）。旧行为空串。 */
-  inboundPath: string;
+  inboundPath: string
   /** 真实出站路由路径（如 /v1/chat/completions）。旧行为空串。 */
-  upstreamPath: string;
-  statusCode: number | null;
-  isError: boolean;
-  inputTokens: number;
-  outputTokens: number;
-  cacheCreationTokens: number;
-  cacheReadTokens: number;
-  model: string | null;
-  durationMs: number | null;
+  upstreamPath: string
+  statusCode: number | null
+  isError: boolean
+  inputTokens: number
+  outputTokens: number
+  cacheCreationTokens: number
+  cacheReadTokens: number
+  model: string | null
+  durationMs: number | null
   /** 首字节延迟（毫秒）：流式为首个内容分片到达耗时，缓冲为响应头到达耗时。旧行/无数据为 null。 */
-  firstByteMs: number | null;
+  firstByteMs: number | null
   /** 实际(出站)模型：映射/锁定改写后与请求模型不同才有值；透传/旧行为 null。 */
-  actualModel: string | null;
+  actualModel: string | null
   /** 错误响应体（仅错误请求，限长写入）。旧行/无响应体为 null。 */
-  errorBody: string | null;
+  errorBody: string | null
 }
 
 export interface RequestLogPage {
-  items: RequestLog[];
-  total: number;
+  items: RequestLog[]
+  total: number
 }
 
 /** 后端按调用方指定格数切分的一格端点质量时间窗。 */
 export interface EndpointQualityBlock {
-  startMs: number;
-  total: number;
-  successCount: number;
-  throttledCount: number;
-  failedCount: number;
+  startMs: number
+  total: number
+  successCount: number
+  throttledCount: number
+  failedCount: number
 }
 
 /** 每端点本次代理运行期间的质量概览。 */
 export interface EndpointQuality {
-  endpointId: string;
-  endpointName: string;
-  startedAtMs: number | null;
-  windowStartMs: number;
-  windowEndMs: number;
-  bucketMs: number;
-  total: number;
-  successCount: number;
-  failureCount: number;
-  successRate: number | null;
-  avgLatencyMs: number | null;
-  blocks: EndpointQualityBlock[];
+  endpointId: string
+  endpointName: string
+  startedAtMs: number | null
+  windowStartMs: number
+  windowEndMs: number
+  bucketMs: number
+  total: number
+  successCount: number
+  failureCount: number
+  successRate: number | null
+  avgLatencyMs: number | null
+  blocks: EndpointQualityBlock[]
 }
 
 export interface StatsHistoryPage {
-  items: DailyStat[];
-  total: number;
+  items: DailyStat[]
+  total: number
 }
 
 export interface RequestLogQuery {
-  startMs?: number;
-  endMs?: number;
-  endpoint?: string;
-  page: number;
-  pageSize: number;
+  startMs?: number
+  endMs?: number
+  endpoint?: string
+  page: number
+  pageSize: number
 }
 
 export const statsApi = {
-  getStats: () => request<StatsOverview>("get_stats"),
+  getStats: () => request<StatsOverview>('get_stats'),
   /** 请求明细分页查询（时间段 + 可选端点过滤）。 */
   getRequestLogs: (q: RequestLogQuery) =>
-    request<RequestLogPage>("get_request_logs", {
+    request<RequestLogPage>('get_request_logs', {
       startMs: q.startMs,
       endMs: q.endMs,
       endpoint: q.endpoint,
@@ -135,30 +135,23 @@ export const statsApi = {
       pageSize: q.pageSize,
     }),
   /** 每端点本次代理运行期间的状态样本，按调用方指定格数分桶，不会触发主动连通性检查。 */
-  getEndpointQuality: (bucketCount: number) =>
-    request<EndpointQuality[]>("get_endpoint_quality", { bucketCount }),
+  getEndpointQuality: (bucketCount: number) => request<EndpointQuality[]>('get_endpoint_quality', { bucketCount }),
   /** 请求明细保留天数。 */
-  getRetentionDays: () => request<number>("get_retention_days"),
+  getRetentionDays: () => request<number>('get_retention_days'),
   /** 立即清理超过保留期限的请求明细。 */
-  pruneRequestLogs: () => request<number>("prune_request_logs"),
+  pruneRequestLogs: () => request<number>('prune_request_logs'),
   /** 清空全部请求明细，不影响 daily_stats 聚合统计。 */
-  clearRequestLogs: () => request<number>("clear_request_logs"),
+  clearRequestLogs: () => request<number>('clear_request_logs'),
   /** 历史记录分页（跨全时间，按端点×日聚合行）。 */
-  getStatsHistory: (page: number, pageSize: number) =>
-    request<StatsHistoryPage>("get_stats_history", { page, pageSize }),
+  getStatsHistory: (page: number, pageSize: number) => request<StatsHistoryPage>('get_stats_history', { page, pageSize }),
   /** 删除单端点单日历史记录。 */
-  deleteDailyStat: (endpointId: string, date: string) =>
-    request<number>("delete_daily_stat", { endpointId, date }),
+  deleteDailyStat: (endpointId: string, date: string) => request<number>('delete_daily_stat', { endpointId, date }),
   /** 删除某一天全部历史记录。 */
-  deleteStatsByDate: (date: string) =>
-    request<number>("delete_stats_by_date", { date }),
+  deleteStatsByDate: (date: string) => request<number>('delete_stats_by_date', { date }),
   /** 订阅统计更新事件（零延迟刷新）。 */
-  onUpdated: (cb: () => void): Promise<UnlistenFn> =>
-    subscribe(Events.statsUpdated, () => cb()),
+  onUpdated: (cb: () => void): Promise<UnlistenFn> => subscribe(Events.statsUpdated, () => cb()),
   /** 订阅单条请求明细事件（实时监控 live 模式追加）。 */
-  onRequestLogged: (cb: (log: RequestLog) => void): Promise<UnlistenFn> =>
-    subscribe<RequestLog>(Events.requestLogged, (e) => cb(e.payload)),
+  onRequestLogged: (cb: (log: RequestLog) => void): Promise<UnlistenFn> => subscribe<RequestLog>(Events.requestLogged, (e) => cb(e.payload)),
   /** 订阅端点上游尝试样本变化。 */
-  onEndpointQualityUpdated: (cb: () => void): Promise<UnlistenFn> =>
-    subscribe(Events.endpointQualityUpdated, () => cb()),
-};
+  onEndpointQualityUpdated: (cb: () => void): Promise<UnlistenFn> => subscribe(Events.endpointQualityUpdated, () => cb()),
+}

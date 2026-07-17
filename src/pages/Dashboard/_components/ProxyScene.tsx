@@ -1,4 +1,4 @@
-import "./proxy-scene.css";
+import './proxy-scene.css'
 
 /**
  * 本地代理卡片背景：雪山 + 日落。
@@ -6,15 +6,9 @@ import "./proxy-scene.css";
  * `dark` 按主题切换氛围元素：暗色显星点、亮色显飘云（颜色色板由 CSS 的 .dark 覆盖）。
  * 纯展示、不接收指针事件；尊重 prefers-reduced-motion（见 proxy-scene.css）。
  */
-export function ProxyScene({
-  running,
-  dark = false,
-}: {
-  running: boolean;
-  dark?: boolean;
-}) {
+export function ProxyScene({ running, dark = false }: { running: boolean; dark?: boolean }) {
   return (
-    <div aria-hidden className={running ? "proxy-scene running" : "proxy-scene"}>
+    <div aria-hidden className={running ? 'proxy-scene running' : 'proxy-scene'}>
       <div className="glow" />
       <div className="sun" />
       {dark ? (
@@ -29,5 +23,5 @@ export function ProxyScene({
       <div className="range range-mid" />
       <div className="range range-near" />
     </div>
-  );
+  )
 }

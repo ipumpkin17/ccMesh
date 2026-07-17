@@ -9,21 +9,20 @@
  * - sectionDesc / meta: 辅助说明与元信息
  * - tableHead: 表头
  */
-export const pageTitleClass =
-  "text-2xl font-light tracking-tight text-ink-primary";
+export const pageTitleClass = 'text-2xl font-light tracking-tight text-ink-primary'
 
-export const sectionTitleClass = "text-base font-medium text-ink-primary";
+export const sectionTitleClass = 'text-base font-medium text-ink-primary'
 
-export const panelTitleClass = "text-sm font-medium text-ink-primary";
+export const panelTitleClass = 'text-sm font-medium text-ink-primary'
 
-export const bodyClass = "text-sm text-ink-primary";
+export const bodyClass = 'text-sm text-ink-primary'
 
-export const bodySecondaryClass = "text-sm text-ink-secondary";
+export const bodySecondaryClass = 'text-sm text-ink-secondary'
 
-export const emptyClass = "text-sm text-ink-mute";
+export const emptyClass = 'text-sm text-ink-mute'
 
-export const sectionDescClass = "text-xs leading-relaxed text-ink-mute";
+export const sectionDescClass = 'text-xs leading-relaxed text-ink-mute'
 
-export const metaClass = "text-xs text-ink-mute";
+export const metaClass = 'text-xs text-ink-mute'
 
-export const tableHeadClass = "text-xs font-medium text-ink-secondary";
+export const tableHeadClass = 'text-xs font-medium text-ink-secondary'

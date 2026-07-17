@@ -1,50 +1,41 @@
-import { CopyIcon, HelpCircleIcon, XIcon, ZapIcon } from "lucide-react";
-import { useEffect, useMemo, useState } from "react";
-import { useMutation, useQueryClient } from "@tanstack/react-query";
-import { useTheme } from "next-themes";
-import { toast } from "sonner";
-import { DragDropProvider, useDraggable, useDroppable } from "@dnd-kit/react";
-import { useSortable } from "@dnd-kit/react/sortable";
-import { move } from "@dnd-kit/helpers";
+import { CopyIcon, HelpCircleIcon, XIcon, ZapIcon } from 'lucide-react'
+import { useEffect, useMemo, useState } from 'react'
+import { useMutation, useQueryClient } from '@tanstack/react-query'
+import { useTheme } from 'next-themes'
+import { toast } from 'sonner'
+import { DragDropProvider, useDraggable, useDroppable } from '@dnd-kit/react'
+import { useSortable } from '@dnd-kit/react/sortable'
+import { move } from '@dnd-kit/helpers'
 
-import { StatusDot, TabularText } from "@/components/ui";
-import { Button } from "@/components/ui/button";
-import { Card, CardContent } from "@/components/ui/card";
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog";
-import {
-  Popover,
-  PopoverContent,
-  PopoverTrigger,
-} from "@/components/ui/popover";
-import { Switch } from "@/components/ui/switch";
-import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
-import { useEndpoints } from "@/hooks/useEndpoints";
-import { useEndpointHealth, useEndpointHealthEvents } from "@/hooks/useEndpointHealth";
-import { useProxyStatus } from "@/hooks/useProxyStatus";
-import { cn } from "@/lib/utils";
-import { endpointApi, type Endpoint } from "@/services/modules/endpoint";
-import { circuitDot, type EndpointHealth } from "@/services/modules/health";
-import { proxyApi } from "@/services/modules/proxy";
-import { statsApi } from "@/services/modules/stats";
-import { useLayoutStore } from "@/stores";
-import { ProxyScene } from "./ProxyScene";
-import { appendFastId, removeFastId, reorderFastIds, splitEndpointQueues } from "./fastQueue";
-import { panelTitleClass, emptyClass, metaClass } from "@/lib/typography";
+import { StatusDot, TabularText } from '@/components/ui'
+import { Button } from '@/components/ui/button'
+import { Card, CardContent } from '@/components/ui/card'
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog'
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
+import { Switch } from '@/components/ui/switch'
+import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
+import { useEndpoints } from '@/hooks/useEndpoints'
+import { useEndpointHealth, useEndpointHealthEvents } from '@/hooks/useEndpointHealth'
+import { useProxyStatus } from '@/hooks/useProxyStatus'
+import { cn } from '@/lib/utils'
+import { endpointApi, type Endpoint } from '@/services/modules/endpoint'
+import { circuitDot, type EndpointHealth } from '@/services/modules/health'
+import { proxyApi } from '@/services/modules/proxy'
+import { statsApi } from '@/services/modules/stats'
+import { useLayoutStore } from '@/stores'
+import { ProxyScene } from './ProxyScene'
+import { appendFastId, removeFastId, reorderFastIds, splitEndpointQueues } from './fastQueue'
+import { panelTitleClass, emptyClass, metaClass } from '@/lib/typography'
 
-type QueueStatus = "success" | "danger" | "warning" | "info" | "idle";
+type QueueStatus = 'success' | 'danger' | 'warning' | 'info' | 'idle'
 
 const statusText: Record<QueueStatus, string> = {
-  success: "text-success",
-  danger: "text-destructive",
-  warning: "text-warning",
-  info: "text-info",
-  idle: "text-ink-mute",
-};
+  success: 'text-success',
+  danger: 'text-destructive',
+  warning: 'text-warning',
+  info: 'text-info',
+  idle: 'text-ink-mute',
+}
 
 function endpointStatus(
   endpoint: Endpoint,
@@ -52,35 +43,26 @@ function endpointStatus(
   running: boolean,
   healthById: Map<string, EndpointHealth>,
 ): { status: QueueStatus; active: boolean; title?: string } {
-  const active = endpoint.uid === current;
-  const health = healthById.get(endpoint.uid);
-  if (health && health.circuit !== "closed") {
+  const active = endpoint.uid === current
+  const health = healthById.get(endpoint.uid)
+  if (health && health.circuit !== 'closed') {
     return {
       active,
       status: circuitDot(health.circuit),
-      title: `${health.circuit === "open" ? "熔断中" : "恢复中"}${
-        health.lastError ? ` · ${health.lastError}` : ""
-      }`,
-    };
+      title: `${health.circuit === 'open' ? '熔断中' : '恢复中'}${health.lastError ? ` · ${health.lastError}` : ''}`,
+    }
   }
-  return { active, status: active && running ? "info" : "success" };
+  return { active, status: active && running ? 'info' : 'success' }
 }
 
 function FastMark({ status, pulse }: { status: QueueStatus; pulse?: boolean }) {
   // 快速队列专属色：成功态用金色（VIP 感），其他状态保持原色
-  const fastColor = status === "success" ? "text-amber-500" : statusText[status];
+  const fastColor = status === 'success' ? 'text-amber-500' : statusText[status]
   return (
-    <span
-      className={cn(
-        "inline-flex items-center",
-        fastColor,
-        pulse && "animate-pulse"
-      )}
-      aria-label="快速队列"
-    >
+    <span className={cn('inline-flex items-center', fastColor, pulse && 'animate-pulse')} aria-label="快速队列">
       <ZapIcon className="size-3" fill="currentColor" />
     </span>
-  );
+  )
 }
 
 function QueueItem({
@@ -90,31 +72,24 @@ function QueueItem({
   healthById,
   fast,
 }: {
-  endpoint: Endpoint;
-  current: string | null;
-  running: boolean;
-  healthById: Map<string, EndpointHealth>;
-  fast?: boolean;
+  endpoint: Endpoint
+  current: string | null
+  running: boolean
+  healthById: Map<string, EndpointHealth>
+  fast?: boolean
 }) {
-  const { status, active, title } = endpointStatus(endpoint, current, running, healthById);
+  const { status, active, title } = endpointStatus(endpoint, current, running, healthById)
   return (
     <li title={title} className="inline-flex items-center gap-1.5">
-      {fast ? (
-        <FastMark status={status} pulse={active && running} />
-      ) : (
-        <StatusDot status={status} pulse={active && running} />
-      )}
+      {fast ? <FastMark status={status} pulse={active && running} /> : <StatusDot status={status} pulse={active && running} />}
       <span
-        className={cn(
-          "rounded-full px-2.5 py-0.5 text-sm transition-all",
-          active ? "font-medium" : "text-ink-primary",
-        )}
+        className={cn('rounded-full px-2.5 py-0.5 text-sm transition-all', active ? 'font-medium' : 'text-ink-primary')}
         style={active ? { backgroundColor: '#E3E9FA', color: '#2756D9' } : undefined}
       >
         {endpoint.name}
       </span>
     </li>
-  );
+  )
 }
 
 function QueueSection({
@@ -124,11 +99,11 @@ function QueueSection({
   running,
   healthById,
 }: {
-  endpoints: Endpoint[];
-  empty: string;
-  current: string | null;
-  running: boolean;
-  healthById: Map<string, EndpointHealth>;
+  endpoints: Endpoint[]
+  empty: string
+  current: string | null
+  running: boolean
+  healthById: Map<string, EndpointHealth>
 }) {
   return (
     <div className="flex flex-col gap-2">
@@ -137,50 +112,29 @@ function QueueSection({
       ) : (
         <ul className="flex flex-wrap gap-2">
           {endpoints.map((endpoint) => (
-            <QueueItem
-              key={endpoint.id}
-              endpoint={endpoint}
-              current={current}
-              running={running}
-              healthById={healthById}
-              fast={endpoint.fast}
-            />
+            <QueueItem key={endpoint.id} endpoint={endpoint} current={current} running={running} healthById={healthById} fast={endpoint.fast} />
           ))}
         </ul>
       )}
     </div>
-  );
+  )
 }
 
-const FAST_QUEUE_DROP_ID = "fast-queue-drop";
-const ENABLED_QUEUE_DROP_ID = "enabled-queue-drop";
+const FAST_QUEUE_DROP_ID = 'fast-queue-drop'
+const ENABLED_QUEUE_DROP_ID = 'enabled-queue-drop'
 
-function DraggableEndpointCard({
-  endpoint,
-  fast,
-  onDoubleClick,
-  onRemove,
-}: {
-  endpoint: Endpoint;
-  fast?: boolean;
-  onDoubleClick: () => void;
-  onRemove?: () => void;
-}) {
-  const { ref, isDragging } = useDraggable({ id: endpoint.id });
+function DraggableEndpointCard({ endpoint, fast, onDoubleClick, onRemove }: { endpoint: Endpoint; fast?: boolean; onDoubleClick: () => void; onRemove?: () => void }) {
+  const { ref, isDragging } = useDraggable({ id: endpoint.id })
 
   return (
     <div
       ref={ref}
       onDoubleClick={onDoubleClick}
       className={cn(
-        "flex cursor-grab select-none items-center gap-2.5 rounded-lg border border-edge-subtle bg-surface-card px-3 py-2.5 text-sm transition-all active:cursor-grabbing",
-        isDragging ? "opacity-40 shadow-lg" : "hover:border-edge-strong hover:shadow-md",
+        'border-edge-subtle bg-surface-card flex cursor-grab items-center gap-2.5 rounded-lg border px-3 py-2.5 text-sm transition-all select-none active:cursor-grabbing',
+        isDragging ? 'opacity-40 shadow-lg' : 'hover:border-edge-strong hover:shadow-md',
       )}
-      title={
-        fast
-          ? "拖动整个端点卡片移出快速队列；双击移出快速队列"
-          : "拖动整个端点卡片加入快速队列；双击加入快速队列"
-      }
+      title={fast ? '拖动整个端点卡片移出快速队列；双击移出快速队列' : '拖动整个端点卡片加入快速队列；双击加入快速队列'}
     >
       {fast ? <FastMark status="success" /> : null}
       <span className="min-w-0 flex-1 truncate font-medium">{endpoint.name}</span>
@@ -189,38 +143,28 @@ function DraggableEndpointCard({
           type="button"
           onClick={onRemove}
           onDoubleClick={(event) => event.stopPropagation()}
-          className="rounded p-1 text-ink-mute transition-colors hover:bg-destructive/10 hover:text-destructive"
+          className="text-ink-mute hover:bg-destructive/10 hover:text-destructive rounded p-1 transition-colors"
           aria-label={`移出快速队列 ${endpoint.name}`}
         >
           <XIcon className="size-4" />
         </button>
       ) : null}
     </div>
-  );
+  )
 }
 
-function FastSortableEndpointCard({
-  endpoint,
-  index,
-  onDoubleClick,
-  onRemove,
-}: {
-  endpoint: Endpoint;
-  index: number;
-  onDoubleClick: () => void;
-  onRemove: () => void;
-}) {
-  const { ref, isDragging, isDropTarget } = useSortable({ id: endpoint.id, index });
+function FastSortableEndpointCard({ endpoint, index, onDoubleClick, onRemove }: { endpoint: Endpoint; index: number; onDoubleClick: () => void; onRemove: () => void }) {
+  const { ref, isDragging, isDropTarget } = useSortable({ id: endpoint.id, index })
 
   return (
     <div
       ref={ref}
       onDoubleClick={onDoubleClick}
       className={cn(
-        "flex cursor-grab select-none items-center gap-2.5 rounded-lg border border-edge-subtle bg-surface-card px-3 py-2.5 text-sm transition-all active:cursor-grabbing",
-        isDragging && "opacity-40 shadow-lg",
-        isDropTarget && "ring-2 ring-primary/50",
-        !isDragging && "hover:border-edge-strong hover:shadow-md",
+        'border-edge-subtle bg-surface-card flex cursor-grab items-center gap-2.5 rounded-lg border px-3 py-2.5 text-sm transition-all select-none active:cursor-grabbing',
+        isDragging && 'opacity-40 shadow-lg',
+        isDropTarget && 'ring-primary/50 ring-2',
+        !isDragging && 'hover:border-edge-strong hover:shadow-md',
       )}
       title="拖动排序或拖到启用队列；双击移出快速队列"
     >
@@ -230,13 +174,13 @@ function FastSortableEndpointCard({
         type="button"
         onClick={onRemove}
         onDoubleClick={(event) => event.stopPropagation()}
-        className="rounded p-1 text-ink-mute transition-colors hover:bg-destructive/10 hover:text-destructive"
+        className="text-ink-mute hover:bg-destructive/10 hover:text-destructive rounded p-1 transition-colors"
         aria-label={`移出快速队列 ${endpoint.name}`}
       >
         <XIcon className="size-4" />
       </button>
     </div>
-  );
+  )
 }
 
 function FastQueueTransfer({
@@ -245,34 +189,28 @@ function FastQueueTransfer({
   moveIntoFast,
   remove,
 }: {
-  fastQueue: Endpoint[];
-  enabledQueue: Endpoint[];
-  moveIntoFast: (id: number) => void;
-  remove: (id: number) => void;
+  fastQueue: Endpoint[]
+  enabledQueue: Endpoint[]
+  moveIntoFast: (id: number) => void
+  remove: (id: number) => void
 }) {
-  const fastDrop = useDroppable({ id: FAST_QUEUE_DROP_ID });
-  const enabledDrop = useDroppable({ id: ENABLED_QUEUE_DROP_ID });
+  const fastDrop = useDroppable({ id: FAST_QUEUE_DROP_ID })
+  const enabledDrop = useDroppable({ id: ENABLED_QUEUE_DROP_ID })
 
   return (
     <div className="grid gap-6 md:grid-cols-2">
       <section
         ref={fastDrop.ref}
         className={cn(
-          "flex h-[45vh] flex-col rounded-lg border bg-surface-card transition-all",
-          fastDrop.isDropTarget
-            ? "border-primary/50 bg-primary-glow ring-2 ring-primary/30"
-            : "border-edge",
+          'bg-surface-card flex h-[45vh] flex-col rounded-lg border transition-all',
+          fastDrop.isDropTarget ? 'border-primary/50 bg-primary-glow ring-primary/30 ring-2' : 'border-edge',
         )}
       >
-        <div className="sticky top-0 z-10 flex items-center gap-2 rounded-t-lg border-b border-edge-subtle bg-surface-card px-4 py-3">
+        <div className="border-edge-subtle bg-surface-card sticky top-0 z-10 flex items-center gap-2 rounded-t-lg border-b px-4 py-3">
           <h3 className={panelTitleClass}>快速队列</h3>
           <Popover>
             <PopoverTrigger asChild>
-              <button
-                type="button"
-                className="inline-flex text-ink-mute transition-colors hover:text-ink-secondary"
-                aria-label="快速队列用法说明"
-              >
+              <button type="button" className="text-ink-mute hover:text-ink-secondary inline-flex transition-colors" aria-label="快速队列用法说明">
                 <HelpCircleIcon className="size-3.5" />
               </button>
             </PopoverTrigger>
@@ -285,13 +223,13 @@ function FastQueueTransfer({
               </div>
             </PopoverContent>
           </Popover>
-          <span className="ml-auto rounded-md bg-surface-raised px-2 py-0.5 text-xs">
+          <span className="bg-surface-raised ml-auto rounded-md px-2 py-0.5 text-xs">
             <TabularText>{fastQueue.length}</TabularText>
           </span>
         </div>
-        <div className="flex-1 overflow-y-auto p-4 scrollbar-none">
+        <div className="flex-1 scrollbar-none overflow-y-auto p-4">
           {fastQueue.length === 0 ? (
-            <div className="flex h-full items-center justify-center rounded-lg border-2 border-dashed border-edge-subtle bg-surface/40 p-6">
+            <div className="border-edge-subtle bg-surface/40 flex h-full items-center justify-center rounded-lg border-2 border-dashed p-6">
               <p className={`text-center ${emptyClass}`}>
                 从右侧拖入启用端点
                 <br />
@@ -301,13 +239,7 @@ function FastQueueTransfer({
           ) : (
             <div className="flex flex-col gap-2">
               {fastQueue.map((endpoint, index) => (
-                <FastSortableEndpointCard
-                  key={endpoint.id}
-                  endpoint={endpoint}
-                  index={index}
-                  onDoubleClick={() => remove(endpoint.id)}
-                  onRemove={() => remove(endpoint.id)}
-                />
+                <FastSortableEndpointCard key={endpoint.id} endpoint={endpoint} index={index} onDoubleClick={() => remove(endpoint.id)} onRemove={() => remove(endpoint.id)} />
               ))}
             </div>
           )}
@@ -317,21 +249,19 @@ function FastQueueTransfer({
       <section
         ref={enabledDrop.ref}
         className={cn(
-          "flex h-[45vh] flex-col rounded-lg border bg-surface-card transition-all",
-          enabledDrop.isDropTarget
-            ? "border-primary/50 bg-primary-glow ring-2 ring-primary/30"
-            : "border-edge",
+          'bg-surface-card flex h-[45vh] flex-col rounded-lg border transition-all',
+          enabledDrop.isDropTarget ? 'border-primary/50 bg-primary-glow ring-primary/30 ring-2' : 'border-edge',
         )}
       >
-        <div className="sticky top-0 z-10 flex items-center gap-2 rounded-t-lg border-b border-edge-subtle bg-surface-card px-4 py-3">
+        <div className="border-edge-subtle bg-surface-card sticky top-0 z-10 flex items-center gap-2 rounded-t-lg border-b px-4 py-3">
           <h3 className={panelTitleClass}>启用队列</h3>
-          <span className="ml-auto rounded-md bg-surface-raised px-2 py-0.5 text-xs">
+          <span className="bg-surface-raised ml-auto rounded-md px-2 py-0.5 text-xs">
             <TabularText>{enabledQueue.length}</TabularText>
           </span>
         </div>
-        <div className="flex-1 overflow-y-auto p-4 scrollbar-none">
+        <div className="flex-1 scrollbar-none overflow-y-auto p-4">
           {enabledQueue.length === 0 ? (
-            <div className="flex h-full items-center justify-center rounded-lg border-2 border-dashed border-edge-subtle bg-surface/40 p-6">
+            <div className="border-edge-subtle bg-surface/40 flex h-full items-center justify-center rounded-lg border-2 border-dashed p-6">
               <p className={`text-center ${emptyClass}`}>
                 启用队列暂无可加入
                 <br />
@@ -341,18 +271,14 @@ function FastQueueTransfer({
           ) : (
             <div className="flex flex-col gap-2">
               {enabledQueue.map((endpoint) => (
-                <DraggableEndpointCard
-                  key={endpoint.id}
-                  endpoint={endpoint}
-                  onDoubleClick={() => moveIntoFast(endpoint.id)}
-                />
+                <DraggableEndpointCard key={endpoint.id} endpoint={endpoint} onDoubleClick={() => moveIntoFast(endpoint.id)} />
               ))}
             </div>
           )}
         </div>
       </section>
     </div>
-  );
+  )
 }
 
 function FastQueueDialog({
@@ -361,35 +287,35 @@ function FastQueueDialog({
   fastQueue,
   enabledQueue,
 }: {
-  open: boolean;
-  onOpenChange: (open: boolean) => void;
-  fastQueue: Endpoint[];
-  enabledQueue: Endpoint[];
+  open: boolean
+  onOpenChange: (open: boolean) => void
+  fastQueue: Endpoint[]
+  enabledQueue: Endpoint[]
 }) {
-  const qc = useQueryClient();
-  const fastIds = fastQueue.map((e) => e.id);
+  const qc = useQueryClient()
+  const fastIds = fastQueue.map((e) => e.id)
 
   const save = useMutation({
     mutationFn: async (nextIds: number[]) => endpointApi.reorderFast(nextIds),
-    onSuccess: () => qc.invalidateQueries({ queryKey: ["endpoints"] }),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['endpoints'] }),
     onError: (e) => toast.error(e instanceof Error ? e.message : String(e)),
-  });
+  })
 
   const setFast = useMutation({
     mutationFn: async ({ id, fast, order }: { id: number; fast: boolean; order?: number[] }) => {
-      await endpointApi.update(id, { fast });
-      if (order) await endpointApi.reorderFast(order);
+      await endpointApi.update(id, { fast })
+      if (order) await endpointApi.reorderFast(order)
     },
-    onSuccess: () => qc.invalidateQueries({ queryKey: ["endpoints"] }),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['endpoints'] }),
     onError: (e) => toast.error(e instanceof Error ? e.message : String(e)),
-  });
+  })
 
   const moveIntoFast = (id: number) => {
-    setFast.mutate({ id, fast: true, order: appendFastId(fastIds, id) });
-  };
+    setFast.mutate({ id, fast: true, order: appendFastId(fastIds, id) })
+  }
   const remove = (id: number) => {
-    setFast.mutate({ id, fast: false, order: removeFastId(fastIds, id) });
-  };
+    setFast.mutate({ id, fast: false, order: removeFastId(fastIds, id) })
+  }
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -400,42 +326,34 @@ function FastQueueDialog({
         <div className="overflow-y-auto">
           <DragDropProvider
             onDragEnd={(event) => {
-              if (event.canceled) return;
-              const sourceId = event.operation.source?.id;
-              const targetId = event.operation.target?.id;
-              if (typeof sourceId !== "number") return;
+              if (event.canceled) return
+              const sourceId = event.operation.source?.id
+              const targetId = event.operation.target?.id
+              if (typeof sourceId !== 'number') return
               if (targetId === ENABLED_QUEUE_DROP_ID && fastIds.includes(sourceId)) {
-                remove(sourceId);
-                return;
+                remove(sourceId)
+                return
               }
-              const sourceIsFast = fastIds.includes(sourceId);
-              const targetFastId =
-                typeof targetId === "number" && fastIds.includes(targetId) ? targetId : undefined;
+              const sourceIsFast = fastIds.includes(sourceId)
+              const targetFastId = typeof targetId === 'number' && fastIds.includes(targetId) ? targetId : undefined
               if (sourceIsFast && targetFastId !== undefined) {
-                const next = move(fastQueue, event).map((endpoint) => endpoint.id);
-                if (next.some((id, index) => id !== fastIds[index])) save.mutate(next);
-                return;
+                const next = move(fastQueue, event).map((endpoint) => endpoint.id)
+                if (next.some((id, index) => id !== fastIds[index])) save.mutate(next)
+                return
               }
               if (targetId === FAST_QUEUE_DROP_ID || targetFastId !== undefined) {
-                const withSource = appendFastId(fastIds, sourceId);
-                const next = targetFastId
-                  ? reorderFastIds(withSource, sourceId, targetFastId)
-                  : withSource;
-                setFast.mutate({ id: sourceId, fast: true, order: next });
+                const withSource = appendFastId(fastIds, sourceId)
+                const next = targetFastId ? reorderFastIds(withSource, sourceId, targetFastId) : withSource
+                setFast.mutate({ id: sourceId, fast: true, order: next })
               }
             }}
           >
-            <FastQueueTransfer
-              fastQueue={fastQueue}
-              enabledQueue={enabledQueue}
-              moveIntoFast={moveIntoFast}
-              remove={remove}
-            />
+            <FastQueueTransfer fastQueue={fastQueue} enabledQueue={enabledQueue} moveIntoFast={moveIntoFast} remove={remove} />
           </DragDropProvider>
         </div>
       </DialogContent>
     </Dialog>
-  );
+  )
 }
 
 /**
@@ -444,82 +362,77 @@ function FastQueueDialog({
  * 右卡=本地代理信息 + 开关 + 端口跳设置，叠加雪山日落场景（开启太阳升起、关闭落下）。
  */
 export function ServiceCard() {
-  const qc = useQueryClient();
-  const { data: status } = useProxyStatus();
-  const { data: endpointList } = useEndpoints();
-  const setActiveView = useLayoutStore((s) => s.setActiveView);
-  const { resolvedTheme } = useTheme();
-  const dark = resolvedTheme === "dark";
-  const [fastEditorOpen, setFastEditorOpen] = useState(false);
+  const qc = useQueryClient()
+  const { data: status } = useProxyStatus()
+  const { data: endpointList } = useEndpoints()
+  const setActiveView = useLayoutStore((s) => s.setActiveView)
+  const { resolvedTheme } = useTheme()
+  const dark = resolvedTheme === 'dark'
+  const [fastEditorOpen, setFastEditorOpen] = useState(false)
   // 最近一条请求明细对应的端点（与实时监控同源，第一时间反映轮换/故障转移）。
-  const [liveEndpoint, setLiveEndpoint] = useState<string | null>(null);
+  const [liveEndpoint, setLiveEndpoint] = useState<string | null>(null)
   // 端点实时健康/熔断态；健康/端点变更事件到达即刷新（共享 hook 统一订阅）。
-  useEndpointHealthEvents();
-  const { data: epHealth } = useEndpointHealth();
+  useEndpointHealthEvents()
+  const { data: epHealth } = useEndpointHealth()
   const healthById = useMemo(() => {
-    const byId = new Map<string, EndpointHealth>();
-    for (const health of epHealth ?? []) byId.set(health.endpointId, health);
-    return byId;
-  }, [epHealth]);
-  const { fastQueue, enabledQueue } = useMemo(
-    () => splitEndpointQueues(endpointList ?? []),
-    [endpointList],
-  );
-  const allQueueEndpoints = useMemo(
-    () => [...fastQueue, ...enabledQueue],
-    [fastQueue, enabledQueue],
-  );
+    const byId = new Map<string, EndpointHealth>()
+    for (const health of epHealth ?? []) byId.set(health.endpointId, health)
+    return byId
+  }, [epHealth])
+  const { fastQueue, enabledQueue } = useMemo(() => splitEndpointQueues(endpointList ?? []), [endpointList])
+  const allQueueEndpoints = useMemo(() => [...fastQueue, ...enabledQueue], [fastQueue, enabledQueue])
 
   // 实时高亮：新请求明细到达即更新当前工作端点（与下方实时监控同一事件源）。
   useEffect(() => {
-    let un: (() => void) | undefined;
-    statsApi.onRequestLogged((log) => setLiveEndpoint(log.endpointId)).then((u) => {
-      un = u;
-    });
-    return () => un?.();
-  }, []);
+    let un: (() => void) | undefined
+    statsApi
+      .onRequestLogged((log) => setLiveEndpoint(log.endpointId))
+      .then((u) => {
+        un = u
+      })
+    return () => un?.()
+  }, [])
 
-  const running = status?.running ?? false;
+  const running = status?.running ?? false
   // 停机后清空实时端点，避免重启后短暂高亮上次的陈旧端点。
   useEffect(() => {
-    if (!running) setLiveEndpoint(null);
-  }, [running]);
+    if (!running) setLiveEndpoint(null)
+  }, [running])
 
   // 优先用最近请求明细的端点；回退代理状态；停机不高亮。
-  const current = running ? liveEndpoint ?? status?.currentEndpointId ?? null : null;
-  const gatewayUrl =
-    status?.port != null ? `http://127.0.0.1:${status.port}` : null;
+  const current = running ? (liveEndpoint ?? status?.currentEndpointId ?? null) : null
+  const gatewayUrl = status?.port != null ? `http://127.0.0.1:${status.port}` : null
 
   const copyGateway = async () => {
-    if (!gatewayUrl) return;
+    if (!gatewayUrl) return
     try {
       if (navigator.clipboard?.writeText) {
-        await navigator.clipboard.writeText(gatewayUrl);
+        await navigator.clipboard.writeText(gatewayUrl)
       } else {
-        const ta = document.createElement("textarea");
-        ta.value = gatewayUrl;
-        ta.style.position = "fixed";
-        ta.style.opacity = "0";
-        document.body.appendChild(ta);
-        ta.select();
-        document.execCommand("copy");
-        document.body.removeChild(ta);
+        const ta = document.createElement('textarea')
+        ta.value = gatewayUrl
+        ta.style.position = 'fixed'
+        ta.style.opacity = '0'
+        document.body.appendChild(ta)
+        ta.select()
+        document.execCommand('copy')
+        document.body.removeChild(ta)
       }
-      toast.success("已复制代理信息");
+      toast.success('已复制代理信息')
     } catch {
-      toast.error("复制失败");
+      toast.error('复制失败')
     }
-  };
+  }
 
   const toggle = async (next: boolean) => {
     try {
-      const s = next ? await proxyApi.start() : await proxyApi.stop();
-      qc.invalidateQueries({ queryKey: ["proxy-status"] });
-      toast.success(next ? `代理已启动 · 端口 ${s.port}` : "代理已停止");
+      const s = next ? await proxyApi.start() : await proxyApi.stop()
+      qc.invalidateQueries({ queryKey: ['proxy-status'] })
+      toast.success(next ? `代理已启动 · 端口 ${s.port}` : '代理已停止')
     } catch (e) {
-      toast.error(`操作失败：${e instanceof Error ? e.message : String(e)}`);
+      toast.error(`操作失败：${e instanceof Error ? e.message : String(e)}`)
     }
-  };
+  }
 
   return (
     <>
@@ -534,25 +447,12 @@ export function ServiceCard() {
                   <TabularText>{allQueueEndpoints.length}</TabularText>
                 </span>
               </div>
-              <Button
-                type="button"
-                size="xs"
-                variant="ghost"
-                onClick={() => setFastEditorOpen(true)}
-                className="h-auto p-1"
-                aria-label="编辑快速队列"
-              >
+              <Button type="button" size="xs" variant="ghost" onClick={() => setFastEditorOpen(true)} className="h-auto p-1" aria-label="编辑快速队列">
                 <ZapIcon className="size-4" />
               </Button>
             </div>
 
-            <QueueSection
-              endpoints={allQueueEndpoints}
-              empty="暂无启用端点"
-              current={current}
-              running={running}
-              healthById={healthById}
-            />
+            <QueueSection endpoints={allQueueEndpoints} empty="暂无启用端点" current={current} running={running} healthById={healthById} />
           </CardContent>
         </Card>
 
@@ -563,18 +463,14 @@ export function ServiceCard() {
           <div
             aria-hidden
             className={cn(
-              "pointer-events-none absolute inset-0 z-[5]",
-              dark
-                ? "bg-gradient-to-t from-black/45 via-black/5 to-black/15"
-                : "bg-gradient-to-t from-white/60 via-white/5 to-white/40",
+              'pointer-events-none absolute inset-0 z-[5]',
+              dark ? 'bg-gradient-to-t from-black/45 via-black/5 to-black/15' : 'bg-gradient-to-t from-white/60 via-white/5 to-white/40',
             )}
           />
           <CardContent
             className={cn(
-              "relative z-10 flex h-full flex-col justify-between gap-3 px-5 py-4",
-              dark
-                ? "text-white [text-shadow:0_1px_3px_rgba(0,0,0,0.55)]"
-                : "text-slate-800 [text-shadow:0_1px_2px_rgba(255,255,255,0.7)]",
+              'relative z-10 flex h-full flex-col justify-between gap-3 px-5 py-4',
+              dark ? 'text-white [text-shadow:0_1px_3px_rgba(0,0,0,0.55)]' : 'text-slate-800 [text-shadow:0_1px_2px_rgba(255,255,255,0.7)]',
             )}
           >
             <div className="flex flex-col gap-1.5">
@@ -582,16 +478,11 @@ export function ServiceCard() {
               <div className="flex items-center gap-1.5 self-start">
                 <button
                   type="button"
-                  onClick={() => setActiveView("settings")}
-                  className={cn(
-                    "cursor-pointer text-xs transition-colors hover:opacity-90",
-                    dark
-                      ? "text-white/85 hover:text-white"
-                      : "text-slate-600 hover:text-slate-900",
-                  )}
+                  onClick={() => setActiveView('settings')}
+                  className={cn('cursor-pointer text-xs transition-colors hover:opacity-90', dark ? 'text-white/85 hover:text-white' : 'text-slate-600 hover:text-slate-900')}
                   title="前往设置修改端口"
                 >
-                  端口 <TabularText>{status?.port ?? "—"}</TabularText>
+                  端口 <TabularText>{status?.port ?? '—'}</TabularText>
                 </button>
                 {gatewayUrl ? (
                   <Tooltip>
@@ -599,12 +490,7 @@ export function ServiceCard() {
                       <button
                         type="button"
                         onClick={copyGateway}
-                        className={cn(
-                          "inline-flex shrink-0 transition-colors",
-                          dark
-                            ? "text-white/85 hover:text-white"
-                            : "text-slate-600 hover:text-slate-900",
-                        )}
+                        className={cn('inline-flex shrink-0 transition-colors', dark ? 'text-white/85 hover:text-white' : 'text-slate-600 hover:text-slate-900')}
                         aria-label="复制代理信息"
                       >
                         <CopyIcon className="size-3" />
@@ -616,25 +502,14 @@ export function ServiceCard() {
               </div>
             </div>
             <div className="flex items-center justify-between gap-2">
-              <span className={cn("text-xs", dark ? "text-white/85" : "text-slate-600")}>
-                {running ? "运行中" : "已停止"}
-              </span>
-              <Switch
-                checked={running}
-                onCheckedChange={toggle}
-                aria-label="代理开关"
-              />
+              <span className={cn('text-xs', dark ? 'text-white/85' : 'text-slate-600')}>{running ? '运行中' : '已停止'}</span>
+              <Switch checked={running} onCheckedChange={toggle} aria-label="代理开关" />
             </div>
           </CardContent>
         </Card>
       </div>
 
-      <FastQueueDialog
-        open={fastEditorOpen}
-        onOpenChange={setFastEditorOpen}
-        fastQueue={fastQueue}
-        enabledQueue={enabledQueue}
-      />
+      <FastQueueDialog open={fastEditorOpen} onOpenChange={setFastEditorOpen} fastQueue={fastQueue} enabledQueue={enabledQueue} />
     </>
-  );
+  )
 }

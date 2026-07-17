@@ -1,18 +1,18 @@
-import { useEffect } from "react";
-import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { useEffect } from 'react'
+import { useQuery, useQueryClient } from '@tanstack/react-query'
 
-import { statsApi } from "@/services/modules/stats";
+import { statsApi } from '@/services/modules/stats'
 
-export type RequestLogsMode = "live" | "ranged";
+export type RequestLogsMode = 'live' | 'ranged'
 
 export interface RequestLogsParams {
   /** live：事件驱动实时刷新；ranged：时间段 + 分页查询。 */
-  mode: RequestLogsMode;
-  startMs?: number;
-  endMs?: number;
-  endpointFilter?: string;
-  page: number;
-  pageSize: number;
+  mode: RequestLogsMode
+  startMs?: number
+  endMs?: number
+  endpointFilter?: string
+  page: number
+  pageSize: number
 }
 
 /**
@@ -20,15 +20,7 @@ export interface RequestLogsParams {
  * 可选段用 null 强制稳定锚点，避免 undefined 与具体值混用导致 key 漂移。
  */
 export function requestLogsKey(p: RequestLogsParams): readonly unknown[] {
-  return [
-    "request-logs",
-    p.mode,
-    p.startMs ?? null,
-    p.endMs ?? null,
-    p.endpointFilter ?? null,
-    p.page,
-    p.pageSize,
-  ];
+  return ['request-logs', p.mode, p.startMs ?? null, p.endMs ?? null, p.endpointFilter ?? null, p.page, p.pageSize]
 }
 
 /**
@@ -36,23 +28,23 @@ export function requestLogsKey(p: RequestLogsParams): readonly unknown[] {
  * 避免打断翻页浏览。统计页 ranged 与仪表盘 live 复用同一 hook。
  */
 export function useRequestLogs(params: RequestLogsParams) {
-  const qc = useQueryClient();
-  const { mode, startMs, endMs, endpointFilter, page, pageSize } = params;
+  const qc = useQueryClient()
+  const { mode, startMs, endMs, endpointFilter, page, pageSize } = params
 
   useEffect(() => {
-    if (mode !== "live") return;
-    let un: (() => void) | undefined;
+    if (mode !== 'live') return
+    let un: (() => void) | undefined
     statsApi
       .onRequestLogged(() => {
         if (page === 1) {
-          qc.invalidateQueries({ queryKey: ["request-logs", "live"] });
+          qc.invalidateQueries({ queryKey: ['request-logs', 'live'] })
         }
       })
       .then((u) => {
-        un = u;
-      });
-    return () => un?.();
-  }, [mode, page, qc]);
+        un = u
+      })
+    return () => un?.()
+  }, [mode, page, qc])
 
   return useQuery({
     queryKey: requestLogsKey(params),
@@ -64,5 +56,5 @@ export function useRequestLogs(params: RequestLogsParams) {
         page,
         pageSize,
       }),
-  });
+  })
 }

@@ -41,17 +41,17 @@ function EndpointQualityTimeline({ quality, bucketCount, variant }: { quality: E
 
   return (
     <div className="endpoint-quality-strip flex w-max min-w-0 flex-col gap-1">
-      <div className="grid h-4 grid-cols-3 items-center whitespace-nowrap text-[10px] leading-4 text-ink-secondary" style={{ width: `${trackWidth}px` }}>
+      <div className="text-ink-secondary grid h-4 grid-cols-3 items-center text-[10px] leading-4 whitespace-nowrap" style={{ width: `${trackWidth}px` }}>
         <span className="text-left">
-          <span className="mr-0.5 text-ink-mute">总数</span>
+          <span className="text-ink-mute mr-0.5">总数</span>
           <TabularText>{(quality?.total ?? 0).toLocaleString()}</TabularText>
         </span>
         <span className="text-center">
-          <span className="mr-0.5 text-ink-mute">成功</span>
+          <span className="text-ink-mute mr-0.5">成功</span>
           <TabularText className={quality && quality.successCount > 0 ? 'text-success' : undefined}>{quality?.successCount ?? 0}</TabularText>
         </span>
         <span className="text-right">
-          <span className="mr-0.5 text-ink-mute">失败</span>
+          <span className="text-ink-mute mr-0.5">失败</span>
           <TabularText className={quality && quality.failureCount > 0 ? 'text-destructive' : undefined}>{quality?.failureCount ?? 0}</TabularText>
         </span>
       </div>
@@ -66,9 +66,9 @@ function EndpointQualityTimeline({ quality, bucketCount, variant }: { quality: E
               return (
                 <Tooltip key={index}>
                   <TooltipTrigger asChild>
-                    <span className="rounded-full bg-edge-strong" />
+                    <span className="bg-edge-strong rounded-full" />
                   </TooltipTrigger>
-                  <TooltipContent sideOffset={6} className="max-w-none whitespace-nowrap px-2 py-1 text-[11px] leading-4">
+                  <TooltipContent sideOffset={6} className="max-w-none px-2 py-1 text-[11px] leading-4 whitespace-nowrap">
                     代理启动后开始记录
                   </TooltipContent>
                 </Tooltip>
@@ -82,7 +82,7 @@ function EndpointQualityTimeline({ quality, bucketCount, variant }: { quality: E
                 <TooltipTrigger asChild>
                   <span className={cn('rounded-full transition-opacity [@media(hover:hover)]:hover:opacity-70', blockTone(block))} />
                 </TooltipTrigger>
-                <TooltipContent sideOffset={6} className="max-w-none whitespace-nowrap px-2 py-1 text-[11px] leading-4">
+                <TooltipContent sideOffset={6} className="max-w-none px-2 py-1 text-[11px] leading-4 whitespace-nowrap">
                   {formatBucketTime(slotStartMs)}-{formatBucketTime(slotEndMs)} · {blockDetail(block)}
                 </TooltipContent>
               </Tooltip>

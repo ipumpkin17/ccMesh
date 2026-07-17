@@ -1,16 +1,16 @@
-import type { ReactNode } from "react";
+import type { ReactNode } from 'react'
 
-import { TabularText } from "@/components/ui";
-import { Card, CardContent } from "@/components/ui/card";
-import { formatTokenCompact } from "@/lib/format";
-import { metaClass } from "@/lib/typography";
+import { TabularText } from '@/components/ui'
+import { Card, CardContent } from '@/components/ui/card'
+import { formatTokenCompact } from '@/lib/format'
+import { metaClass } from '@/lib/typography'
 
 interface Props {
-  label: string;
-  value: number | string;
-  hint?: ReactNode;
+  label: string
+  value: number | string
+  hint?: ReactNode
   /** true 时辅助提示在数值下方（垂直堆叠）；默认在右侧（水平）。 */
-  hintBelow?: boolean;
+  hintBelow?: boolean
 }
 
 /** 跨页面业务卡片：标签 + 大号数值 + 可选提示（Statistics / Dashboard 共用）。 */
@@ -19,19 +19,13 @@ export function StatCard({ label, value, hint, hintBelow = false }: Props) {
     <Card>
       <CardContent className="flex flex-col gap-1.5 px-5 py-4">
         <span className={metaClass}>{label}</span>
-        <div
-          className={
-            hintBelow
-              ? "flex flex-col gap-0.5"
-              : "flex items-center justify-between gap-2"
-          }
-        >
-          <TabularText className="text-2xl text-foreground">{value}</TabularText>
+        <div className={hintBelow ? 'flex flex-col gap-0.5' : 'flex items-center justify-between gap-2'}>
+          <TabularText className="text-foreground text-2xl">{value}</TabularText>
           {hint}
         </div>
       </CardContent>
     </Card>
-  );
+  )
 }
 
 /**
@@ -39,8 +33,6 @@ export function StatCard({ label, value, hint, hintBelow = false }: Props) {
  * 否则精确值本身已足够清晰。用作 `StatCard` 的 `hint`。
  */
 export function TokenHint({ value }: { value: number }) {
-  if (value < 1e4) return null;
-  return (
-    <span className={metaClass}>{formatTokenCompact(value)}</span>
-  );
+  if (value < 1e4) return null
+  return <span className={metaClass}>{formatTokenCompact(value)}</span>
 }

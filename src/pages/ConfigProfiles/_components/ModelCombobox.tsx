@@ -1,59 +1,52 @@
-import { useEffect, useRef, useState } from "react";
-import { ChevronDownIcon, SearchIcon } from "lucide-react";
+import { useEffect, useRef, useState } from 'react'
+import { ChevronDownIcon, SearchIcon } from 'lucide-react'
 
-import { Input } from "@/components/ui/input";
-import { cn } from "@/lib/utils";
+import { Input } from '@/components/ui/input'
+import { cn } from '@/lib/utils'
 
 interface Props {
-  value: string;
-  onChange: (v: string) => void;
+  value: string
+  onChange: (v: string) => void
   /** 可选模型列表（对外暴露的模型）。 */
-  options: string[];
-  placeholder?: string;
-  id?: string;
+  options: string[]
+  placeholder?: string
+  id?: string
   /** 根容器额外 class（如 flex-1）。 */
-  className?: string;
+  className?: string
 }
 
 /**
  * 模型输入框：主输入框直接编辑值（自由输入，不参与过滤）；
  * 点击右侧 ⌄ 展开下拉，下拉**顶部独立搜索框**用于检索候选模型，互不影响。
  */
-export function ModelCombobox({
-  value,
-  onChange,
-  options,
-  placeholder,
-  id,
-  className,
-}: Props) {
-  const [open, setOpen] = useState(false);
-  const [query, setQuery] = useState("");
-  const [autoFocusSearch, setAutoFocusSearch] = useState(false);
-  const rootRef = useRef<HTMLDivElement>(null);
+export function ModelCombobox({ value, onChange, options, placeholder, id, className }: Props) {
+  const [open, setOpen] = useState(false)
+  const [query, setQuery] = useState('')
+  const [autoFocusSearch, setAutoFocusSearch] = useState(false)
+  const rootRef = useRef<HTMLDivElement>(null)
 
   const openMenu = (focusSearch: boolean) => {
-    setQuery("");
-    setAutoFocusSearch(focusSearch);
-    setOpen(true);
-  };
+    setQuery('')
+    setAutoFocusSearch(focusSearch)
+    setOpen(true)
+  }
 
   useEffect(() => {
-    if (!open) return;
+    if (!open) return
     const onDocDown = (e: MouseEvent) => {
       if (rootRef.current && !rootRef.current.contains(e.target as Node)) {
-        setOpen(false);
+        setOpen(false)
       }
-    };
-    document.addEventListener("mousedown", onDocDown);
-    return () => document.removeEventListener("mousedown", onDocDown);
-  }, [open]);
+    }
+    document.addEventListener('mousedown', onDocDown)
+    return () => document.removeEventListener('mousedown', onDocDown)
+  }, [open])
 
-  const q = query.trim().toLowerCase();
-  const list = q ? options.filter((o) => o.toLowerCase().includes(q)) : options;
+  const q = query.trim().toLowerCase()
+  const list = q ? options.filter((o) => o.toLowerCase().includes(q)) : options
 
   return (
-    <div ref={rootRef} className={cn("relative", className)}>
+    <div ref={rootRef} className={cn('relative', className)}>
       <Input
         id={id}
         value={value}
@@ -69,43 +62,37 @@ export function ModelCombobox({
         tabIndex={-1}
         aria-label="选择模型"
         onClick={() => (open ? setOpen(false) : openMenu(true))}
-        className="absolute inset-y-0 right-0 flex items-center px-2.5 text-ink-mute hover:text-ink-secondary"
+        className="text-ink-mute hover:text-ink-secondary absolute inset-y-0 right-0 flex items-center px-2.5"
       >
-        <ChevronDownIcon
-          className={cn("size-4 transition-transform", open && "rotate-180")}
-        />
+        <ChevronDownIcon className={cn('size-4 transition-transform', open && 'rotate-180')} />
       </button>
       {open && (
-        <div className="absolute z-50 mt-1 w-full overflow-hidden rounded-md border border-edge bg-popover text-popover-foreground shadow-level-2">
-          <div className="flex items-center gap-1.5 border-b border-edge px-2.5 py-1.5">
-            <SearchIcon className="size-3.5 shrink-0 text-ink-mute" />
+        <div className="border-edge bg-popover text-popover-foreground shadow-level-2 absolute z-50 mt-1 w-full overflow-hidden rounded-md border">
+          <div className="border-edge flex items-center gap-1.5 border-b px-2.5 py-1.5">
+            <SearchIcon className="text-ink-mute size-3.5 shrink-0" />
             <input
               autoFocus={autoFocusSearch}
               value={query}
               onChange={(e) => setQuery(e.target.value)}
               placeholder="搜索模型…"
-              className="w-full bg-transparent text-sm text-ink-primary outline-none placeholder:text-ink-mute"
+              className="text-ink-primary placeholder:text-ink-mute w-full bg-transparent text-sm outline-none"
             />
           </div>
           <ul className="max-h-48 overflow-auto py-1">
             {list.length === 0 ? (
-              <li className="px-3 py-2 text-center text-xs text-ink-mute">
-                无匹配模型
-              </li>
+              <li className="text-ink-mute px-3 py-2 text-center text-xs">无匹配模型</li>
             ) : (
               list.map((opt) => (
                 <li key={opt}>
                   <button
                     type="button"
                     onClick={() => {
-                      onChange(opt);
-                      setOpen(false);
+                      onChange(opt)
+                      setOpen(false)
                     }}
                     className={cn(
-                      "block w-full truncate px-3 py-1.5 text-left text-sm transition-colors hover:bg-surface-hover hover:text-ink-primary",
-                      opt === value
-                        ? "bg-surface-hover font-medium text-primary"
-                        : "text-ink-secondary",
+                      'hover:bg-surface-hover hover:text-ink-primary block w-full truncate px-3 py-1.5 text-left text-sm transition-colors',
+                      opt === value ? 'bg-surface-hover text-primary font-medium' : 'text-ink-secondary',
                     )}
                   >
                     {opt}
@@ -117,5 +104,5 @@ export function ModelCombobox({
         </div>
       )}
     </div>
-  );
+  )
 }

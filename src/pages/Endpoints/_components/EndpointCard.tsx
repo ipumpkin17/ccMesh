@@ -118,14 +118,14 @@ export function EndpointCard({ endpoint, onEdit, draggable, dragHandleRef, view 
     draggable && dragHandleRef ? (
       <Tooltip>
         <TooltipTrigger asChild>
-          <span ref={dragHandleRef} aria-label="拖动以排序" className="shrink-0 cursor-grab touch-none text-ink-mute">
+          <span ref={dragHandleRef} aria-label="拖动以排序" className="text-ink-mute shrink-0 cursor-grab touch-none">
             <GripVerticalIcon className="size-4" />
           </span>
         </TooltipTrigger>
         <TooltipContent>拖动以排序</TooltipContent>
       </Tooltip>
     ) : (
-      <GripVerticalIcon className="size-4 shrink-0 text-ink-disabled" />
+      <GripVerticalIcon className="text-ink-disabled size-4 shrink-0" />
     )
 
   const enableSwitch = (
@@ -159,15 +159,15 @@ export function EndpointCard({ endpoint, onEdit, draggable, dragHandleRef, view 
           <TooltipContent>测试连通性</TooltipContent>
         </Tooltip>
         <PopoverContent align="end" className="w-56 p-2">
-          <p className="mb-1.5 px-1 text-xs text-ink-mute">选择测试模型</p>
-          <div className="scrollbar-none flex max-h-60 flex-col gap-1 overflow-auto">
+          <p className="text-ink-mute mb-1.5 px-1 text-xs">选择测试模型</p>
+          <div className="flex max-h-60 scrollbar-none flex-col gap-1 overflow-auto">
             {testModels.map((model) => {
               const ModelIcon = getModelIcon(model)
               return (
                 <button
                   key={model}
                   type="button"
-                  className="flex min-w-0 cursor-pointer items-center gap-1.5 rounded px-2 py-1 text-left text-xs hover:bg-surface-hover"
+                  className="hover:bg-surface-hover flex min-w-0 cursor-pointer items-center gap-1.5 rounded px-2 py-1 text-left text-xs"
                   onClick={() => {
                     setTestOpen(false)
                     test.mutate(model)
@@ -215,7 +215,7 @@ export function EndpointCard({ endpoint, onEdit, draggable, dragHandleRef, view 
           <DialogHeader>
             <DialogTitle>删除端点</DialogTitle>
           </DialogHeader>
-          <p className="text-sm text-ink-secondary">
+          <p className="text-ink-secondary text-sm">
             确定删除端点「<span className="font-medium">{endpoint.name}</span>」吗？此操作不可撤销。
           </p>
           <DialogFooter>
@@ -252,11 +252,11 @@ export function EndpointCard({ endpoint, onEdit, draggable, dragHandleRef, view 
   )
 
   const meta = (
-    <span className="flex min-w-0 items-center text-xs text-ink-secondary">
+    <span className="text-ink-secondary flex min-w-0 items-center text-xs">
       <span
         role="link"
         tabIndex={0}
-        className="cursor-pointer truncate text-left hover:text-primary"
+        className="hover:text-primary cursor-pointer truncate text-left"
         title={`在浏览器打开 ${endpoint.apiUrl}`}
         onClick={handleOpenUrl}
         onKeyDown={(e) => {
@@ -267,7 +267,7 @@ export function EndpointCard({ endpoint, onEdit, draggable, dragHandleRef, view 
       >
         {endpoint.apiUrl}
       </span>
-      {endpoint.model ? <span className="shrink-0 select-none whitespace-pre"> · {endpoint.model}</span> : null}
+      {endpoint.model ? <span className="shrink-0 whitespace-pre select-none"> · {endpoint.model}</span> : null}
     </span>
   )
 
@@ -283,12 +283,12 @@ export function EndpointCard({ endpoint, onEdit, draggable, dragHandleRef, view 
           <TestBadge status={availabilityStatus} />
         </span>
       </HoverCardTrigger>
-      <HoverCardContent side="top" className="scrollbar-none max-h-60 w-56 overflow-auto">
+      <HoverCardContent side="top" className="max-h-60 w-56 scrollbar-none overflow-auto">
         {displayModels.length === 0 ? (
           <span className={emptyClass}>无已配置模型</span>
         ) : (
           <div className="flex flex-col gap-1">
-            <span className="mb-0.5 text-xs text-ink-secondary">模型（{displayModels.length}）</span>
+            <span className="text-ink-secondary mb-0.5 text-xs">模型（{displayModels.length}）</span>
             {displayModels.map((m) => {
               const ModelIcon = getModelIcon(m)
               return (
@@ -309,7 +309,7 @@ export function EndpointCard({ endpoint, onEdit, draggable, dragHandleRef, view 
       <Card className="gap-0 overflow-hidden py-0">
         <CardContent className="flex flex-col p-0">
           <div className="flex min-w-0 flex-col gap-1 px-4 pt-3 pb-1">
-            <div className="flex select-none items-center gap-2">
+            <div className="flex items-center gap-2 select-none">
               <TransformerIcon size={16} className="shrink-0" />
               <span className="min-w-0 flex-1 truncate font-medium">{endpoint.name}</span>
               {grip}
@@ -319,7 +319,7 @@ export function EndpointCard({ endpoint, onEdit, draggable, dragHandleRef, view 
           <div className="flex w-full px-4 py-1.5">
             <EndpointQualityPanel endpointId={endpoint.uid} />
           </div>
-          <div className="flex select-none items-center gap-2 border-t border-edge-subtle px-4 py-1.5">
+          <div className="border-edge-subtle flex items-center gap-2 border-t px-4 py-1.5 select-none">
             <div className="flex items-center gap-1.5">{availability}</div>
             <div className="ml-auto flex items-center gap-1">
               {actions}
@@ -335,9 +335,9 @@ export function EndpointCard({ endpoint, onEdit, draggable, dragHandleRef, view 
     <Card className="endpoint-list-card min-w-0 gap-0 overflow-hidden rounded-md py-0">
       <CardContent className="endpoint-list-card-content grid min-w-0 grid-cols-[minmax(0,1fr)_13.125rem_auto] items-center gap-5 p-4">
         <div className="flex min-w-0 items-center gap-4">
-          <div className="flex shrink-0 select-none items-center">{grip}</div>
+          <div className="flex shrink-0 items-center select-none">{grip}</div>
           <div className="flex min-w-0 flex-col gap-1">
-            <div className="flex min-w-0 select-none items-center gap-2">
+            <div className="flex min-w-0 items-center gap-2 select-none">
               <TransformerIcon size={17} className="shrink-0" />
               <span className="min-w-0 truncate font-medium">{endpoint.name}</span>
             </div>
@@ -347,7 +347,7 @@ export function EndpointCard({ endpoint, onEdit, draggable, dragHandleRef, view 
         <div className="endpoint-list-quality flex min-w-0 justify-center">
           <EndpointQualityPanel endpointId={endpoint.uid} variant="list" />
         </div>
-        <div className="flex shrink-0 select-none items-center gap-1">
+        <div className="flex shrink-0 items-center gap-1 select-none">
           <div className="flex w-20 shrink-0 items-center justify-end gap-1.5">{availability}</div>
           <div className="flex items-center gap-1">{actions}</div>
           {enableSwitch}

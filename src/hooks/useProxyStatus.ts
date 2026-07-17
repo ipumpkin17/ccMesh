@@ -1,7 +1,7 @@
-import { useEffect } from "react";
-import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { useEffect } from 'react'
+import { useQuery, useQueryClient } from '@tanstack/react-query'
 
-import { proxyApi } from "@/services/modules/proxy";
+import { proxyApi } from '@/services/modules/proxy'
 
 /**
  * 代理运行态（running/port/currentEndpoint/enabledEndpointCount）。
@@ -9,16 +9,16 @@ import { proxyApi } from "@/services/modules/proxy";
  * 替代原先 Zustand `useProxyStore` 的事件直写，统一进 RQ 缓存体系。
  */
 export function useProxyStatus() {
-  const qc = useQueryClient();
+  const qc = useQueryClient()
   useEffect(() => {
-    let unlisten: (() => void) | undefined;
+    let unlisten: (() => void) | undefined
     proxyApi
-      .onStatusChanged(() => qc.invalidateQueries({ queryKey: ["proxy-status"] }))
+      .onStatusChanged(() => qc.invalidateQueries({ queryKey: ['proxy-status'] }))
       .then((un) => {
-        unlisten = un;
-      });
-    return () => unlisten?.();
-  }, [qc]);
+        unlisten = un
+      })
+    return () => unlisten?.()
+  }, [qc])
 
-  return useQuery({ queryKey: ["proxy-status"], queryFn: proxyApi.status });
+  return useQuery({ queryKey: ['proxy-status'], queryFn: proxyApi.status })
 }

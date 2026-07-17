@@ -8,12 +8,12 @@
  * 非有限值按 `"0"` 处理；负数取绝对值折算并保留负号。
  */
 export function formatTokenCompact(n: number): string {
-  if (!Number.isFinite(n)) return "0";
-  const sign = n < 0 ? "-" : "";
-  const abs = Math.abs(n);
-  if (abs >= 1e8) return `${sign}≈${(abs / 1e8).toFixed(2)}亿`;
-  if (abs >= 1e4) return `${sign}≈${(abs / 1e4).toFixed(2)}万`;
-  return n.toLocaleString();
+  if (!Number.isFinite(n)) return '0'
+  const sign = n < 0 ? '-' : ''
+  const abs = Math.abs(n)
+  if (abs >= 1e8) return `${sign}≈${(abs / 1e8).toFixed(2)}亿`
+  if (abs >= 1e4) return `${sign}≈${(abs / 1e4).toFixed(2)}万`
+  return n.toLocaleString()
 }
 
 /**
@@ -23,15 +23,15 @@ export function formatTokenCompact(n: number): string {
  * 用于悬停明细等空间紧凑处。负数保留符号。
  */
 export function formatTokenK(n: number): string {
-  if (!Number.isFinite(n)) return "0";
-  const sign = n < 0 ? "-" : "";
-  const abs = Math.abs(n);
-  if (abs >= 1000) return `${sign}${Math.round(abs / 1000)}k`;
-  return String(Math.round(n));
+  if (!Number.isFinite(n)) return '0'
+  const sign = n < 0 ? '-' : ''
+  const abs = Math.abs(n)
+  if (abs >= 1000) return `${sign}${Math.round(abs / 1000)}k`
+  return String(Math.round(n))
 }
 
 /** 耗时统一按秒展示（两位小数）：`6458ms → 6.46s`。非有限值按 `0.00s`。 */
 export function formatDuration(ms: number): string {
-  if (!Number.isFinite(ms)) return "0.00s";
-  return `${(ms / 1000).toFixed(2)}s`;
+  if (!Number.isFinite(ms)) return '0.00s'
+  return `${(ms / 1000).toFixed(2)}s`
 }
