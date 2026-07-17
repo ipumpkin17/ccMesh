@@ -54,7 +54,7 @@ jobs:
       - name: Install pnpm
         uses: pnpm/action-setup@v6
         with:
-          version: 10
+          # 跟随 package.json#packageManager，避免与 action version 冲突
           run_install: false
 
       - name: Setup Node
