@@ -9,7 +9,13 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { CAPTURE_LEVELS, LOG_LEVELS } from "./logLevels";
+import { cn } from "@/lib/utils";
+import {
+  allChipClass,
+  CAPTURE_LEVELS,
+  levelChipClass,
+  LOG_LEVELS,
+} from "./logLevels";
 
 interface Props {
   selected: Set<string>;
@@ -25,13 +31,8 @@ interface Props {
   onClear: () => void;
 }
 
-function chip(active: boolean): string {
-  return `inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-xs transition-colors ${
-    active
-      ? "border-primary bg-primary/10 text-foreground"
-      : "border-edge text-ink-secondary hover:bg-surface-hover"
-  }`;
-}
+const CHIP_BASE =
+  "inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-xs transition-colors";
 
 /** 日志工具栏：等级过滤 chips(含计数) + 搜索 + 捕获等级开关 + 复制/清空。 */
 export function LogToolbar({
@@ -47,26 +48,39 @@ export function LogToolbar({
   onCopy,
   onClear,
 }: Props) {
+  const allActive = selected.size === 0;
+
   return (
     <div className="flex flex-col gap-2">
       <div className="flex flex-wrap items-center gap-2">
-        <button type="button" onClick={onShowAll} className={chip(selected.size === 0)}>
+        <button
+          type="button"
+          onClick={onShowAll}
+          className={cn(CHIP_BASE, allChipClass(allActive))}
+        >
           ALL <TabularText>{total}</TabularText>
         </button>
-        {LOG_LEVELS.map((lvl) => (
+        {LOG_LEVELS.map((level) => (
           <button
-            key={lvl}
+            key={level}
             type="button"
-            onClick={() => onToggleLevel(lvl)}
-            className={chip(selected.has(lvl))}
+            onClick={() => onToggleLevel(level)}
+            className={cn(
+              CHIP_BASE,
+              levelChipClass(level, selected.has(level)),
+            )}
           >
-            {lvl} <TabularText>{counts[lvl] ?? 0}</TabularText>
+            {level} <TabularText>{counts[level] ?? 0}</TabularText>
           </button>
         ))}
 
         <div className="ml-auto flex items-center gap-2">
           <Select value={captureLevel} onValueChange={onCaptureLevel}>
-            <SelectTrigger size="sm" className="w-32" title="捕获等级（低于此级别的日志不记录）">
+            <SelectTrigger
+              size="sm"
+              className="w-32"
+              title="捕获等级（低于此级别的日志不记录）"
+            >
               <span className="text-xs text-ink-mute">捕获</span>
               <SelectValue />
             </SelectTrigger>

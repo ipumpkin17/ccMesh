@@ -1,10 +1,10 @@
 import type { ReactNode } from "react";
 
 import { Badge } from "@/components/ui/badge";
-import { StatusDot, TabularText } from "@/components/ui";
+import { TabularText } from "@/components/ui";
 import type { LogLine } from "@/services/modules/logs";
 import { cn } from "@/lib/utils";
-import { LEVEL_DOT, LEVEL_VARIANT } from "./logLevels";
+import { levelBadgeClass, levelDotClass } from "./logLevels";
 
 /** 关键字命中高亮（大小写不敏感）。 */
 function highlight(text: string, kw: string): ReactNode {
@@ -49,8 +49,6 @@ const MESSAGE_TONE: Record<string, string> = {
 
 /** inline 流式展示完整日志：meta · target · message · fields。 */
 export function LogRow({ line, keyword }: { line: LogLine; keyword: string }) {
-  const variant = LEVEL_VARIANT[line.level] ?? "muted";
-  const dot = LEVEL_DOT[line.level] ?? "idle";
   const tone = MESSAGE_TONE[line.level];
   const body = highlight(line.message, keyword);
 
@@ -64,10 +62,18 @@ export function LogRow({ line, keyword }: { line: LogLine; keyword: string }) {
     >
       <div className="text-[11px] leading-snug break-all">
         <span className="mr-1 inline-flex items-center gap-1 align-baseline whitespace-nowrap">
-          <StatusDot status={dot} className="size-1.5 shrink-0" />
+          <span
+            aria-hidden
+            className={cn(
+              "inline-block size-1.5 shrink-0 rounded-full",
+              levelDotClass(line.level),
+            )}
+          />
           <Badge
-            variant={variant}
-            className="h-3.5 shrink-0 px-1 py-0 text-[9px] leading-none uppercase"
+            className={cn(
+              "h-3.5 shrink-0 border-transparent px-1 py-0 text-[9px] leading-none uppercase",
+              levelBadgeClass(line.level),
+            )}
           >
             {line.level}
           </Badge>
