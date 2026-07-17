@@ -1,197 +1,124 @@
-import { useCallback, useState } from "react";
-import { useMutation, useQueryClient } from "@tanstack/react-query";
-import { openUrl } from "@tauri-apps/plugin-opener";
-import {
-  ActivityIcon,
-  ArchiveIcon,
-  CopyIcon,
-  EllipsisVerticalIcon,
-  GripVerticalIcon,
-  PencilIcon,
-  Trash2Icon,
-  WaypointsIcon,
-} from "lucide-react";
-import { toast } from "sonner";
-import { Anthropic, Codex, OpenAI } from "@lobehub/icons";
-import type { ComponentType } from "react";
+import { useCallback, useState } from 'react'
+import { useMutation, useQueryClient } from '@tanstack/react-query'
+import { openUrl } from '@tauri-apps/plugin-opener'
+import { ActivityIcon, ArchiveIcon, CopyIcon, EllipsisVerticalIcon, GripVerticalIcon, PencilIcon, Trash2Icon, WaypointsIcon } from 'lucide-react'
+import { toast } from 'sonner'
+import { Anthropic, Codex, OpenAI } from '@lobehub/icons'
+import type { ComponentType } from 'react'
 
-import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
-import { Card, CardContent } from "@/components/ui/card";
-import {
-  Dialog,
-  DialogContent,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog";
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
-import {
-  HoverCard,
-  HoverCardContent,
-  HoverCardTrigger,
-} from "@/components/ui/hover-card";
-import {
-  Popover,
-  PopoverContent,
-  PopoverTrigger,
-} from "@/components/ui/popover";
-import { Switch } from "@/components/ui/switch";
-import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
-import { useEndpointHealth } from "@/hooks/useEndpointHealth";
-import { getModelIcon } from "@/lib/model-icons";
-import {
-  advertisedModels,
-  endpointApi,
-  outboundModels,
-  type Endpoint,
-} from "@/services/modules/endpoint";
-import type { EndpointView } from "@/stores";
-import { ModelMappingDialog } from "./ModelMappingDialog";
-import { TestBadge } from "./TestBadge";
-import { EndpointQualityPanel } from "./EndpointQualityStrip";
-import { emptyClass } from "@/lib/typography";
+import { Button } from '@/components/ui/button'
+import { Card, CardContent } from '@/components/ui/card'
+import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog'
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu'
+import { HoverCard, HoverCardContent, HoverCardTrigger } from '@/components/ui/hover-card'
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
+import { Switch } from '@/components/ui/switch'
+import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
+import { useEndpointHealth } from '@/hooks/useEndpointHealth'
+import { getModelIcon } from '@/lib/model-icons'
+import { advertisedModels, endpointApi, outboundModels, type Endpoint } from '@/services/modules/endpoint'
+import type { EndpointView } from '@/stores'
+import { ModelMappingDialog } from './ModelMappingDialog'
+import { TestBadge } from './TestBadge'
+import { EndpointQualityPanel } from './EndpointQualityStrip'
+import { emptyClass } from '@/lib/typography'
 
-const errMsg = (e: unknown) => (e instanceof Error ? e.message : String(e));
+const errMsg = (e: unknown) => (e instanceof Error ? e.message : String(e))
 /** 端点 transformer 类型 → 品牌图标（claude→Anthropic、openai→OpenAI、codex→Codex）。OpenAI 无 Color 用默认 Mono，其余用彩色。 */
 const TRANSFORMER_ICON: Record<string, ComponentType<{ size?: number; className?: string }>> = {
   claude: Anthropic,
   openai: OpenAI,
   codex: Codex.Color,
-};
-export const getTransformerIcon = (transformer: string) => TRANSFORMER_ICON[transformer] ?? OpenAI;
+}
+export const getTransformerIcon = (transformer: string) => TRANSFORMER_ICON[transformer] ?? OpenAI
 
-function IconAction({
-  label,
-  onClick,
-  disabled,
-  children,
-}: {
-  label: string;
-  onClick?: () => void;
-  disabled?: boolean;
-  children: React.ReactNode;
-}) {
+function IconAction({ label, onClick, disabled, children }: { label: string; onClick?: () => void; disabled?: boolean; children: React.ReactNode }) {
   return (
     <Tooltip>
       <TooltipTrigger asChild>
-        <Button
-          size="icon"
-          variant="ghost"
-          aria-label={label}
-          onClick={onClick}
-          disabled={disabled}
-        >
+        <Button size="icon" variant="ghost" aria-label={label} onClick={onClick} disabled={disabled}>
           {children}
         </Button>
       </TooltipTrigger>
       <TooltipContent>{label}</TooltipContent>
     </Tooltip>
-  );
+  )
 }
 
 interface Props {
-  endpoint: Endpoint;
-  onEdit: (e: Endpoint) => void;
-  draggable: boolean;
+  endpoint: Endpoint
+  onEdit: (e: Endpoint) => void
+  draggable: boolean
   /** useSortable 的 handleRef；存在时 grip 图标作为拖拽手柄，筛选态下不传。 */
-  dragHandleRef?: (element: Element | null) => void;
+  dragHandleRef?: (element: Element | null) => void
   /** 展示形态：list 横向行式（默认），grid 纵向小卡片。 */
-  view?: EndpointView;
+  view?: EndpointView
 }
 
-export function EndpointCard({
-  endpoint,
-  onEdit,
-  draggable,
-  dragHandleRef,
-  view = "list",
-}: Props) {
-  const qc = useQueryClient();
-  const invalidate = useCallback(
-    () => qc.invalidateQueries({ queryKey: ["endpoints"] }),
-    [qc],
-  );
-  const TransformerIcon = getTransformerIcon(endpoint.transformer);
-  const [testOpen, setTestOpen] = useState(false);
-  const [mapOpen, setMapOpen] = useState(false);
-  const [deleteOpen, setDeleteOpen] = useState(false);
+export function EndpointCard({ endpoint, onEdit, draggable, dragHandleRef, view = 'list' }: Props) {
+  const qc = useQueryClient()
+  const invalidate = useCallback(() => qc.invalidateQueries({ queryKey: ['endpoints'] }), [qc])
+  const TransformerIcon = getTransformerIcon(endpoint.transformer)
+  const [testOpen, setTestOpen] = useState(false)
+  const [mapOpen, setMapOpen] = useState(false)
+  const [deleteOpen, setDeleteOpen] = useState(false)
 
-  const onMutateError = (e: unknown) => toast.error(errMsg(e));
+  const onMutateError = (e: unknown) => toast.error(errMsg(e))
 
   // 共享 ["endpoint-health"] 查询（多卡片去重）；展示运行期熔断态。
-  const { data: epHealth } = useEndpointHealth();
-  const health = epHealth?.find((h) => h.endpointId === endpoint.uid);
-  const circuitBadge =
-    health && health.circuit !== "closed" ? (
-      <Badge
-        variant={health.circuit === "open" ? "danger" : "warning"}
-        title={health.lastError ?? undefined}
-      >
-        {health.circuit === "open" ? "熔断中" : "恢复中"}
-      </Badge>
-    ) : null;
-
+  const { data: epHealth } = useEndpointHealth()
+  const health = epHealth?.find((h) => h.endpointId === endpoint.uid)
   const toggle = useMutation({
     mutationFn: (v: boolean) => endpointApi.update(endpoint.id, { enabled: v }),
     onSuccess: invalidate,
     onError: onMutateError,
-  });
+  })
   const test = useMutation({
     mutationFn: (model?: string) => endpointApi.test(endpoint.id, model),
     onSuccess: (r) => {
       if (r.success) {
-        toast.success(`${endpoint.name}：${r.message} (${r.latencyMs}ms)`);
+        toast.success(`${endpoint.name}：${r.message} (${r.latencyMs}ms)`)
         // 测试成功：主动失效健康态，让卡片即时显示可用、熔断 Badge 消失
         // （后端也会 emit endpoint-health-changed；此处覆盖代理未运行、靠 test_status 回退的场景）
-        qc.invalidateQueries({ queryKey: ["endpoint-health"] });
+        qc.invalidateQueries({ queryKey: ['endpoint-health'] })
       } else {
-        toast.error(`${endpoint.name}：${r.message}`);
+        toast.error(`${endpoint.name}：${r.message}`)
       }
-      invalidate();
+      invalidate()
     },
     onError: onMutateError,
-  });
+  })
   const clone = useMutation({
     mutationFn: () => endpointApi.clone(endpoint.id),
     onSuccess: () => {
-      toast.success("已克隆");
-      invalidate();
+      toast.success('已克隆')
+      invalidate()
     },
     onError: onMutateError,
-  });
+  })
   const del = useMutation({
     mutationFn: () => endpointApi.remove(endpoint.id),
     onSuccess: () => {
-      toast.success("已删除");
-      invalidate();
+      toast.success('已删除')
+      invalidate()
     },
     onError: onMutateError,
-  });
+  })
   const archive = useMutation({
     mutationFn: () => endpointApi.archive(endpoint.id),
     onSuccess: () => {
-      toast.success("已归档");
-      invalidate();
-      qc.invalidateQueries({ queryKey: ["archived-endpoints"] });
+      toast.success('已归档')
+      invalidate()
+      qc.invalidateQueries({ queryKey: ['archived-endpoints'] })
     },
     onError: onMutateError,
-  });
+  })
 
   const grip =
     draggable && dragHandleRef ? (
       <Tooltip>
         <TooltipTrigger asChild>
-          <span
-            ref={dragHandleRef}
-            aria-label="拖动以排序"
-            className="shrink-0 cursor-grab touch-none text-ink-mute"
-          >
+          <span ref={dragHandleRef} aria-label="拖动以排序" className="shrink-0 cursor-grab touch-none text-ink-mute">
             <GripVerticalIcon className="size-4" />
           </span>
         </TooltipTrigger>
@@ -199,27 +126,23 @@ export function EndpointCard({
       </Tooltip>
     ) : (
       <GripVerticalIcon className="size-4 shrink-0 text-ink-disabled" />
-    );
+    )
 
   const enableSwitch = (
     <span className="inline-flex shrink-0 items-center">
-      <Switch
-        checked={endpoint.enabled}
-        onCheckedChange={(v) => toggle.mutate(v)}
-        aria-label={endpoint.enabled ? "禁用端点" : "启用端点"}
-      />
+      <Switch checked={endpoint.enabled} onCheckedChange={(v) => toggle.mutate(v)} aria-label={endpoint.enabled ? '禁用端点' : '启用端点'} />
     </span>
-  );
+  )
 
   const handleOpenUrl = () => {
-    if (window.getSelection()?.isCollapsed === false) return;
-    openUrl(endpoint.apiUrl).catch((err) => toast.error(errMsg(err)));
-  };
+    if (window.getSelection()?.isCollapsed === false) return
+    openUrl(endpoint.apiUrl).catch((err) => toast.error(errMsg(err)))
+  }
 
   // 测试连通性使用真实出站模型：测试直连上游，不经网关，入站映射名上游不认。
-  const testModels = outboundModels(endpoint);
+  const testModels = outboundModels(endpoint)
   // 可用性展示用公布集合：出站模型并入映射入站名。
-  const displayModels = advertisedModels(endpoint);
+  const displayModels = advertisedModels(endpoint)
 
   // 多个模型时由用户选择实际出站模型；0/1 个模型走协议默认值或锁定模型。
   const testButton =
@@ -228,12 +151,7 @@ export function EndpointCard({
         <Tooltip>
           <TooltipTrigger asChild>
             <PopoverTrigger asChild>
-              <Button
-                size="icon"
-                variant="ghost"
-                aria-label="测试连通性"
-                disabled={test.isPending}
-              >
+              <Button size="icon" variant="ghost" aria-label="测试连通性" disabled={test.isPending}>
                 <ActivityIcon className="size-4" />
               </Button>
             </PopoverTrigger>
@@ -244,34 +162,30 @@ export function EndpointCard({
           <p className="mb-1.5 px-1 text-xs text-ink-mute">选择测试模型</p>
           <div className="scrollbar-none flex max-h-60 flex-col gap-1 overflow-auto">
             {testModels.map((model) => {
-              const ModelIcon = getModelIcon(model);
+              const ModelIcon = getModelIcon(model)
               return (
                 <button
                   key={model}
                   type="button"
                   className="flex min-w-0 cursor-pointer items-center gap-1.5 rounded px-2 py-1 text-left text-xs hover:bg-surface-hover"
                   onClick={() => {
-                    setTestOpen(false);
-                    test.mutate(model);
+                    setTestOpen(false)
+                    test.mutate(model)
                   }}
                 >
                   <ModelIcon size={14} className="shrink-0" />
                   <span className="truncate font-mono">{model}</span>
                 </button>
-              );
+              )
             })}
           </div>
         </PopoverContent>
       </Popover>
     ) : (
-      <IconAction
-        label="测试连通性"
-        onClick={() => test.mutate(testModels[0])}
-        disabled={test.isPending}
-      >
+      <IconAction label="测试连通性" onClick={() => test.mutate(testModels[0])} disabled={test.isPending}>
         <ActivityIcon className="size-4" />
       </IconAction>
-    );
+    )
 
   const moreMenu = (
     <>
@@ -282,17 +196,11 @@ export function EndpointCard({
           </Button>
         </DropdownMenuTrigger>
         <DropdownMenuContent align="end" className="min-w-40">
-          <DropdownMenuItem
-            disabled={clone.isPending}
-            onClick={() => clone.mutate()}
-          >
+          <DropdownMenuItem disabled={clone.isPending} onClick={() => clone.mutate()}>
             <CopyIcon />
             克隆
           </DropdownMenuItem>
-          <DropdownMenuItem
-            disabled={archive.isPending}
-            onClick={() => archive.mutate()}
-          >
+          <DropdownMenuItem disabled={archive.isPending} onClick={() => archive.mutate()}>
             <ArchiveIcon />
             归档
           </DropdownMenuItem>
@@ -318,7 +226,7 @@ export function EndpointCard({
               variant="destructive"
               disabled={del.isPending}
               onClick={() => {
-                del.mutate(undefined, { onSuccess: () => setDeleteOpen(false) });
+                del.mutate(undefined, { onSuccess: () => setDeleteOpen(false) })
               }}
             >
               删除
@@ -327,7 +235,7 @@ export function EndpointCard({
         </DialogContent>
       </Dialog>
     </>
-  );
+  )
 
   const actions = (
     <div className="flex gap-0.5">
@@ -341,7 +249,7 @@ export function EndpointCard({
       {moreMenu}
       <ModelMappingDialog open={mapOpen} onOpenChange={setMapOpen} endpoint={endpoint} />
     </div>
-  );
+  )
 
   const meta = (
     <span className="flex min-w-0 items-center text-xs text-ink-secondary">
@@ -352,33 +260,26 @@ export function EndpointCard({
         title={`在浏览器打开 ${endpoint.apiUrl}`}
         onClick={handleOpenUrl}
         onKeyDown={(e) => {
-          if (e.key !== "Enter" && e.key !== " ") return;
-          e.preventDefault();
-          handleOpenUrl();
+          if (e.key !== 'Enter' && e.key !== ' ') return
+          e.preventDefault()
+          handleOpenUrl()
         }}
       >
         {endpoint.apiUrl}
       </span>
-      {endpoint.model ? (
-        <span className="shrink-0 select-none whitespace-pre"> · {endpoint.model}</span>
-      ) : null}
+      {endpoint.model ? <span className="shrink-0 select-none whitespace-pre"> · {endpoint.model}</span> : null}
     </span>
-  );
+  )
 
   // 可用性合并：实时请求结果优先于手动测试（healthy/recovering→可用，unhealthy→不可用）；
   // 无实时数据（端点禁用/代理未运行无记录）或 unknown 时回退手动测试结果 testStatus。
-  const availabilityStatus =
-    health?.status === "healthy" || health?.status === "recovering"
-      ? "available"
-      : health?.status === "unhealthy"
-        ? "unavailable"
-        : endpoint.testStatus;
+  const availabilityStatus = health?.status === 'healthy' || health?.status === 'recovering' ? 'available' : health?.status === 'unhealthy' ? 'unavailable' : endpoint.testStatus
 
   // 可用性指示：悬停展示该端点模型清单（限高可滚动）
   const availability = (
     <HoverCard openDelay={100} closeDelay={100}>
       <HoverCardTrigger asChild>
-        <span className="cursor-default">
+        <span className="cursor-default" title={health?.lastError ?? undefined}>
           <TestBadge status={availabilityStatus} />
         </span>
       </HoverCardTrigger>
@@ -389,21 +290,21 @@ export function EndpointCard({
           <div className="flex flex-col gap-1">
             <span className="mb-0.5 text-xs text-ink-secondary">模型（{displayModels.length}）</span>
             {displayModels.map((m) => {
-              const ModelIcon = getModelIcon(m);
+              const ModelIcon = getModelIcon(m)
               return (
                 <span key={m} className="flex min-w-0 items-center gap-1.5 text-xs">
                   <ModelIcon size={14} className="shrink-0" />
                   <span className="truncate font-mono">{m}</span>
                 </span>
-              );
+              )
             })}
           </div>
         )}
       </HoverCardContent>
     </HoverCard>
-  );
+  )
 
-  if (view === "grid") {
+  if (view === 'grid') {
     return (
       <Card className="gap-0 overflow-hidden py-0">
         <CardContent className="flex flex-col p-0">
@@ -419,10 +320,7 @@ export function EndpointCard({
             <EndpointQualityPanel endpointId={endpoint.uid} />
           </div>
           <div className="flex select-none items-center gap-2 border-t border-edge-subtle px-4 py-1.5">
-            <div className="flex items-center gap-1.5">
-              {availability}
-              {circuitBadge}
-            </div>
+            <div className="flex items-center gap-1.5">{availability}</div>
             <div className="ml-auto flex items-center gap-1">
               {actions}
               {enableSwitch}
@@ -430,7 +328,7 @@ export function EndpointCard({
           </div>
         </CardContent>
       </Card>
-    );
+    )
   }
 
   return (
@@ -450,14 +348,11 @@ export function EndpointCard({
           <EndpointQualityPanel endpointId={endpoint.uid} variant="list" />
         </div>
         <div className="flex shrink-0 select-none items-center gap-1">
-          <div className="flex w-20 shrink-0 items-center justify-end gap-1.5">
-            {availability}
-            {circuitBadge}
-          </div>
+          <div className="flex w-20 shrink-0 items-center justify-end gap-1.5">{availability}</div>
           <div className="flex items-center gap-1">{actions}</div>
           {enableSwitch}
         </div>
       </CardContent>
     </Card>
-  );
+  )
 }
