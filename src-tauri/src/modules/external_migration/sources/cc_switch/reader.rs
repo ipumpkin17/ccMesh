@@ -25,7 +25,7 @@ const APP_TYPES: &[&str] = &["claude", "codex"];
 pub fn read_providers(db_path: &Path) -> AppResult<Vec<ProviderRow>> {
     if !db_path.exists() {
         return Err(AppError::NotFound(format!(
-            "未找到 cc-switch 配置数据库: {}",
+            "未找到 CC Switch 配置数据库: {}",
             db_path.display()
         )));
     }
@@ -34,7 +34,7 @@ pub fn read_providers(db_path: &Path) -> AppResult<Vec<ProviderRow>> {
         db_path,
         OpenFlags::SQLITE_OPEN_READ_ONLY | OpenFlags::SQLITE_OPEN_NO_MUTEX,
     )
-    .map_err(|e| AppError::Db(format!("打开 cc-switch.db 失败: {e}")))?;
+    .map_err(|e| AppError::Db(format!("打开 CC Switch 数据库失败: {e}")))?;
 
     let placeholders = APP_TYPES.iter().map(|_| "?").collect::<Vec<_>>().join(",");
     let sql = format!(

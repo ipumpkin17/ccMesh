@@ -47,3 +47,10 @@ export const ccSwitchSourceApi: ExternalMigrationSourceApi = {
   import: (ids, dbPath) =>
     request<ImportSummary>("import_cc_switch_providers", { ids, dbPath }),
 };
+
+/** CPA 源：默认路径或上传文件路径。 */
+export const cpaSourceApi: ExternalMigrationSourceApi = {
+  preview: (path) => request<PreviewItem[]>("preview_cpa_import", { path }),
+  import: (ids, path) =>
+    request<ImportSummary>("import_cpa_providers", { ids, path }),
+};

@@ -1,6 +1,7 @@
 pub mod backup;
 pub mod cc_switch;
 pub mod config;
+pub mod cpa;
 pub mod endpoint;
 pub mod health;
 pub mod icloud;

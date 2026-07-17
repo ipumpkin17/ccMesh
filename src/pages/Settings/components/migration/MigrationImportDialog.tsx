@@ -182,9 +182,11 @@ function PreviewRow({
       <div className="flex min-w-0 flex-1 flex-col gap-0.5">
         <span className="truncate text-sm text-ink-primary">{item.name}</span>
         {item.apiUrl ? (
-          <span className={`truncate font-mono ${metaClass}`}>{item.apiUrl}</span>
+          <span className="truncate font-mono text-[10px] text-ink-mute">
+            {item.apiUrl}
+          </span>
         ) : null}
-        <span className={metaClass}>
+        <span className="text-[10px] text-ink-mute">
           {skipped ? skipReasonLabel(item.skipReason) : item.apiKeyMasked || "—"}
         </span>
       </div>

@@ -220,6 +220,8 @@ pub fn run() {
             commands::endpoint::test_proxy,
             commands::cc_switch::preview_cc_switch_import,
             commands::cc_switch::import_cc_switch_providers,
+            commands::cpa::preview_cpa_import,
+            commands::cpa::import_cpa_providers,
             commands::models::get_models,
             commands::models::fetch_endpoint_models,
             commands::tokens::count_tokens,
