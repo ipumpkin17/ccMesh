@@ -33,7 +33,7 @@ export function SearchBox({ value, onChange, placeholder, className, ariaLabel =
         className={buttonVariants({
           variant: 'ghost',
           size: 'icon',
-          className: 'text-ink-mute hover:text-ink-primary h-9 w-9 shrink-0 rounded-sm transition-none hover:bg-transparent',
+          className: 'text-muted-foreground hover:text-foreground h-9 w-9 shrink-0 transition-none hover:bg-transparent',
         })}
       >
         <motion.span layout="position">
@@ -46,11 +46,11 @@ export function SearchBox({ value, onChange, placeholder, className, ariaLabel =
   return (
     <motion.div
       layoutId={layoutId}
-      className={cn('border-input bg-surface-raised flex h-9 w-64 shrink-0 items-center gap-2 rounded-sm border px-3', className)}
+      className={cn('border-input flex h-9 w-64 shrink-0 items-center gap-2 rounded-md border bg-transparent px-3', className)}
       transition={{ type: 'spring', stiffness: 400, damping: 30 }}
     >
       <motion.span layout="position">
-        <Search className="text-ink-mute size-4 shrink-0" />
+        <Search className="text-muted-foreground size-4 shrink-0" />
       </motion.span>
       <input
         type="text"
@@ -58,7 +58,7 @@ export function SearchBox({ value, onChange, placeholder, className, ariaLabel =
         value={value}
         onChange={(e) => onChange(e.target.value)}
         autoFocus
-        className="text-ink-primary placeholder:text-ink-mute w-full bg-transparent text-sm outline-none"
+        className="text-foreground placeholder:text-muted-foreground w-full bg-transparent text-sm outline-none"
       />
       <button
         type="button"
@@ -67,7 +67,7 @@ export function SearchBox({ value, onChange, placeholder, className, ariaLabel =
           onChange('')
           setExpanded(false)
         }}
-        className="text-ink-mute hover:text-ink-primary shrink-0 rounded p-0.5 transition-colors"
+        className="text-muted-foreground hover:text-foreground shrink-0 rounded p-0.5 transition-colors"
       >
         <X className="size-3.5" />
       </button>

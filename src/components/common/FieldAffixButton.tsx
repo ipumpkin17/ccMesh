@@ -7,5 +7,7 @@ import { cn } from '@/lib/utils'
  * 父级需 `relative`，输入本身保留 `pr-8` / `pr-9`。
  */
 export function FieldAffixButton({ className, type = 'button', ...props }: ComponentProps<'button'>) {
-  return <button type={type} className={cn('text-ink-mute hover:text-ink-secondary absolute inset-y-0 right-0 flex items-center px-2.5 transition-colors', className)} {...props} />
+  return (
+    <button type={type} className={cn('text-muted-foreground hover:text-foreground absolute inset-y-0 right-0 flex items-center px-2.5 transition-colors', className)} {...props} />
+  )
 }

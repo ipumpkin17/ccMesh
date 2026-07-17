@@ -18,7 +18,7 @@ export function SettingsShortcut({ side = 'right' }: { side?: 'right' | 'bottom'
             size="default"
             aria-label="设置"
             onClick={() => setActiveView('settings')}
-            className={activeView === 'settings' ? 'border-primary/30 bg-primary/10 text-primary-soft' : undefined}
+            className={activeView === 'settings' ? 'bg-accent text-accent-foreground' : undefined}
           >
             <SettingsIcon className="size-4" />
           </IconButton>

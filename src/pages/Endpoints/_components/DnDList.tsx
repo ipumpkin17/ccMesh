@@ -173,7 +173,7 @@ export function DnDList({ endpoints, allEndpoints, draggable, typeFilterActive, 
       }}
     >
       {typeFilterActive && (
-        <p className={`border-edge/70 bg-surface-raised/40 mb-2 rounded-md border border-dashed px-3 py-2 ${metaClass}`}>
+        <p className={`border-border bg-muted/40 mb-2 rounded-md border border-dashed px-3 py-2 ${metaClass}`}>
           拖拽时其余端点固定为半透明卡位；松手后按预览位置更新全局轮询顺序。
         </p>
       )}

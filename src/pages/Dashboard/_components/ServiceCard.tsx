@@ -34,7 +34,7 @@ const statusText: Record<QueueStatus, string> = {
   danger: 'text-destructive',
   warning: 'text-warning',
   info: 'text-info',
-  idle: 'text-ink-mute',
+  idle: 'text-muted-foreground',
 }
 
 function endpointStatus(
@@ -82,12 +82,7 @@ function QueueItem({
   return (
     <li title={title} className="inline-flex items-center gap-1.5">
       {fast ? <FastMark status={status} pulse={active && running} /> : <StatusDot status={status} pulse={active && running} />}
-      <span
-        className={cn('rounded-full px-2.5 py-0.5 text-sm transition-all', active ? 'font-medium' : 'text-ink-primary')}
-        style={active ? { backgroundColor: '#E3E9FA', color: '#2756D9' } : undefined}
-      >
-        {endpoint.name}
-      </span>
+      <span className={cn('rounded-md px-2 py-0.5 text-sm transition-colors', active ? 'bg-accent text-accent-foreground font-medium' : 'text-foreground')}>{endpoint.name}</span>
     </li>
   )
 }
@@ -131,8 +126,8 @@ function DraggableEndpointCard({ endpoint, fast, onDoubleClick, onRemove }: { en
       ref={ref}
       onDoubleClick={onDoubleClick}
       className={cn(
-        'border-edge-subtle bg-surface-card flex cursor-grab items-center gap-2.5 rounded-lg border px-3 py-2.5 text-sm transition-all select-none active:cursor-grabbing',
-        isDragging ? 'opacity-40 shadow-lg' : 'hover:border-edge-strong hover:shadow-md',
+        'bg-card flex cursor-grab items-center gap-2 rounded-md border px-2.5 py-2 text-sm transition-colors select-none active:cursor-grabbing',
+        isDragging ? 'opacity-40' : 'hover:bg-accent',
       )}
       title={fast ? '拖动整个端点卡片移出快速队列；双击移出快速队列' : '拖动整个端点卡片加入快速队列；双击加入快速队列'}
     >
@@ -143,7 +138,7 @@ function DraggableEndpointCard({ endpoint, fast, onDoubleClick, onRemove }: { en
           type="button"
           onClick={onRemove}
           onDoubleClick={(event) => event.stopPropagation()}
-          className="text-ink-mute hover:bg-destructive/10 hover:text-destructive rounded p-1 transition-colors"
+          className="text-muted-foreground hover:bg-destructive/10 hover:text-destructive rounded p-1 transition-colors"
           aria-label={`移出快速队列 ${endpoint.name}`}
         >
           <XIcon className="size-4" />
@@ -161,10 +156,10 @@ function FastSortableEndpointCard({ endpoint, index, onDoubleClick, onRemove }: 
       ref={ref}
       onDoubleClick={onDoubleClick}
       className={cn(
-        'border-edge-subtle bg-surface-card flex cursor-grab items-center gap-2.5 rounded-lg border px-3 py-2.5 text-sm transition-all select-none active:cursor-grabbing',
-        isDragging && 'opacity-40 shadow-lg',
+        'bg-card flex cursor-grab items-center gap-2 rounded-md border px-2.5 py-2 text-sm transition-colors select-none active:cursor-grabbing',
+        isDragging && 'opacity-40',
         isDropTarget && 'ring-primary/50 ring-2',
-        !isDragging && 'hover:border-edge-strong hover:shadow-md',
+        !isDragging && 'hover:bg-accent',
       )}
       title="拖动排序或拖到启用队列；双击移出快速队列"
     >
@@ -174,7 +169,7 @@ function FastSortableEndpointCard({ endpoint, index, onDoubleClick, onRemove }: 
         type="button"
         onClick={onRemove}
         onDoubleClick={(event) => event.stopPropagation()}
-        className="text-ink-mute hover:bg-destructive/10 hover:text-destructive rounded p-1 transition-colors"
+        className="text-muted-foreground hover:bg-destructive/10 hover:text-destructive rounded p-1 transition-colors"
         aria-label={`移出快速队列 ${endpoint.name}`}
       >
         <XIcon className="size-4" />
@@ -201,12 +196,9 @@ function FastQueueTransfer({
     <div className="grid gap-6 md:grid-cols-2">
       <section
         ref={fastDrop.ref}
-        className={cn(
-          'bg-surface-card flex h-[45vh] flex-col rounded-lg border transition-all',
-          fastDrop.isDropTarget ? 'border-primary/50 bg-primary-glow ring-primary/30 ring-2' : 'border-edge',
-        )}
+        className={cn('bg-card flex h-96 flex-col rounded-lg border transition-colors', fastDrop.isDropTarget && 'border-primary/50 bg-accent ring-primary/30 ring-2')}
       >
-        <div className="border-edge-subtle bg-surface-card sticky top-0 z-10 flex items-center gap-2 rounded-t-lg border-b px-4 py-3">
+        <div className="bg-card sticky top-0 z-10 flex items-center gap-2 rounded-t-lg border-b px-3.5 py-2.5">
           <h3 className={panelTitleClass}>快速队列</h3>
           <Popover>
             <PopoverTrigger asChild>
@@ -223,13 +215,13 @@ function FastQueueTransfer({
               </div>
             </PopoverContent>
           </Popover>
-          <span className="bg-surface-raised ml-auto rounded-md px-2 py-0.5 text-xs">
+          <span className="bg-muted ml-auto rounded-md px-2 py-0.5 text-xs">
             <TabularText>{fastQueue.length}</TabularText>
           </span>
         </div>
         <div className="flex-1 scrollbar-none overflow-y-auto p-4">
           {fastQueue.length === 0 ? (
-            <div className="border-edge-subtle bg-surface/40 flex h-full items-center justify-center rounded-lg border-2 border-dashed p-6">
+            <div className="bg-muted/50 flex h-full items-center justify-center rounded-lg border border-dashed p-5">
               <EmptyState align="center">
                 从右侧拖入启用端点
                 <br />
@@ -248,20 +240,17 @@ function FastQueueTransfer({
 
       <section
         ref={enabledDrop.ref}
-        className={cn(
-          'bg-surface-card flex h-[45vh] flex-col rounded-lg border transition-all',
-          enabledDrop.isDropTarget ? 'border-primary/50 bg-primary-glow ring-primary/30 ring-2' : 'border-edge',
-        )}
+        className={cn('bg-card flex h-96 flex-col rounded-lg border transition-colors', enabledDrop.isDropTarget && 'border-primary/50 bg-accent ring-primary/30 ring-2')}
       >
-        <div className="border-edge-subtle bg-surface-card sticky top-0 z-10 flex items-center gap-2 rounded-t-lg border-b px-4 py-3">
+        <div className="bg-card sticky top-0 z-10 flex items-center gap-2 rounded-t-lg border-b px-3.5 py-2.5">
           <h3 className={panelTitleClass}>启用队列</h3>
-          <span className="bg-surface-raised ml-auto rounded-md px-2 py-0.5 text-xs">
+          <span className="bg-muted ml-auto rounded-md px-2 py-0.5 text-xs">
             <TabularText>{enabledQueue.length}</TabularText>
           </span>
         </div>
         <div className="flex-1 scrollbar-none overflow-y-auto p-4">
           {enabledQueue.length === 0 ? (
-            <div className="border-edge-subtle bg-surface/40 flex h-full items-center justify-center rounded-lg border-2 border-dashed p-6">
+            <div className="bg-muted/50 flex h-full items-center justify-center rounded-lg border border-dashed p-5">
               <EmptyState align="center">
                 启用队列暂无可加入
                 <br />
@@ -319,7 +308,7 @@ function FastQueueDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-h-[80vh] max-w-3xl overflow-hidden">
+      <DialogContent className="max-w-3xl overflow-hidden">
         <DialogHeader>
           <DialogTitle>编辑快速队列</DialogTitle>
         </DialogHeader>
@@ -436,10 +425,10 @@ export function ServiceCard() {
 
   return (
     <>
-      <div className="grid grid-cols-1 gap-4 md:grid-cols-3 md:items-start">
-        {/* 左 2/3：端点队列（内容高度，不与右卡 stretch 等高） */}
-        <Card className="gap-0 py-0 md:col-span-2">
-          <CardContent className="flex flex-col gap-2 px-4 py-3">
+      <div className="grid grid-cols-1 gap-3 md:grid-cols-3 md:items-stretch">
+        {/* 左 2/3：端点队列 */}
+        <Card className="min-h-36 gap-0 py-0 md:col-span-2">
+          <CardContent className="flex h-full flex-col gap-2 px-4 py-3">
             <div className="flex items-center justify-between gap-2">
               <div className="flex items-center gap-2">
                 <h3 className={panelTitleClass}>端点队列</h3>
@@ -463,23 +452,21 @@ export function ServiceCard() {
           <div
             aria-hidden
             className={cn(
-              'pointer-events-none absolute inset-0 z-[5]',
+              'pointer-events-none absolute inset-0 z-10',
               dark ? 'bg-gradient-to-t from-black/45 via-black/5 to-black/15' : 'bg-gradient-to-t from-white/60 via-white/5 to-white/40',
             )}
           />
-          <CardContent
-            className={cn(
-              'relative z-10 flex h-full min-h-36 flex-col justify-between gap-2 px-4 py-3',
-              dark ? 'text-white [text-shadow:0_1px_3px_rgba(0,0,0,0.55)]' : 'text-slate-800 [text-shadow:0_1px_2px_rgba(255,255,255,0.7)]',
-            )}
-          >
+          <CardContent className={cn('relative z-20 flex h-full min-h-36 flex-col justify-between gap-2 px-4 py-3', dark ? 'text-white' : 'text-foreground')}>
             <div className="flex flex-col gap-1">
-              <span className="text-sm font-medium">本地代理</span>
+              <span className="text-sm font-semibold">本地代理</span>
               <div className="flex items-center gap-1.5 self-start">
                 <button
                   type="button"
                   onClick={() => setActiveView('settings')}
-                  className={cn('cursor-pointer text-xs transition-colors hover:opacity-90', dark ? 'text-white/85 hover:text-white' : 'text-slate-600 hover:text-slate-900')}
+                  className={cn(
+                    'cursor-pointer text-xs transition-colors hover:opacity-90',
+                    dark ? 'text-white/85 hover:text-white' : 'text-muted-foreground hover:text-foreground',
+                  )}
                   title="前往设置修改端口"
                 >
                   端口 <TabularText>{status?.port ?? '—'}</TabularText>
@@ -490,7 +477,7 @@ export function ServiceCard() {
                       <button
                         type="button"
                         onClick={copyGateway}
-                        className={cn('inline-flex shrink-0 transition-colors', dark ? 'text-white/85 hover:text-white' : 'text-slate-600 hover:text-slate-900')}
+                        className={cn('inline-flex shrink-0 transition-colors', dark ? 'text-white/85 hover:text-white' : 'text-muted-foreground hover:text-foreground')}
                         aria-label="复制代理信息"
                       >
                         <CopyIcon className="size-3" />
@@ -502,7 +489,7 @@ export function ServiceCard() {
               </div>
             </div>
             <div className="flex items-center justify-between gap-2">
-              <span className={cn('text-xs', dark ? 'text-white/85' : 'text-slate-600')}>{running ? '运行中' : '已停止'}</span>
+              <span className={cn('text-xs', dark ? 'text-white/85' : 'text-muted-foreground')}>{running ? '运行中' : '已停止'}</span>
               <Switch checked={running} onCheckedChange={toggle} aria-label="代理开关" />
             </div>
           </CardContent>

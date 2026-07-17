@@ -42,16 +42,16 @@ export function EndpointSidebar() {
 
   return (
     <>
-      <aside className="flex min-h-0 w-64 shrink-0 flex-col gap-4">
+      <SurfaceCard as="aside" padding="none" className="flex min-h-0 w-64 shrink-0 flex-col overflow-hidden">
         {/* 端点统计 */}
-        <SurfaceCard padding="md" className="shrink-0">
+        <div className="shrink-0 p-4">
           <div className="mb-3 flex items-center justify-between">
             <h2 className={sectionTitleClass}>端点统计</h2>
             <Tooltip>
               <TooltipTrigger asChild>
                 <Button size="xs" variant="ghost" onClick={() => setArchivedOpen(true)} aria-label="查看归档">
                   <ArchiveIcon className="size-4" />
-                  {archivedCount > 0 && <span className="text-ink-secondary text-xs">{archivedCount}</span>}
+                  {archivedCount > 0 && <span className="text-muted-foreground text-xs">{archivedCount}</span>}
                 </Button>
               </TooltipTrigger>
               <TooltipContent>查看归档</TooltipContent>
@@ -60,7 +60,7 @@ export function EndpointSidebar() {
           <dl className="grid grid-cols-3 gap-2 text-center">
             <div className="flex flex-col gap-0.5">
               <dt className={metaClass}>总数</dt>
-              <dd className="tabular text-ink-primary text-lg font-medium">{stats.total}</dd>
+              <dd className="tabular text-foreground text-lg font-medium">{stats.total}</dd>
             </div>
             <div className="flex flex-col gap-0.5">
               <dt className={metaClass}>启用</dt>
@@ -68,20 +68,20 @@ export function EndpointSidebar() {
             </div>
             <div className="flex flex-col gap-0.5">
               <dt className={metaClass}>禁用</dt>
-              <dd className="tabular text-ink-disabled text-lg font-medium">{stats.disabled}</dd>
+              <dd className="tabular text-muted-foreground text-lg font-medium">{stats.disabled}</dd>
             </div>
           </dl>
-          <div className="border-edge-subtle mt-3 flex items-center justify-between border-t pt-3 text-xs">
+          <div className="mt-3 flex items-center justify-between border-t pt-3 text-xs">
             <span className={metaClass}>可用模型</span>
-            <span className="tabular text-ink-secondary font-medium">{stats.modelCount}</span>
+            <span className="tabular text-muted-foreground font-medium">{stats.modelCount}</span>
           </div>
-        </SurfaceCard>
+        </div>
 
         {/* 可用模型（按端点）：标题固定、内容内部滚动 */}
-        <div className="flex min-h-0 flex-1 flex-col">
-          <ModelList />
+        <div className="flex min-h-0 flex-1 flex-col border-t p-4">
+          <ModelList framed={false} />
         </div>
-      </aside>
+      </SurfaceCard>
 
       <ArchivedEndpointsDialog open={archivedOpen} onOpenChange={setArchivedOpen} />
     </>

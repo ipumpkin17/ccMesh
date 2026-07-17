@@ -18,8 +18,8 @@ export function NavItem({ item, variant, collapsed = false }: { item: NavItemDef
         type="button"
         onClick={() => setActiveView(item.id)}
         className={cn(
-          'inline-flex h-9 shrink-0 cursor-pointer items-center gap-2 rounded-full px-3 text-sm font-medium whitespace-nowrap transition-colors',
-          isActive ? 'bg-primary text-primary-foreground' : 'text-ink-secondary hover:bg-surface-hover hover:text-ink-primary',
+          'inline-flex h-8 shrink-0 cursor-pointer items-center gap-1.5 rounded-md px-2.5 text-sm font-medium whitespace-nowrap transition-colors',
+          isActive ? 'bg-primary text-primary-foreground' : 'text-muted-foreground hover:bg-accent hover:text-accent-foreground',
         )}
       >
         <Icon className="size-4" />
@@ -34,12 +34,16 @@ export function NavItem({ item, variant, collapsed = false }: { item: NavItemDef
       onClick={() => setActiveView(item.id)}
       aria-label={label}
       className={cn(
-        'flex h-10 w-full cursor-pointer items-center gap-2.5 rounded-sm text-sm transition-colors',
-        collapsed ? 'justify-center px-0' : 'px-3',
-        isActive ? 'bg-primary/12 text-primary-soft' : 'text-ink-secondary hover:bg-surface-hover hover:text-ink-primary',
+        'flex h-8 w-full cursor-pointer items-center gap-2 rounded-md text-sm font-medium transition-colors',
+        collapsed ? 'justify-center px-0' : 'px-2.5',
+        isActive
+          ? 'bg-primary/10 text-primary'
+          : collapsed
+            ? 'text-muted-foreground hover:bg-primary/5 hover:text-foreground'
+            : 'text-foreground hover:bg-primary/5 hover:text-primary',
       )}
     >
-      <Icon className={cn('size-4 shrink-0', isActive && 'text-primary')} />
+      <Icon className={cn('size-3.5 shrink-0', isActive && 'text-primary')} />
       {!collapsed && <span className="whitespace-nowrap">{label}</span>}
     </button>
   )

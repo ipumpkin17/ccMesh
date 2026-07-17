@@ -33,24 +33,17 @@ export function SettingsTextField({
   actionPending?: boolean
 }) {
   return (
-    <div className="border-input bg-surface-raised flex h-9 min-w-0 overflow-hidden rounded-sm border">
+    <div className="flex w-full min-w-0 items-center gap-2">
       <Input
-        className="h-full min-w-0 flex-1 rounded-none border-0 bg-transparent font-mono text-[11px] md:text-xs"
+        className="min-w-0 flex-1 font-mono"
         value={value}
         placeholder={placeholder}
         onChange={(event) => {
-          if (event.target.value) onValueChange(event.target.value)
+          onValueChange(event.target.value)
         }}
         onBlur={onCommit}
       />
-      <Button
-        size="sm"
-        variant="outline"
-        className="border-input bg-surface-card hover:bg-surface-hover h-full rounded-none border-0 border-l px-4 shadow-none"
-        onMouseDown={(event) => event.preventDefault()}
-        onClick={onAction}
-        disabled={actionPending}
-      >
+      <Button size="sm" variant="outline" onMouseDown={(event) => event.preventDefault()} onClick={onAction} disabled={actionPending}>
         {actionPending ? '读取中…' : actionLabel}
       </Button>
     </div>

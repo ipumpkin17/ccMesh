@@ -1,6 +1,6 @@
 import { PlusIcon, Trash2Icon } from 'lucide-react'
 
-import { EmptyState, SurfaceCard } from '@/components/common'
+import { EmptyState } from '@/components/common'
 import { IconButton } from '@/components/ui'
 import { cn } from '@/lib/utils'
 import type { ChannelMeta } from '@/services/modules/tool_config'
@@ -18,8 +18,8 @@ interface Props {
 /** 左栏：已保存渠道列表 + 顶部新增按钮。行内删除按钮与右键菜单都触发 onDelete。 */
 export function ChannelList({ channels, loading, selectedId, onSelect, onNew, onDelete }: Props) {
   return (
-    <SurfaceCard as="div" padding="none" className="flex h-full min-h-0 w-56 shrink-0 flex-col">
-      <div className="border-edge-subtle flex items-center justify-between border-b px-3 py-2">
+    <div className="flex h-full min-h-0 w-56 shrink-0 flex-col">
+      <div className="flex items-center justify-between border-b px-3 py-2">
         <span className={panelTitleClass}>渠道</span>
         <IconButton type="button" variant="ghost" size="default" onClick={onNew} aria-label="新增渠道" title="新增渠道">
           <PlusIcon className="size-4" />
@@ -41,7 +41,7 @@ export function ChannelList({ channels, loading, selectedId, onSelect, onNew, on
                 <div
                   className={cn(
                     'group flex cursor-pointer items-center justify-between rounded-md px-2.5 py-2 text-sm transition-colors',
-                    selectedId === ch.id ? 'bg-primary/10 text-primary font-medium' : 'text-ink-secondary hover:bg-surface-hover hover:text-ink-primary',
+                    selectedId === ch.id ? 'bg-primary/10 text-primary font-medium' : 'text-muted-foreground hover:bg-accent hover:text-accent-foreground',
                   )}
                   onClick={() => onSelect(ch.id)}
                   onContextMenu={(e) => {
@@ -55,7 +55,7 @@ export function ChannelList({ channels, loading, selectedId, onSelect, onNew, on
                   <button
                     type="button"
                     aria-label={`删除 ${ch.name}`}
-                    className="text-ink-mute hover:text-destructive ml-2 hidden shrink-0 group-hover:block"
+                    className="text-muted-foreground hover:text-destructive ml-2 hidden shrink-0 group-hover:block"
                     onClick={(e) => {
                       e.stopPropagation()
                       onDelete(ch)
@@ -69,6 +69,6 @@ export function ChannelList({ channels, loading, selectedId, onSelect, onNew, on
           </ul>
         )}
       </div>
-    </SurfaceCard>
+    </div>
   )
 }

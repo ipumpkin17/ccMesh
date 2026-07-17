@@ -54,8 +54,8 @@ export function AppLayout() {
       <TitleBar />
       <div className={cn('flex flex-1 overflow-hidden', navMode === 'vertical' ? 'flex-row' : 'flex-col')}>
         {navMode === 'horizontal' ? <TopNav /> : <SideNav />}
-        <main className="flex-1 overflow-x-auto overflow-y-hidden p-8">
-          <div className="h-full min-h-0 w-full min-w-[48rem]">
+        <main className="flex-1 overflow-x-auto overflow-y-hidden p-6">
+          <div className="h-full min-h-0 w-full min-w-3xl">
             <Suspense fallback={null}>
               <ActivePage />
             </Suspense>

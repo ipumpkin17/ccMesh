@@ -32,10 +32,6 @@ interface SurfaceCardProps {
   as?: ElementType
 }
 
-/**
- * 统一表面卡片：surface-card + edge-subtle + rounded-lg。
- * 设置、关于、同步、端点侧栏等业务块共用，避免 border-edge / 无底色 / p-5 混用。
- */
 export function SurfaceCard({ children, className, padding = 'lg', as: Comp = 'section' }: SurfaceCardProps) {
-  return <Comp className={cn('border-edge-subtle bg-surface-card rounded-lg border', PADDING[padding], className)}>{children}</Comp>
+  return <Comp className={cn('bg-card text-card-foreground rounded-xl border', PADDING[padding], className)}>{children}</Comp>
 }

@@ -27,8 +27,8 @@ export function TopNav() {
   }, [])
 
   return (
-    <header data-tauri-drag-region className="border-edge bg-surface flex h-14 shrink-0 items-center gap-4 border-b px-6">
-      <div className="w-[160px] shrink-0">
+    <header data-tauri-drag-region className="bg-sidebar flex h-12 shrink-0 items-center gap-3 border-b px-4">
+      <div className="w-40 shrink-0">
         <Logo extra={<VersionPopover />} />
       </div>
 
@@ -38,7 +38,7 @@ export function TopNav() {
         ))}
       </nav>
 
-      <div className="flex shrink-0 items-center gap-2">
+      <div className="flex shrink-0 items-center gap-1.5">
         <SettingsShortcut side="bottom" />
       </div>
     </header>

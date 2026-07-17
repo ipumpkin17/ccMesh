@@ -28,7 +28,7 @@ export function SearchField({
 } & Omit<ComponentProps<'input'>, 'size' | 'value' | 'onChange'>) {
   return (
     <div className={cn('relative', className)}>
-      <SearchIcon className="text-ink-mute pointer-events-none absolute top-1/2 left-2 size-4 -translate-y-1/2" />
+      <SearchIcon className="text-muted-foreground pointer-events-none absolute top-1/2 left-2 size-4 -translate-y-1/2" />
       <Input size={size} value={value} onChange={(e) => onChange(e.target.value)} placeholder={placeholder} className={cn('pr-2 pl-8', inputClassName)} {...props} />
     </div>
   )

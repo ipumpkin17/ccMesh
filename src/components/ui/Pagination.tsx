@@ -14,7 +14,7 @@ interface PaginationProps {
 export function Pagination({ page, pageSize, total, onPageChange }: PaginationProps) {
   const totalPages = Math.max(1, Math.ceil(total / pageSize))
   return (
-    <div className="text-ink-secondary flex items-center justify-between gap-2 text-xs">
+    <div className="text-muted-foreground flex items-center justify-between gap-2 text-xs">
       <span>
         共 <TabularText>{total}</TabularText> 条 · 第 <TabularText>{page}</TabularText>/<TabularText>{totalPages}</TabularText> 页
       </span>

@@ -9,26 +9,26 @@
  * - sectionDesc / meta: 辅助说明与元信息
  * - tableHead: 表头
  */
-export const pageTitleClass = 'text-2xl font-light tracking-tight text-ink-primary'
+export const pageTitleClass = 'text-lg font-semibold leading-7 text-foreground'
 
-export const sectionTitleClass = 'text-base font-medium text-ink-primary'
+export const sectionTitleClass = 'text-base font-semibold leading-6 text-foreground'
 
-export const panelTitleClass = 'text-sm font-medium text-ink-primary'
+export const panelTitleClass = 'text-sm font-semibold leading-5 text-foreground'
 
-export const bodyClass = 'text-sm text-ink-primary'
+export const bodyClass = 'text-sm leading-5 text-foreground'
 
-export const bodySecondaryClass = 'text-sm text-ink-secondary'
+export const bodySecondaryClass = 'text-sm leading-5 text-muted-foreground'
 
-export const emptyClass = 'text-sm text-ink-mute'
+export const emptyClass = 'text-sm leading-5 text-muted-foreground'
 
-export const sectionDescClass = 'text-xs leading-relaxed text-ink-mute'
+export const sectionDescClass = 'text-xs leading-5 text-muted-foreground'
 
-export const metaClass = 'text-xs text-ink-mute'
+export const metaClass = 'text-xs leading-4 text-muted-foreground'
 
-export const tableHeadClass = 'text-xs font-medium text-ink-secondary'
+export const tableHeadClass = 'text-xs font-medium leading-4 text-muted-foreground'
 
 /** 模型名、路径、密钥等 mono 元信息 */
-export const monoMetaClass = 'font-mono text-xs text-ink-secondary'
+export const monoMetaClass = 'font-mono text-xs text-muted-foreground'
 
 /** 更密的次要信息（迁移列表 URL / 掩码密钥） */
-export const denseMetaClass = 'text-[10px] text-ink-mute'
+export const denseMetaClass = 'text-xs text-muted-foreground'

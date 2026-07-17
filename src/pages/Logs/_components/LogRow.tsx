@@ -1,7 +1,6 @@
 import type { ReactNode } from 'react'
 
 import { Badge } from '@/components/ui/badge'
-import { TabularText } from '@/components/ui'
 import type { LogLine } from '@/services/modules/logs'
 import { cn } from '@/lib/utils'
 import { levelBadgeClass, levelDotClass } from './logLevels'
@@ -19,7 +18,7 @@ function highlight(text: string, kw: string): ReactNode {
   while (idx !== -1) {
     if (idx > i) parts.push(text.slice(i, idx))
     parts.push(
-      <mark key={n++} className="bg-warning/30 text-ink-primary rounded-sm">
+      <mark key={n++} className="bg-warning/30 text-foreground rounded-sm">
         {text.slice(idx, idx + kw.length)}
       </mark>,
     )
@@ -35,11 +34,6 @@ function formatTooltip(line: LogLine): string {
   return [line.time, line.level, line.target, line.message, fields].filter(Boolean).join(' ')
 }
 
-const CARD_BORDER: Record<string, string> = {
-  ERROR: 'border-destructive/40',
-  WARN: 'border-warning/40',
-}
-
 const MESSAGE_TONE: Record<string, string> = {
   ERROR: 'text-destructive',
   WARN: 'text-warning',
@@ -51,29 +45,29 @@ export function LogRow({ line, keyword }: { line: LogLine; keyword: string }) {
   const body = highlight(line.message, keyword)
 
   return (
-    <article title={formatTooltip(line)} className={cn('bg-surface-card rounded border px-2 py-1', CARD_BORDER[line.level] ?? 'border-edge-subtle')}>
-      <div className="text-[11px] leading-snug break-all">
+    <article title={formatTooltip(line)} className="hover:bg-accent/40 px-2 py-1.5">
+      <div className="text-xs leading-5 break-all">
         <span className="mr-1 inline-flex items-center gap-1 align-baseline whitespace-nowrap">
           <span aria-hidden className={cn('inline-block size-1.5 shrink-0 rounded-full', levelDotClass(line.level))} />
-          <Badge size="xs" className={levelBadgeClass(line.level)}>
+          <Badge size="xs" className={cn('w-12', levelBadgeClass(line.level))}>
             {line.level}
           </Badge>
-          <TabularText className="text-ink-mute">{line.time}</TabularText>
+          <span className="text-muted-foreground">{line.time}</span>
         </span>
 
         {line.target ? (
           <>
-            <span className="text-ink-disabled">· </span>
-            <span className="text-ink-secondary font-mono">{line.target}</span>
-            <span className="text-ink-disabled"> · </span>
+            <span className="text-muted-foreground">· </span>
+            <span className="text-foreground">{line.target}</span>
+            <span className="text-muted-foreground"> · </span>
           </>
         ) : null}
 
-        <span className={cn('text-ink-primary', tone)}>{body}</span>
+        <span className={cn('text-foreground', tone)}>{body}</span>
 
         {line.fields.map((f) => (
-          <span key={f.key} className="text-ink-mute font-mono before:content-['\00a0']">
-            {f.key}=<span className="text-ink-secondary">{f.value}</span>
+          <span key={f.key} className="text-muted-foreground before:content-['\00a0']">
+            {f.key}=<span className="text-foreground">{f.value}</span>
           </span>
         ))}
       </div>

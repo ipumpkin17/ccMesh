@@ -8,8 +8,8 @@ import { WindowControls } from './WindowControls'
  */
 export function TitleBar() {
   return (
-    <div data-tauri-drag-region className={cn('border-edge-subtle bg-surface flex h-8 shrink-0 items-center justify-between border-b select-none', IS_MAC ? 'pl-20' : 'pl-3')}>
-      <span data-tauri-drag-region className="text-ink-mute text-xs font-medium tracking-tight">
+    <div data-tauri-drag-region className={cn('bg-sidebar flex h-8 shrink-0 items-center justify-between border-b select-none', IS_MAC ? 'pl-20' : 'pl-3')}>
+      <span data-tauri-drag-region className="text-muted-foreground text-xs font-medium">
         ccMesh
       </span>
       <WindowControls />

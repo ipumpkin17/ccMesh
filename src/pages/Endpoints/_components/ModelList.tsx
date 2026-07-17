@@ -26,7 +26,7 @@ async function copyText(text: string) {
 }
 
 /** 按启用端点分组展示其对外可用模型（出站模型 + 映射入站名）。 */
-export function ModelList() {
+export function ModelList({ framed = true }: { framed?: boolean }) {
   const { data: endpoints } = useEndpoints()
   const groups = (endpoints ?? [])
     .filter((e) => e.enabled)
@@ -41,13 +41,13 @@ export function ModelList() {
       .then(() => toast.success(`已复制 ${model}`))
       .catch(() => toast.error('复制失败'))
 
-  return (
-    <SurfaceCard padding="md" className="flex h-full flex-col gap-3">
+  const content = (
+    <>
       <h2 className={cn(sectionTitleClass, 'flex shrink-0 items-center gap-1.5')}>
         可用模型
         <Tooltip>
           <TooltipTrigger asChild>
-            <InfoIcon className="text-ink-disabled size-3.5 cursor-help" />
+            <InfoIcon className="text-muted-foreground size-3.5 cursor-help" />
           </TooltipTrigger>
           <TooltipContent>按启用端点</TooltipContent>
         </Tooltip>
@@ -59,7 +59,7 @@ export function ModelList() {
           {groups.map((g) => (
             <div key={g.name} className="flex flex-col gap-1.5">
               <span className={metaClass}>
-                {g.name} <span className="text-ink-disabled">({g.models.length})</span>
+                {g.name} <span className="text-muted-foreground">({g.models.length})</span>
               </span>
               <div className="flex flex-wrap gap-2">
                 {g.models.map((m, i) => {
@@ -77,7 +77,7 @@ export function ModelList() {
                           onCopy(m)
                         }
                       }}
-                      className="hover:bg-surface-hover flex cursor-pointer items-center gap-1 transition-colors select-none"
+                      className="hover:bg-accent flex cursor-pointer items-center gap-1 transition-colors select-none"
                     >
                       <ModelIcon size={14} className="shrink-0" />
                       {m}
@@ -89,6 +89,16 @@ export function ModelList() {
           ))}
         </div>
       )}
+    </>
+  )
+
+  if (!framed) {
+    return <div className="flex h-full flex-col gap-3">{content}</div>
+  }
+
+  return (
+    <SurfaceCard padding="md" className="flex h-full flex-col gap-3">
+      {content}
     </SurfaceCard>
   )
 }

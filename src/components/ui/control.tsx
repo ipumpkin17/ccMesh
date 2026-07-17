@@ -22,5 +22,5 @@ export function Control({ children, width = 'sm', className }: { children: React
 
 /** 多个控件横向排列的统一间距。 */
 export function Controls({ children, className }: { children: ReactNode; className?: string }) {
-  return <div className={cn('flex items-center gap-2', className)}>{children}</div>
+  return <div className={cn('flex items-center gap-1.5', className)}>{children}</div>
 }

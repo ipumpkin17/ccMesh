@@ -15,17 +15,17 @@ const badgeVariants = cva(
         outline: 'border-border text-foreground [a&]:hover:bg-accent [a&]:hover:text-accent-foreground',
         ghost: '[a&]:hover:bg-accent [a&]:hover:text-accent-foreground',
         link: 'text-primary underline-offset-4 [a&]:hover:underline',
-        success: 'border-transparent bg-success/12 text-primary-soft',
+        success: 'border-transparent bg-success/12 text-success',
         warning: 'border-transparent bg-warning/12 text-warning',
         info: 'border-transparent bg-info/12 text-info',
         danger: 'border-transparent bg-destructive/12 text-destructive',
-        muted: 'border-border/70 bg-surface-raised text-ink-secondary',
+        muted: 'bg-muted text-muted-foreground',
       },
       size: {
         default: 'px-2 py-0.5 text-xs',
         /** 列表内紧凑标签（日志等级等） */
-        xs: 'h-3.5 px-1 py-0 text-[9px] leading-none uppercase',
-        sm: 'px-1.5 py-0.5 text-[10px] leading-none',
+        xs: 'h-4 px-1 py-0 text-xs leading-none font-normal uppercase',
+        sm: 'px-1.5 py-0.5 text-xs leading-none',
       },
     },
     defaultVariants: {

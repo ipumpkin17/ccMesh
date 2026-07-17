@@ -55,8 +55,8 @@ const LEVEL_TONE: Record<LogLevel, LevelTone> = {
 
 const FALLBACK_TONE: LevelTone = {
   badge: 'border-transparent bg-accent text-muted-foreground',
-  dot: 'bg-ink-mute',
-  chipIdle: 'border-edge text-ink-secondary hover:bg-surface-hover',
+  dot: 'bg-muted-foreground',
+  chipIdle: 'border-border text-muted-foreground hover:bg-accent hover:text-accent-foreground',
   chipActive: 'border-primary bg-primary/10 text-foreground',
 }
 
@@ -79,5 +79,5 @@ export function levelChipClass(level: string, active: boolean): string {
 
 /** ALL 筛选 chip（非具体等级）。 */
 export function allChipClass(active: boolean): string {
-  return active ? 'border-primary bg-primary/10 text-foreground' : 'border-edge text-ink-secondary hover:bg-surface-hover'
+  return active ? 'border-primary bg-primary/10 text-foreground' : 'border-border text-muted-foreground hover:bg-accent hover:text-accent-foreground'
 }

@@ -67,7 +67,7 @@ export function UsagePanel() {
     <div className="flex flex-col gap-6">
       <div className="flex items-center justify-between gap-4">
         <Tabs value={app} onValueChange={(v) => setApp(v as UsageAppFilter)}>
-          <TabsList variant="line">
+          <TabsList>
             {APP_TABS.map((t) => (
               <TabsTrigger key={t.key} value={t.key}>
                 {t.label}

@@ -21,7 +21,7 @@ export function StatCard({ label, value, hint, hintBelow = false }: Props) {
       <CardContent className="flex flex-col gap-1 px-4 py-3">
         <span className={metaClass}>{label}</span>
         <div className={hintBelow ? 'flex flex-col gap-0.5' : 'flex items-center justify-between gap-2'}>
-          <TabularText className="text-foreground text-xl leading-tight font-medium">{value}</TabularText>
+          <TabularText className="text-foreground text-lg leading-6 font-semibold">{value}</TabularText>
           {hint}
         </div>
       </CardContent>

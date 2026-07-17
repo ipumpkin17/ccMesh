@@ -5,7 +5,7 @@ import { cn } from '@/lib/utils'
  */
 export function EditorLoading({ className, height = 160 }: { className?: string; height?: number }) {
   return (
-    <div className={cn('text-ink-mute flex items-center justify-center text-xs', className)} style={{ height }}>
+    <div className={cn('text-muted-foreground flex items-center justify-center text-xs', className)} style={{ height }}>
       加载编辑器…
     </div>
   )

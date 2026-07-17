@@ -109,14 +109,14 @@ export function EndpointCard({ endpoint, onEdit, draggable, dragHandleRef, view 
     draggable && dragHandleRef ? (
       <Tooltip>
         <TooltipTrigger asChild>
-          <span ref={dragHandleRef} aria-label="拖动以排序" className="text-ink-mute shrink-0 cursor-grab touch-none">
+          <span ref={dragHandleRef} aria-label="拖动以排序" className="text-muted-foreground shrink-0 cursor-grab touch-none">
             <GripVerticalIcon className="size-4" />
           </span>
         </TooltipTrigger>
         <TooltipContent>拖动以排序</TooltipContent>
       </Tooltip>
     ) : (
-      <GripVerticalIcon className="text-ink-disabled size-4 shrink-0" />
+      <GripVerticalIcon className="text-muted-foreground size-4 shrink-0" />
     )
 
   const enableSwitch = (
@@ -150,7 +150,7 @@ export function EndpointCard({ endpoint, onEdit, draggable, dragHandleRef, view 
           <TooltipContent>测试连通性</TooltipContent>
         </Tooltip>
         <PopoverContent align="end" className="w-56 p-2">
-          <p className="text-ink-mute mb-1.5 px-1 text-xs">选择测试模型</p>
+          <p className="text-muted-foreground mb-1.5 px-1 text-xs">选择测试模型</p>
           <div className="flex max-h-60 scrollbar-none flex-col gap-1 overflow-auto">
             {testModels.map((model) => {
               const ModelIcon = getModelIcon(model)
@@ -158,7 +158,7 @@ export function EndpointCard({ endpoint, onEdit, draggable, dragHandleRef, view 
                 <button
                   key={model}
                   type="button"
-                  className="hover:bg-surface-hover flex min-w-0 cursor-pointer items-center gap-1.5 rounded px-2 py-1 text-left text-xs"
+                  className="hover:bg-accent flex min-w-0 cursor-pointer items-center gap-1.5 rounded px-2 py-1 text-left text-xs"
                   onClick={() => {
                     setTestOpen(false)
                     test.mutate(model)
@@ -206,7 +206,7 @@ export function EndpointCard({ endpoint, onEdit, draggable, dragHandleRef, view 
           <DialogHeader>
             <DialogTitle>删除端点</DialogTitle>
           </DialogHeader>
-          <p className="text-ink-secondary text-sm">
+          <p className="text-muted-foreground text-sm">
             确定删除端点「<span className="font-medium">{endpoint.name}</span>」吗？此操作不可撤销。
           </p>
           <DialogFooter>
@@ -243,7 +243,7 @@ export function EndpointCard({ endpoint, onEdit, draggable, dragHandleRef, view 
   )
 
   const meta = (
-    <span className="text-ink-secondary flex min-w-0 items-center text-xs">
+    <span className="text-muted-foreground flex min-w-0 items-center text-xs">
       <span
         role="link"
         tabIndex={0}
@@ -279,7 +279,7 @@ export function EndpointCard({ endpoint, onEdit, draggable, dragHandleRef, view 
           <span className={emptyClass}>无已配置模型</span>
         ) : (
           <div className="flex flex-col gap-1">
-            <span className="text-ink-secondary mb-0.5 text-xs">模型（{displayModels.length}）</span>
+            <span className="text-muted-foreground mb-0.5 text-xs">模型（{displayModels.length}）</span>
             {displayModels.map((m) => {
               const ModelIcon = getModelIcon(m)
               return (
@@ -310,7 +310,7 @@ export function EndpointCard({ endpoint, onEdit, draggable, dragHandleRef, view 
           <div className="flex w-full px-4 py-1.5">
             <EndpointQualityPanel endpointId={endpoint.uid} />
           </div>
-          <div className="border-edge-subtle flex items-center gap-2 border-t px-4 py-1.5 select-none">
+          <div className="flex items-center gap-2 border-t px-4 py-1.5 select-none">
             <div className="flex items-center gap-1.5">{availability}</div>
             <div className="ml-auto flex items-center gap-1">
               {actions}

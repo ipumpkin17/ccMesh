@@ -1,71 +1,66 @@
-@import "tailwindcss";
-@import "tw-animate-css";
+@import 'tailwindcss';
+@import 'tw-animate-css';
 
 @custom-variant dark (&:is(.dark *));
 
-/*
-  Unified Dark Stripe design language.
-  来源：r-app/DESIGN.md（dark-first）。:root = light 变体（为浅底适配，DESIGN.md 未原生定义），.dark = 原始 Dark Stripe 暗色。
-  共享品牌令牌（primary / ring / success / chart-*）仅在 :root 定义并被 .dark 继承；
-  primary-foreground / sidebar-primary-foreground 亮色用白字、暗色在 .dark 显式覆盖为黑字。
-*/
 :root {
-  --radius: 0.75rem; /* 12px 标准卡片圆角 */
+  --radius: 0.625rem;
 
-  /* shadcn 核心令牌（light） */
+  /* 主题入口：后续切换只改这组 brand 变量。 */
+  --brand: #22c55e;
+  --brand-hover: #16a34a;
+  --brand-press: #15803d;
+  --brand-soft: rgba(34, 197, 94, 0.12);
+  --brand-glow: rgba(34, 197, 94, 0.18);
+
   --background: #ffffff;
   --foreground: #18181b;
   --card: #ffffff;
   --card-foreground: #18181b;
   --popover: #ffffff;
   --popover-foreground: #18181b;
-  --primary: #22c55e;
+  --primary: var(--brand);
   --primary-foreground: #ffffff;
   --secondary: #f4f4f5;
   --secondary-foreground: #18181b;
   --muted: #f4f4f5;
-  --muted-foreground: #52525b;
+  --muted-foreground: #71717a;
   --accent: #f4f4f5;
   --accent-foreground: #18181b;
   --destructive: #dc2626;
   --border: #e4e4e7;
-  --input: #d4d4d8;
-  --ring: #22c55e;
+  --input: #e4e4e7;
+  --ring: var(--brand);
 
-  /* 扩展令牌：四级浅灰阶表面（light） */
-  --surface-raised: #f7f7f8;
-  --surface-card: #ffffff;
-  --surface-hover: #f4f4f5;
-  --surface-overlay: #ffffff;
+  --surface-raised: var(--muted);
+  --surface-card: var(--card);
+  --surface-hover: var(--accent);
+  --surface-overlay: var(--popover);
 
-  /* 边线（light） */
-  --edge-subtle: #ececee;
-  --edge: #e4e4e7;
+  --edge-subtle: var(--border);
+  --edge: var(--border);
   --edge-strong: #d4d4d8;
 
-  /* 文本（light）：弱化文字此前偏淡（#71717a/#a1a1aa）在浅底可读性差，整体加深一档（约 #52525B 基调）。 */
-  --ink-primary: #18181b;
+  --ink-primary: var(--foreground);
   --ink-secondary: #52525b;
-  --ink-mute: #52525b;
-  --ink-disabled: #71717a;
+  --ink-mute: var(--muted-foreground);
+  --ink-disabled: #a1a1aa;
 
-  /* 主色阶梯 + 语义色（共享品牌色 + 浅底可读性调深的强调文字色） */
-  --primary-soft: #15803d;
-  --primary-deep: #16a34a;
-  --primary-press: #15803d;
-  --success: #22c55e;
+  --primary-soft: var(--brand-hover);
+  --primary-deep: var(--brand-press);
+  --primary-press: var(--brand-press);
+  --success: #16a34a;
   --warning: #b45309;
   --info: #1d4ed8;
 
-  /* 侧栏（light） */
-  --sidebar: #ffffff;
-  --sidebar-foreground: #18181b;
-  --sidebar-primary: #22c55e;
+  --sidebar: #fafafa;
+  --sidebar-foreground: var(--foreground);
+  --sidebar-primary: var(--brand);
   --sidebar-primary-foreground: #ffffff;
-  --sidebar-accent: #f4f4f5;
-  --sidebar-accent-foreground: #18181b;
-  --sidebar-border: #ececee;
-  --sidebar-ring: #22c55e;
+  --sidebar-accent: var(--accent);
+  --sidebar-accent-foreground: var(--accent-foreground);
+  --sidebar-border: var(--border);
+  --sidebar-ring: var(--brand);
 
   /* 图表色（明暗共享） */
   --chart-1: #22c55e;
@@ -76,55 +71,56 @@
 }
 
 .dark {
-  /* shadcn 核心令牌（Dark Stripe 暗色） */
-  --background: #000000;
-  --foreground: #ededef;
-  --card: #111111;
-  --card-foreground: #ededef;
-  --popover: #1c1c1f;
-  --popover-foreground: #ededef;
-  --secondary: #111111;
-  --secondary-foreground: #ededef;
-  --muted: #0a0a0a;
+  --brand: #4ade80;
+  --brand-hover: #22c55e;
+  --brand-press: #16a34a;
+  --brand-soft: rgba(74, 222, 128, 0.16);
+  --brand-glow: rgba(74, 222, 128, 0.24);
+
+  --background: #09090b;
+  --foreground: #fafafa;
+  --card: #09090b;
+  --card-foreground: #fafafa;
+  --popover: #09090b;
+  --popover-foreground: #fafafa;
+  --secondary: #27272a;
+  --secondary-foreground: #fafafa;
+  --muted: #27272a;
   --muted-foreground: #a1a1aa;
-  --accent: #181818;
-  --accent-foreground: #ededef;
+  --accent: #27272a;
+  --accent-foreground: #fafafa;
   --destructive: #ef4444;
-  --border: #1a1a1a;
-  --input: #222222;
+  --border: #27272a;
+  --input: #27272a;
 
-  /* 四级灰阶表面（dark） */
-  --surface-raised: #0a0a0a;
-  --surface-card: #111111;
-  --surface-hover: #181818;
-  --surface-overlay: #1c1c1f;
+  --surface-raised: var(--muted);
+  --surface-card: var(--card);
+  --surface-hover: var(--accent);
+  --surface-overlay: var(--popover);
 
-  /* 边线（dark） */
-  --edge-subtle: #1a1a1a;
-  --edge: #222222;
-  --edge-strong: #2a2a2e;
+  --edge-subtle: var(--border);
+  --edge: var(--border);
+  --edge-strong: #3f3f46;
 
-  /* 文本（dark） */
-  --ink-primary: #ededef;
-  --ink-secondary: #a1a1aa;
-  --ink-mute: #8a8a97;
-  --ink-disabled: #56565f;
+  --ink-primary: var(--foreground);
+  --ink-secondary: #d4d4d8;
+  --ink-mute: var(--muted-foreground);
+  --ink-disabled: #71717a;
 
-  /* 暗色维持绿色主色上的黑字（仅亮色模式按需求改白字，故此处显式覆盖继承值） */
   --primary-foreground: #000000;
   --sidebar-primary-foreground: #000000;
 
-  /* 暗底强调文字色（更亮以提升可读性） */
-  --primary-soft: #4ade80;
+  --primary-soft: var(--brand-hover);
+  --primary-deep: var(--brand-press);
+  --primary-press: var(--brand-press);
   --warning: #f59e0b;
   --info: #3b82f6;
 
-  /* 侧栏（dark） */
-  --sidebar: #000000;
-  --sidebar-foreground: #ededef;
-  --sidebar-accent: #181818;
-  --sidebar-accent-foreground: #ededef;
-  --sidebar-border: #1a1a1a;
+  --sidebar: var(--background);
+  --sidebar-foreground: var(--foreground);
+  --sidebar-accent: var(--accent);
+  --sidebar-accent-foreground: var(--accent-foreground);
+  --sidebar-border: var(--border);
 }
 
 @theme inline {
@@ -144,6 +140,9 @@
   --color-popover-foreground: var(--popover-foreground);
   --color-primary: var(--primary);
   --color-primary-foreground: var(--primary-foreground);
+  --color-brand: var(--brand);
+  --color-brand-hover: var(--brand-hover);
+  --color-brand-press: var(--brand-press);
   --color-secondary: var(--secondary);
   --color-secondary-foreground: var(--secondary-foreground);
   --color-muted: var(--muted);
@@ -192,15 +191,15 @@
   --color-chart-4: var(--chart-4);
   --color-chart-5: var(--chart-5);
 
-  /* 字体：Sohne 商业不可用，主用 Inter；数据用 JetBrains Mono */
-  --font-sans: "Inter Variable", "Inter", "SF Pro Display", system-ui, -apple-system, sans-serif;
-  --font-mono: "JetBrains Mono Variable", "JetBrains Mono", "Geist Mono", ui-monospace, monospace;
+  /* 字体：优先系统原生，中文走苹方。 */
+  --font-sans: -apple-system, BlinkMacSystemFont, 'SF Pro Text', 'SF Pro Display', 'PingFang SC', 'Inter Variable', system-ui, sans-serif;
+  --font-mono: 'SF Mono', 'JetBrains Mono Variable', 'JetBrains Mono', ui-monospace, monospace;
 
-  /* 阴影：静态卡片不用，仅浮层 */
-  --shadow-level-1: 0 1px 2px rgba(0, 0, 0, 0.4);
-  --shadow-level-2: 0 4px 12px rgba(0, 0, 0, 0.4), 0 1px 2px rgba(0, 0, 0, 0.3);
-  --shadow-level-3: 0 16px 32px rgba(0, 0, 0, 0.55), 0 2px 6px rgba(0, 0, 0, 0.35);
-  --shadow-focus-ring: 0 0 0 3px rgba(34, 197, 94, 0.25);
+  /* 保留浮层阴影 token，组件层按 shadcn 默认决定是否使用。 */
+  --shadow-level-1: 0 1px 2px 0 rgb(0 0 0 / 0.05);
+  --shadow-level-2: 0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1);
+  --shadow-level-3: 0 10px 15px -3px rgb(0 0 0 / 0.1), 0 4px 6px -4px rgb(0 0 0 / 0.1);
+  --shadow-focus-ring: 0 0 0 3px color-mix(in oklab, var(--ring) 20%, transparent);
 }
 
 @layer base {
@@ -210,20 +209,21 @@
   body {
     @apply bg-background text-foreground;
     font-family: var(--font-sans);
-    font-feature-settings: "ss01";
+    line-height: 1.5;
+    font-feature-settings: 'ss01', 'cv05';
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
   }
   /* 数据：money / count / version / timestamp 一律 mono + tnum */
   .tabular {
     font-family: var(--font-mono);
-    font-feature-settings: "tnum";
+    font-feature-settings: 'tnum';
     letter-spacing: -0.2px;
   }
-  /* 标题保留 thin 300（Stripe 空气感） */
+  /* 中文工具型界面不做过强字距压缩，标题靠字重和颜色建立层级。 */
   .display {
-    font-weight: 300;
-    letter-spacing: -0.02em;
+    font-weight: 500;
+    letter-spacing: 0;
   }
 
   /* 全局滚动条：细、pill 浮动滑块、中性灰随主题切换，hover 强调（不使用品牌绿，绿色仅留给 CTA） */
@@ -262,8 +262,8 @@
 
   /* 隐藏浏览器对 type="password" 原生自带的显隐按钮（Edge/IE 的 ::-ms-reveal、
      WebKit 的 ::webkit-reveal-button），避免与项目自定义的密钥显隐按钮重复出现"两个眼睛"。 */
-  input[type="password"]::-ms-reveal,
-  input[type="password"]::-webkit-reveal-button {
+  input[type='password']::-ms-reveal,
+  input[type='password']::-webkit-reveal-button {
     display: none;
   }
 }

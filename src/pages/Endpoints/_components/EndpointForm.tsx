@@ -280,12 +280,12 @@ export function EndpointForm({ open, onOpenChange, editing }: Props) {
                   <Label
                     key={opt.value}
                     htmlFor={`transformer-${opt.value}`}
-                    className="border-input bg-surface-raised hover:bg-surface-hover has-[[data-state=checked]]:border-primary has-[[data-state=checked]]:bg-primary/12 has-[[data-state=checked]]:ring-primary/30 has-[[data-state=checked]]:[&_.opt-label]:text-primary flex cursor-pointer items-center gap-2 rounded-sm border px-3 py-2 font-normal transition-[color,box-shadow,background-color,border-color] has-[[data-state=checked]]:ring-2 has-[[data-state=checked]]:[&_.opt-label]:font-medium"
+                    className="border-input bg-card hover:border-primary/30 hover:bg-primary/5 has-[[data-state=checked]]:border-primary has-[[data-state=checked]]:bg-primary/12 has-[[data-state=checked]]:ring-primary/30 has-[[data-state=checked]]:[&_.opt-label]:text-primary flex cursor-pointer items-center gap-2 rounded-sm border px-3 py-2 font-normal transition-[color,box-shadow,background-color,border-color] has-[[data-state=checked]]:ring-2 has-[[data-state=checked]]:[&_.opt-label]:font-medium"
                   >
                     <RadioGroupItem id={`transformer-${opt.value}`} value={opt.value} className="data-[state=checked]:border-primary data-[state=checked]:bg-primary/10" />
                     <span className="flex min-w-0 flex-col gap-0.5">
-                      <span className="opt-label text-ink-primary text-sm leading-none">{opt.label}</span>
-                      <span className="text-ink-mute text-[11px] leading-none">{opt.hint}</span>
+                      <span className="opt-label text-foreground text-sm leading-none">{opt.label}</span>
+                      <span className="text-muted-foreground text-xs leading-none">{opt.hint}</span>
                     </span>
                   </Label>
                 ))}
@@ -340,7 +340,7 @@ export function EndpointForm({ open, onOpenChange, editing }: Props) {
                       const lit = isLit(m)
                       const ModelIcon = getModelIcon(m)
                       return (
-                        <Badge key={m} variant={lit ? 'default' : 'outline'} className={lit ? undefined : 'bg-surface-raised text-ink-secondary'}>
+                        <Badge key={m} variant={lit ? 'default' : 'outline'}>
                           <button
                             type="button"
                             onClick={() => toggleModel(m)}
@@ -360,7 +360,7 @@ export function EndpointForm({ open, onOpenChange, editing }: Props) {
                   </div>
                   <div className="flex items-center justify-between">
                     <span className={metaClass}>全部未点亮时默认全部公布</span>
-                    <button type="button" className={`${metaClass} hover:text-ink-secondary`} onClick={() => update({ models: [], activeModels: [] })}>
+                    <button type="button" className={`${metaClass} hover:text-foreground`} onClick={() => update({ models: [], activeModels: [] })}>
                       清除全部
                     </button>
                   </div>
@@ -396,7 +396,7 @@ export function EndpointForm({ open, onOpenChange, editing }: Props) {
                 onChange={(e) => onNewApiTextChange(e.target.value)}
                 placeholder={NEW_API_CONN_PLACEHOLDER}
                 rows={8}
-                className="border-input text-ink-primary placeholder:text-ink-mute focus-visible:border-ring focus-visible:ring-ring/40 min-h-[180px] w-full resize-y rounded-md border bg-transparent px-3 py-2 font-mono text-xs outline-none focus-visible:ring-2"
+                className="border-input text-foreground placeholder:text-muted-foreground focus-visible:border-ring focus-visible:ring-ring/50 min-h-44 w-full resize-y rounded-md border bg-transparent px-3 py-2 font-mono text-xs outline-none focus-visible:ring-[3px]"
               />
               <p className={metaClass}>粘贴单条 NewAPI 渠道连接 JSON。名称由 url 推导，不修改转换器。</p>
               {newApiErr ? <p className="text-destructive text-xs">{newApiErr}</p> : null}

@@ -151,11 +151,11 @@ export function Logs() {
       contentClassName="relative flex flex-col"
     >
       <SurfaceCard as="div" padding="none" className="relative min-h-0 flex-1 overflow-hidden">
-        <div ref={scrollRef} onScroll={onScroll} className="h-full overflow-y-auto px-3 py-3">
+        <div ref={scrollRef} onScroll={onScroll} className="h-full overflow-y-auto px-3">
           {filtered.length === 0 ? (
             <EmptyState className="px-2">{lines.length === 0 ? '暂无日志' : '无匹配日志'}</EmptyState>
           ) : (
-            <div className="flex flex-col gap-1">
+            <div className="divide-border/60 flex flex-col divide-y">
               {filtered.map((l, i) => (
                 <LogRow key={`${l.time}-${i}`} line={l} keyword={keyword} />
               ))}

@@ -12,6 +12,7 @@ import { Label } from '@/components/ui/label'
 import { Switch } from '@/components/ui/switch'
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { cn } from '@/lib/utils'
+import { panelTitleClass } from '@/lib/typography'
 import { useEndpoints } from '@/hooks/useEndpoints'
 import { useToolConfigChannels } from '@/hooks/useToolConfigChannels'
 import {
@@ -245,8 +246,8 @@ export function ClaudeWorkspace() {
   const canSubmit = loaded && name.trim().length > 0
 
   return (
-    <div className="flex h-full min-h-0 flex-col gap-3">
-      <div className="flex min-h-0 flex-1 gap-3">
+    <SurfaceCard as="div" padding="none" className="flex h-full min-h-0 flex-col overflow-hidden">
+      <div className="flex min-h-0 flex-1">
         <ChannelList
           channels={channelsQ.data ?? []}
           loading={channelsQ.isLoading}
@@ -257,112 +258,120 @@ export function ClaudeWorkspace() {
         />
 
         {/* 中栏：表单 + 操作字段编辑器 */}
-        <SurfaceCard as="div" padding="md" className="flex min-h-0 min-w-0 flex-[3] flex-col gap-4 overflow-y-auto">
-          {!loaded ? (
-            <div className="text-ink-mute flex h-full flex-col items-center justify-center gap-3">
-              <FileCogIcon className="size-10 opacity-40" />
-              <p className="text-sm">点击左侧「+」新增，或选择一个渠道开始编辑</p>
-            </div>
-          ) : (
-            <>
-              <div className="flex flex-col gap-1.5">
-                <Label htmlFor="ch-name">渠道名称</Label>
-                <Input id="ch-name" value={name} onChange={(e) => setName(e.target.value)} placeholder="例如：渠道A" />
+        <div className="flex min-h-0 min-w-0 flex-[3] flex-col border-l">
+          <div className="min-h-0 flex-1 overflow-y-auto p-4">
+            {!loaded ? (
+              <div className="text-muted-foreground flex h-full flex-col items-center justify-center gap-3">
+                <FileCogIcon className="size-10 opacity-40" />
+                <p className="text-sm">点击左侧「+」新增，或选择一个渠道开始编辑</p>
               </div>
+            ) : (
+              <div className="flex flex-col gap-4">
+                <div className="flex flex-col gap-1.5">
+                  <Label htmlFor="ch-name">渠道名称</Label>
+                  <Input id="ch-name" value={name} onChange={(e) => setName(e.target.value)} placeholder="例如：渠道A" />
+                </div>
 
-              <Tabs
-                value={subTab}
-                onValueChange={(v) => {
-                  const t = v as 'endpoint' | 'custom'
-                  setSubTab(t)
-                  if (t === 'endpoint') updateFields({ baseUrl: gateway })
-                }}
-              >
-                <TabsList>
-                  <TabsTrigger value="endpoint">端点配置写入</TabsTrigger>
-                  <TabsTrigger value="custom">自定义配置写入</TabsTrigger>
-                </TabsList>
-              </Tabs>
+                <Tabs
+                  value={subTab}
+                  onValueChange={(v) => {
+                    const t = v as 'endpoint' | 'custom'
+                    setSubTab(t)
+                    if (t === 'endpoint') updateFields({ baseUrl: gateway })
+                  }}
+                >
+                  <TabsList>
+                    <TabsTrigger value="endpoint">端点配置写入</TabsTrigger>
+                    <TabsTrigger value="custom">自定义配置写入</TabsTrigger>
+                  </TabsList>
+                </Tabs>
 
-              <div className="flex flex-col gap-1.5">
-                <FormFieldLabel htmlFor="cl-base" label="地址" hint="ANTHROPIC_BASE_URL" />
-                <Input id="cl-base" value={fields.baseUrl} readOnly={subTab === 'endpoint'} onChange={(e) => updateFields({ baseUrl: e.target.value })} placeholder="https://..." />
-                {subTab === 'endpoint' && <p className="text-ink-mute px-1 text-xs">端点模式：自动指向本机网关 {gateway}</p>}
-              </div>
-
-              <div className="flex flex-col gap-1.5">
-                <FormFieldLabel htmlFor="cl-key" label="秘钥" hint="ANTHROPIC_API_KEY" />
-                <div className="relative">
+                <div className="flex flex-col gap-1.5">
+                  <FormFieldLabel htmlFor="cl-base" label="地址" hint="ANTHROPIC_BASE_URL" />
                   <Input
-                    id="cl-key"
-                    type={showKey ? 'text' : 'password'}
-                    value={fields.apiKey}
-                    onChange={(e) => updateFields({ apiKey: e.target.value })}
-                    className="pr-9"
-                    placeholder="sk-..."
+                    id="cl-base"
+                    value={fields.baseUrl}
+                    readOnly={subTab === 'endpoint'}
+                    onChange={(e) => updateFields({ baseUrl: e.target.value })}
+                    placeholder="https://..."
                   />
-                  <FieldAffixButton onClick={() => setShowKey((v) => !v)} aria-label={showKey ? '隐藏密钥' : '查看密钥'}>
-                    {showKey ? <EyeOffIcon className="size-4" /> : <EyeIcon className="size-4" />}
-                  </FieldAffixButton>
+                  {subTab === 'endpoint' && <p className="text-muted-foreground px-1 text-xs">端点模式：自动指向本机网关 {gateway}</p>}
                 </div>
-              </div>
 
-              <div className="flex flex-col gap-2">
-                <div className="flex items-center justify-between gap-2">
-                  <Label>模型映射（显示名只影响 /model 菜单；1M 为上下文能力声明）</Label>
-                  {subTab === 'custom' && (
-                    <Button type="button" variant="outline" size="xs" disabled={fetchModels.isPending || !fields.baseUrl} onClick={() => fetchModels.mutate()}>
-                      <RefreshCwIcon className={cn('size-3', fetchModels.isPending && 'animate-spin')} />
-                      拉取模型
-                    </Button>
-                  )}
+                <div className="flex flex-col gap-1.5">
+                  <FormFieldLabel htmlFor="cl-key" label="秘钥" hint="ANTHROPIC_API_KEY" />
+                  <div className="relative">
+                    <Input
+                      id="cl-key"
+                      type={showKey ? 'text' : 'password'}
+                      value={fields.apiKey}
+                      onChange={(e) => updateFields({ apiKey: e.target.value })}
+                      className="pr-9"
+                      placeholder="sk-..."
+                    />
+                    <FieldAffixButton onClick={() => setShowKey((v) => !v)} aria-label={showKey ? '隐藏密钥' : '查看密钥'}>
+                      {showKey ? <EyeOffIcon className="size-4" /> : <EyeIcon className="size-4" />}
+                    </FieldAffixButton>
+                  </div>
                 </div>
-                {MODEL_ROWS.map((row) => {
-                  const { base: b, is1m } = splitOneM(fields[row.key])
-                  return (
-                    <div key={row.key} className="flex items-center gap-2">
-                      <span className="text-ink-secondary w-16 shrink-0 text-sm">{row.role}</span>
-                      <ModelCombobox className="flex-1" value={b} onChange={(v) => setModel(row.key, v, is1m)} options={modelOptions} placeholder="模型显示名" />
-                      <label className="text-ink-mute flex shrink-0 items-center gap-1 text-xs">
-                        <Switch checked={is1m} onCheckedChange={(v) => setModel(row.key, b, v)} />
-                        1M
+
+                <div className="flex flex-col gap-2">
+                  <div className="flex items-center justify-between gap-2">
+                    <Label>模型映射（显示名只影响 /model 菜单；1M 为上下文能力声明）</Label>
+                    {subTab === 'custom' && (
+                      <Button type="button" variant="outline" size="xs" disabled={fetchModels.isPending || !fields.baseUrl} onClick={() => fetchModels.mutate()}>
+                        <RefreshCwIcon className={cn('size-3', fetchModels.isPending && 'animate-spin')} />
+                        拉取模型
+                      </Button>
+                    )}
+                  </div>
+                  {MODEL_ROWS.map((row) => {
+                    const { base: b, is1m } = splitOneM(fields[row.key])
+                    return (
+                      <div key={row.key} className="flex items-center gap-2">
+                        <span className="text-muted-foreground w-16 shrink-0 text-sm">{row.role}</span>
+                        <ModelCombobox className="flex-1" value={b} onChange={(v) => setModel(row.key, v, is1m)} options={modelOptions} placeholder="模型显示名" />
+                        <label className="text-muted-foreground flex shrink-0 items-center gap-1 text-xs">
+                          <Switch checked={is1m} onCheckedChange={(v) => setModel(row.key, b, v)} />
+                          1M
+                        </label>
+                      </div>
+                    )
+                  })}
+                </div>
+
+                <div className="flex flex-col gap-1.5">
+                  <FormFieldLabel htmlFor="cl-default" label="默认兜底模型" hint="ANTHROPIC_MODEL，可留空" />
+                  <ModelCombobox id="cl-default" value={fields.defaultModel} onChange={(v) => updateFields({ defaultModel: v })} options={modelOptions} placeholder="通常可留空" />
+                </div>
+
+                <div className="flex flex-col gap-2">
+                  <Label>配置开关</Label>
+                  <div className="flex flex-wrap gap-x-5 gap-y-2">
+                    {CLAUDE_TOGGLE_DEFS.map((def) => (
+                      <label key={def.key} className="text-muted-foreground inline-flex cursor-pointer items-center gap-1.5 text-sm">
+                        <Switch checked={toggles[def.key]} onCheckedChange={(v) => setToggles((t) => ({ ...t, [def.key]: v }))} />
+                        {def.label}
                       </label>
-                    </div>
-                  )
-                })}
-              </div>
+                    ))}
+                  </div>
+                </div>
 
-              <div className="flex flex-col gap-1.5">
-                <FormFieldLabel htmlFor="cl-default" label="默认兜底模型" hint="ANTHROPIC_MODEL，可留空" />
-                <ModelCombobox id="cl-default" value={fields.defaultModel} onChange={(v) => updateFields({ defaultModel: v })} options={modelOptions} placeholder="通常可留空" />
-              </div>
-
-              <div className="flex flex-col gap-2">
-                <Label>配置开关</Label>
-                <div className="flex flex-wrap gap-x-5 gap-y-2">
-                  {CLAUDE_TOGGLE_DEFS.map((def) => (
-                    <label key={def.key} className="text-ink-secondary inline-flex cursor-pointer items-center gap-1.5 text-sm">
-                      <Switch checked={toggles[def.key]} onCheckedChange={(v) => setToggles((t) => ({ ...t, [def.key]: v }))} />
-                      {def.label}
-                    </label>
-                  ))}
+                <div className="flex flex-col gap-1.5">
+                  <Label>关键环境配置</Label>
+                  <Suspense fallback={<EditorFallback />}>
+                    <JsonEditor value={opText} theme={theme} height="160px" onChange={onOpChange} />
+                  </Suspense>
                 </div>
               </div>
-
-              <div className="flex flex-col gap-1.5">
-                <Label>关键环境配置</Label>
-                <Suspense fallback={<EditorFallback />}>
-                  <JsonEditor value={opText} theme={theme} height="160px" onChange={onOpChange} />
-                </Suspense>
-              </div>
-            </>
-          )}
-        </SurfaceCard>
+            )}
+          </div>
+        </div>
 
         {/* 右栏：整合配置编辑器 */}
-        <SurfaceCard as="div" padding="md" className="flex min-h-0 min-w-0 flex-[2] flex-col gap-2">
-          <div className="flex items-center justify-between">
-            <Label>完整配置</Label>
+        <div className="flex min-h-0 min-w-0 flex-[2] flex-col border-l">
+          <div className="flex items-center justify-between border-b px-3 py-2">
+            <span className={panelTitleClass}>完整配置</span>
             <div className="flex items-center gap-3">
               <Button
                 type="button"
@@ -379,23 +388,23 @@ export function ClaudeWorkspace() {
               >
                 格式化
               </Button>
-              <label className="text-ink-mute flex items-center gap-1.5 text-xs">
+              <label className="text-muted-foreground flex items-center gap-1.5 text-xs">
                 <Switch checked={rightEditable} disabled={!loaded} onCheckedChange={setRightEditable} />
                 可编辑
               </label>
             </div>
           </div>
-          <div className="min-h-0 flex-1">
+          <div className="min-h-0 flex-1 p-4">
             <Suspense fallback={<EditorFallback />}>
               <JsonEditor value={rightText} theme={theme} readOnly={!rightEditable} fill highlightPatterns={togglePatterns} onChange={setRightText} />
             </Suspense>
           </div>
-        </SurfaceCard>
+        </div>
       </div>
 
       {/* 底部固定操作区：说明靠左，主操作靠右 */}
-      <SurfaceCard as="div" padding="none" className="flex items-center justify-between gap-3 px-4 py-3">
-        <span className="text-ink-mute min-w-0 flex-1 truncate text-xs">
+      <div className="flex items-center justify-between gap-3 border-t px-4 py-3">
+        <span className="text-muted-foreground min-w-0 flex-1 truncate text-xs">
           应用将先备份再覆写 <code>~/.claude/settings.json</code>
         </span>
         <div className="flex shrink-0 items-center gap-2">
@@ -406,14 +415,14 @@ export function ClaudeWorkspace() {
             应用
           </Button>
         </div>
-      </SurfaceCard>
+      </div>
 
       <Dialog open={!!pendingDelete} onOpenChange={(o) => !o && setPendingDelete(null)}>
         <DialogContent className="max-w-sm">
           <DialogHeader>
             <DialogTitle>删除渠道</DialogTitle>
           </DialogHeader>
-          <p className="text-ink-secondary text-sm">
+          <p className="text-muted-foreground text-sm">
             确定删除渠道「<span className="font-medium">{pendingDelete?.name}</span>」吗？该操作不影响系统配置文件。
           </p>
           <DialogFooter>
@@ -426,7 +435,7 @@ export function ClaudeWorkspace() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
-    </div>
+    </SurfaceCard>
   )
 }
 

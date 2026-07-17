@@ -32,7 +32,7 @@ export function WindowControls() {
   // macOS 使用系统原生红绿灯，不渲染自绘按钮
   if (IS_MAC) return null
 
-  const btn = 'inline-flex h-8 w-11 items-center justify-center text-ink-secondary transition-colors hover:bg-surface-hover hover:text-ink-primary cursor-pointer'
+  const btn = 'text-muted-foreground hover:bg-accent hover:text-accent-foreground inline-flex h-8 w-11 cursor-pointer items-center justify-center transition-colors'
 
   return (
     <div className="flex items-center">

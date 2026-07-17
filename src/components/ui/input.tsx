@@ -4,8 +4,8 @@ import { cva, type VariantProps } from 'class-variance-authority'
 import { cn } from '@/lib/utils'
 
 const inputVariants = cva(
-  // 表单控件统一：rounded-sm / surface-raised / border-input
-  'border-input bg-surface-raised text-ink-primary selection:bg-primary selection:text-primary-foreground file:text-foreground placeholder:text-ink-mute w-full min-w-0 rounded-sm border px-3 py-1 transition-[color,box-shadow] outline-none file:inline-flex file:h-7 file:border-0 file:bg-transparent file:text-sm file:font-medium disabled:pointer-events-none disabled:cursor-not-allowed disabled:opacity-50',
+  // 表单控件统一走 shadcn primitive，业务层不要覆盖视觉细节。
+  'border-input selection:bg-primary selection:text-primary-foreground file:text-foreground placeholder:text-muted-foreground flex w-full min-w-0 rounded-md border bg-transparent px-3 py-1 transition-[color,box-shadow] outline-none file:inline-flex file:h-7 file:border-0 file:bg-transparent file:text-sm file:font-medium disabled:pointer-events-none disabled:cursor-not-allowed disabled:opacity-50 dark:bg-input/30',
   {
     variants: {
       size: {

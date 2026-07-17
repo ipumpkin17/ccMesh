@@ -16,7 +16,7 @@ export function ConfigProfiles() {
         title="配置文件"
         className="flex-1"
         actions={
-          <TabsList>
+          <TabsList className="grid w-80 grid-cols-2">
             <TabsTrigger value="claude">Claude Code</TabsTrigger>
             <TabsTrigger value="codex">Codex</TabsTrigger>
           </TabsList>
