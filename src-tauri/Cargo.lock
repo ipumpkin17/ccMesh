@@ -536,7 +536,7 @@ dependencies = [
 
 [[package]]
 name = "ccmesh"
-version = "0.2.1-7"
+version = "0.2.1-8"
 dependencies = [
  "async-trait",
  "axum",
