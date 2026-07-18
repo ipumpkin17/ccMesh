@@ -1,9 +1,9 @@
 #!/usr/bin/env node
 
 import { execFileSync } from 'node:child_process'
-import { readFileSync } from 'node:fs'
-import { createInterface } from 'node:readline/promises'
+import { readFileSync, writeFileSync } from 'node:fs'
 import { stdin as input, stdout as output } from 'node:process'
+import { createInterface } from 'node:readline/promises'
 import { dirname, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
 
@@ -27,6 +27,23 @@ function fail(message) {
 
 function getCurrentVersion() {
   return JSON.parse(readFileSync(resolve(projectRoot, 'package.json'), 'utf8')).version
+}
+
+function patchFile(relPath, pattern, replacement) {
+  const filePath = resolve(projectRoot, relPath)
+  const content = readFileSync(filePath, 'utf8')
+  if (!pattern.test(content)) {
+    fail(`${relPath}: 未匹配到 version 字段`)
+  }
+  writeFileSync(filePath, content.replace(pattern, replacement), 'utf8')
+  console.log(`已同步 ${relPath}`)
+}
+
+function syncVersion(version) {
+  console.log(`\n同步版本到 ${version}...`)
+  patchFile('package.json', /("version"\s*:\s*")[^"]*(")/, `$1${version}$2`)
+  patchFile('src-tauri/Cargo.toml', /^(version\s*=\s*")[^"]*(")/m, `$1${version}$2`)
+  patchFile('src-tauri/tauri.conf.json', /("version"\s*:\s*")[^"]*(")/, `$1${version}$2`)
 }
 
 function ensureCleanWorktree() {
@@ -91,7 +108,7 @@ async function main() {
       return
     }
 
-    run('pnpm', ['version:sync', version], { stdio: 'inherit' })
+    syncVersion(version)
     run('cargo', ['check', '--manifest-path', 'src-tauri/Cargo.toml', '--message-format=short'], {
       stdio: 'inherit',
     })
