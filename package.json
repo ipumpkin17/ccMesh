@@ -1,7 +1,7 @@
 {
   "name": "ccmesh",
   "private": true,
-  "version": "0.2.1-6",
+  "version": "0.2.1-7",
   "packageManager": "pnpm@11.10.0",
   "type": "module",
   "scripts": {
