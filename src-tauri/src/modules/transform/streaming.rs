@@ -1,5 +1,6 @@
 use serde_json::{json, Value};
 
+use crate::modules::token_count::token_count;
 use crate::modules::transform::types::{
     build_claude_event, map_finish_reason, StreamContext, ToolBlock,
 };
@@ -339,7 +340,7 @@ fn cache_read_tokens(usage: &Value) -> Option<i64> {
         .or_else(|| usage.pointer("/input_tokens_details/cached_tokens"))
         .or_else(|| usage.pointer("/prompt_tokens_details/cached_tokens"))
         .or_else(|| usage.get("cached_tokens"))
-        .and_then(|v| v.as_i64())
+        .and_then(token_count)
         .filter(|v| *v > 0)
 }
 
@@ -348,7 +349,7 @@ fn cache_creation_tokens(usage: &Value) -> Option<i64> {
         .get("cache_creation_input_tokens")
         .or_else(|| usage.pointer("/input_tokens_details/cache_write_tokens"))
         .or_else(|| usage.pointer("/prompt_tokens_details/cache_write_tokens"))
-        .and_then(|v| v.as_i64())
+        .and_then(token_count)
         .filter(|v| *v > 0)
 }
 
@@ -480,6 +481,30 @@ mod tests {
         assert!(done.contains("\"cache_creation_input_tokens\":300"));
         assert!(done.contains("\"cache_read_input_tokens\":600"));
         assert_eq!(c.usage(), (100, 50, 300, 600));
+    }
+
+    #[test]
+    fn usage_chunk_subtracts_bucketed_cache_creation() {
+        let mut c = StreamConverter::new("m".into(), 0);
+        c.process_chunk(&json!({
+            "choices": [],
+            "usage": {
+                "prompt_tokens": 50000,
+                "completion_tokens": 120,
+                "prompt_tokens_details": {
+                    "cached_tokens": 42496,
+                    "cache_write_tokens": {
+                        "ephemeral_5m_input_tokens": 2048,
+                        "ephemeral_1h_input_tokens": 1024
+                    }
+                }
+            }
+        }));
+        let done = join(c.finish());
+        assert!(done.contains("\"input_tokens\":4432"));
+        assert!(done.contains("\"cache_creation_input_tokens\":3072"));
+        assert!(done.contains("\"cache_read_input_tokens\":42496"));
+        assert_eq!(c.usage(), (4432, 120, 3072, 42496));
     }
 
     #[test]

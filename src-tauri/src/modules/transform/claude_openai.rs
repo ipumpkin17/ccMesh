@@ -1,6 +1,7 @@
 use serde_json::{json, Value};
 
 use crate::error::AppResult;
+use crate::modules::token_count::token_count;
 use crate::modules::transform::json_canonical::canonical_json_string;
 use crate::modules::transform::transformer::Transformer;
 use crate::modules::transform::types::{extract_tool_result_content, map_finish_reason};
@@ -302,7 +303,7 @@ pub fn openai_response_to_claude(resp: &Value) -> Value {
     let usage = resp.get("usage");
     let input_tokens = first_usage_field(usage, &["prompt_tokens", "input_tokens"]);
     let output_tokens = first_usage_field(usage, &["completion_tokens", "output_tokens"]);
-    let cache_creation_tokens = usage_field(usage, "cache_creation_input_tokens");
+    let cache_creation_tokens = cache_creation_usage_tokens(usage);
     let cache_read_tokens = cache_read_usage_tokens(usage);
 
     json!({
@@ -325,7 +326,7 @@ pub fn openai_response_to_claude(resp: &Value) -> Value {
 fn usage_field(usage: Option<&Value>, key: &str) -> i64 {
     usage
         .and_then(|u| u.get(key))
-        .and_then(|v| v.as_i64())
+        .and_then(token_count)
         .unwrap_or(0)
 }
 
@@ -334,7 +335,7 @@ fn nested_usage_field(usage: Option<&Value>, path: &[&str]) -> i64 {
     for key in path {
         value = value.and_then(|v| v.get(*key));
     }
-    value.and_then(|v| v.as_i64()).unwrap_or(0)
+    value.and_then(token_count).unwrap_or(0)
 }
 
 fn first_usage_field(usage: Option<&Value>, keys: &[&str]) -> i64 {
@@ -350,6 +351,17 @@ fn cache_read_usage_tokens(usage: Option<&Value>) -> i64 {
         nested_usage_field(usage, &["input_tokens_details", "cached_tokens"]),
         nested_usage_field(usage, &["prompt_tokens_details", "cached_tokens"]),
         usage_field(usage, "cached_tokens"),
+    ]
+    .into_iter()
+    .find(|v| *v > 0)
+    .unwrap_or(0)
+}
+
+fn cache_creation_usage_tokens(usage: Option<&Value>) -> i64 {
+    [
+        usage_field(usage, "cache_creation_input_tokens"),
+        nested_usage_field(usage, &["input_tokens_details", "cache_write_tokens"]),
+        nested_usage_field(usage, &["prompt_tokens_details", "cache_write_tokens"]),
     ]
     .into_iter()
     .find(|v| *v > 0)
@@ -502,6 +514,28 @@ mod tests {
         assert_eq!(out["usage"]["output_tokens"], json!(5));
         assert_eq!(out["usage"]["cache_creation_input_tokens"], json!(0));
         assert_eq!(out["usage"]["cache_read_input_tokens"], json!(7));
+    }
+
+    #[test]
+    fn response_maps_bucketed_cache_write_usage() {
+        let resp = json!({
+            "id": "x1", "model": "gpt-4o",
+            "choices": [{ "message": { "content": "hello" }, "finish_reason": "stop" }],
+            "usage": {
+                "prompt_tokens": 50000,
+                "completion_tokens": 120,
+                "prompt_tokens_details": {
+                    "cached_tokens": 42496,
+                    "cache_write_tokens": {
+                        "ephemeral_5m_input_tokens": 2048,
+                        "ephemeral_1h_input_tokens": 1024
+                    }
+                }
+            }
+        });
+        let out = openai_response_to_claude(&resp);
+        assert_eq!(out["usage"]["cache_creation_input_tokens"], json!(3072));
+        assert_eq!(out["usage"]["cache_read_input_tokens"], json!(42496));
     }
 
     #[test]

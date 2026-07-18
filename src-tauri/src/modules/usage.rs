@@ -2,6 +2,7 @@ use std::sync::atomic::{AtomicBool, Ordering};
 
 use serde_json::Value;
 
+use crate::modules::token_count::token_count;
 use crate::modules::transform::transformer::UpstreamFormat;
 
 static MISSING_CACHE_CREATION_LOGGED: AtomicBool = AtomicBool::new(false);
@@ -65,7 +66,7 @@ fn net_input(raw_input: i64, cache_read: i64, cache_creation: i64) -> i64 {
 }
 
 fn field(usage: Option<&Value>, key: &str) -> i64 {
-    usage.and_then(|u| u.get(key)).and_then(|v| v.as_i64()).unwrap_or(0)
+    usage.and_then(|u| u.get(key)).and_then(token_count).unwrap_or(0)
 }
 
 fn nested_field(usage: Option<&Value>, path: &[&str]) -> i64 {
@@ -73,7 +74,7 @@ fn nested_field(usage: Option<&Value>, path: &[&str]) -> i64 {
     for key in path {
         value = value.and_then(|v| v.get(*key));
     }
-    value.and_then(|v| v.as_i64()).unwrap_or(0)
+    value.and_then(token_count).unwrap_or(0)
 }
 
 fn first_field(usage: Option<&Value>, keys: &[&str]) -> i64 {
@@ -338,6 +339,23 @@ mod tests {
     }
 
     #[test]
+    fn responses_non_stream_extracts_bucketed_cache_write_tokens() {
+        let body = json!({ "usage": {
+            "input_tokens": 50000,
+            "output_tokens": 120,
+            "input_tokens_details": {
+                "cached_tokens": 42496,
+                "cache_write_tokens": {
+                    "ephemeral_5m_input_tokens": 2048,
+                    "ephemeral_1h_input_tokens": 1024
+                }
+            },
+            "total_tokens": 50120
+        } });
+        assert_eq!(from_response(&body, UpstreamFormat::OpenAiResponses), tu(4432, 120, 3072, 42496));
+    }
+
+    #[test]
     fn openai_non_stream_extracts_direct_cache_creation_aliases() {
         let body = json!({ "usage": {
             "input_tokens": 1000,
@@ -429,6 +447,16 @@ mod tests {
             b"data: {\"type\":\"response.completed\",\"response\":{\"usage\":{\"input_tokens\":1000,\"output_tokens\":50,\"input_tokens_details\":{\"cached_tokens\":600,\"cache_write_tokens\":300}}}}\n\n",
         );
         assert_eq!(acc.finish(), tu(100, 50, 300, 600));
+    }
+
+    #[test]
+    fn responses_sse_accumulates_bucketed_cache_write_tokens() {
+        let mut acc = UsageAccumulator::new(UpstreamFormat::OpenAiResponses);
+        acc.feed(
+            br#"data: {"type":"response.completed","response":{"usage":{"input_tokens":50000,"output_tokens":120,"input_tokens_details":{"cached_tokens":42496,"cache_write_tokens":{"ephemeral_5m_input_tokens":2048,"ephemeral_1h_input_tokens":1024}}}}}"#,
+        );
+        acc.feed(b"\n\n");
+        assert_eq!(acc.finish(), tu(4432, 120, 3072, 42496));
     }
 
     #[test]

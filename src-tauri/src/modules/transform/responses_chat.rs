@@ -15,6 +15,7 @@ use std::collections::HashMap;
 
 use serde_json::{json, Map, Value};
 
+use crate::modules::token_count::token_count;
 use crate::modules::transform::json_canonical::canonical_json_string;
 use crate::modules::transform::types::build_sse_event;
 
@@ -379,6 +380,12 @@ pub fn chat_response_to_responses(chat: &Value, fallback_model: &str) -> Value {
             input_tokens + output_tokens
         }
     };
+    let cache_read = cache_read_usage(usage);
+    let cache_write = cache_write_usage(usage);
+    let input_tokens_details = json!({
+        "cached_tokens": cache_read,
+        "cache_write_tokens": cache_write
+    });
 
     json!({
         "id": id,
@@ -388,7 +395,7 @@ pub fn chat_response_to_responses(chat: &Value, fallback_model: &str) -> Value {
         "output": output,
         "usage": {
             "input_tokens": input_tokens,
-            "input_tokens_details": { "cached_tokens": cache_read_usage(usage) },
+            "input_tokens_details": input_tokens_details,
             "output_tokens": output_tokens,
             "output_tokens_details": { "reasoning_tokens": 0 },
             "total_tokens": total
@@ -399,7 +406,7 @@ pub fn chat_response_to_responses(chat: &Value, fallback_model: &str) -> Value {
 fn usage_i64(usage: Option<&Value>, key: &str) -> i64 {
     usage
         .and_then(|u| u.get(key))
-        .and_then(|v| v.as_i64())
+        .and_then(token_count)
         .unwrap_or(0)
 }
 
@@ -418,7 +425,7 @@ fn cache_read_usage(usage: Option<&Value>) -> i64 {
                 .or_else(|| u.get("cache_read_input_tokens"))
                 .or_else(|| u.get("cached_tokens"))
         })
-        .and_then(|v| v.as_i64())
+        .and_then(token_count)
         .unwrap_or(0)
 }
 
@@ -429,7 +436,7 @@ fn cache_write_usage(usage: Option<&Value>) -> i64 {
                 .or_else(|| u.pointer("/input_tokens_details/cache_write_tokens"))
                 .or_else(|| u.get("cache_creation_input_tokens"))
         })
-        .and_then(|v| v.as_i64())
+        .and_then(token_count)
         .unwrap_or(0)
 }
 
@@ -1109,6 +1116,33 @@ mod tests {
         );
     }
 
+    #[test]
+    fn response_bucketed_cache_write_tokens_mapped() {
+        let chat = json!({
+            "choices": [{ "message": { "content": "x" }, "finish_reason": "stop" }],
+            "usage": {
+                "prompt_tokens": 50000,
+                "completion_tokens": 120,
+                "prompt_tokens_details": {
+                    "cached_tokens": 42496,
+                    "cache_write_tokens": {
+                        "ephemeral_5m_input_tokens": 2048,
+                        "ephemeral_1h_input_tokens": 1024
+                    }
+                }
+            }
+        });
+        let out = chat_response_to_responses(&chat, "m");
+        assert_eq!(
+            out["usage"]["input_tokens_details"]["cached_tokens"],
+            json!(42496)
+        );
+        assert_eq!(
+            out["usage"]["input_tokens_details"]["cache_write_tokens"],
+            json!(3072)
+        );
+    }
+
     // ---- 流式转换 ----
 
     fn join(events: Vec<String>) -> String {
@@ -1253,6 +1287,28 @@ mod tests {
         assert!(done.contains("\"cache_write_tokens\":300"));
         let (i, o, cc, cr) = c.usage();
         assert_eq!(i + o + cc + cr, 1050);
+    }
+
+    #[test]
+    fn stream_usage_chunk_deducts_bucketed_cache_creation_from_input() {
+        let mut c = ResponsesStreamConverter::new("m".into(), 0);
+        c.process_chunk(&json!({
+            "choices": [],
+            "usage": {
+                "prompt_tokens": 50000,
+                "completion_tokens": 120,
+                "prompt_tokens_details": {
+                    "cached_tokens": 42496,
+                    "cache_write_tokens": {
+                        "ephemeral_5m_input_tokens": 2048,
+                        "ephemeral_1h_input_tokens": 1024
+                    }
+                }
+            }
+        }));
+        assert_eq!(c.usage(), (4432, 120, 3072, 42496));
+        let done = c.finish().join("");
+        assert!(done.contains("\"cache_write_tokens\":3072"));
     }
 
     #[test]

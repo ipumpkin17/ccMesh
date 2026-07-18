@@ -8,6 +8,7 @@ pub mod models_probe;
 pub mod proxy;
 pub mod stats;
 pub mod storage;
+pub mod token_count;
 pub mod tokens;
 pub mod tool_config;
 pub mod transform;
