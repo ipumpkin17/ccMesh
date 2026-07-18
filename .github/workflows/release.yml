@@ -23,8 +23,34 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  create-release:
+    name: 创建 Release 草稿
+    if: github.ref_type == 'tag'
+    runs-on: ubuntu-latest
+    outputs:
+      release_id: ${{ steps.create.outputs.release_id }}
+    steps:
+      - name: 创建带版本标签的 Release 草稿
+        id: create
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          release_id="$(gh api "repos/${{ github.repository }}/releases/tags/${{ github.ref_name }}" --jq .id 2>/dev/null || true)"
+          if [ -z "$release_id" ]; then
+            release_id="$(gh api -X POST "repos/${{ github.repository }}/releases" \
+              -f tag_name="${{ github.ref_name }}" \
+              -f target_commitish="${{ github.sha }}" \
+              -f name="ccMesh ${{ github.ref_name }}" \
+              -F draft=true \
+              -F prerelease=false \
+              --jq .id)"
+          fi
+          echo "release_id=$release_id" >> "$GITHUB_OUTPUT"
+
   build:
     name: Build (${{ matrix.platform }})
+    needs: create-release
+    if: ${{ always() && (needs.create-release.result == 'success' || needs.create-release.result == 'skipped') }}
     strategy:
       fail-fast: false
       matrix:
@@ -118,17 +144,14 @@ jobs:
           # （本项目 package.json 的 build 脚本仅构建前端，故必须显式指向 `pnpm tauri`）
           tauriScript: pnpm tauri
           args: ${{ matrix.args }}
-          # tag 推送或在 tag ref 上手动触发时创建/更新 Release；普通分支手动触发仅验证构建
-          tagName: ${{ (github.ref_type == 'tag' || startsWith(github.ref, 'refs/tags/')) && github.ref_name || '' }}
-          releaseName: 'ccMesh ${{ github.ref_name }}'
-          releaseDraft: true
-          prerelease: false
+          # Release 由 create-release 单独创建；矩阵任务仅按 ID 上传资产，避免并发创建时落为 untagged。
+          releaseId: ${{ needs.create-release.outputs.release_id }}
           # 生成并上传 latest.json（updater 更新源），需配合仓库 Secret TAURI_SIGNING_PRIVATE_KEY
           includeUpdaterJson: true
 
   changelog:
     name: 生成发布说明
-    needs: build
+    needs: [create-release, build]
     if: github.ref_type == 'tag'
     runs-on: ubuntu-latest
     steps:
