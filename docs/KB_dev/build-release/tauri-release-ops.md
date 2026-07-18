@@ -9,15 +9,11 @@ ccMesh 发版的日常操作：打 tag、重新触发构建、正式发布、紧
 ## 一、正常发版流程
 
 ```bash
-# 1. 用脚本同步所有版本文件后提交发布版本
-pnpm version:set 0.2.1-8
-git add package.json src-tauri/Cargo.toml src-tauri/Cargo.lock src-tauri/tauri.conf.json
-git commit -m "release(app): 发布 0.2.1-8"
-
-# 2. 同时推送发布提交与 tag，触发 release.yml 三平台构建
-git tag v0.2.1-8
-git push origin master v0.2.1-8
+# 在 master 且工作区干净时运行；按提示输入 0.2.1-8
+pnpm version:set
 ```
+
+脚本会同步版本文件、刷新 `Cargo.lock`、校验工作区与 tag、创建提交和带注释的 tag，并原子推送 `master` 与 tag。
 
 CI 完成后到 GitHub → Releases → 找到 Draft → 点 **Publish release** 正式发布。
 

@@ -21,7 +21,8 @@
     "format": "eslint src --fix && cargo fmt --manifest-path src-tauri/Cargo.toml",
     "format:check": "eslint src --max-warnings 0 && cargo fmt --manifest-path src-tauri/Cargo.toml -- --check",
     "prepare": "simple-git-hooks",
-    "version:set": "node scripts/update-version.mjs"
+    "version:set": "node scripts/release.mjs",
+    "version:sync": "node scripts/update-version.mjs"
   },
   "simple-git-hooks": {
     "pre-commit": "pnpm lint-staged"

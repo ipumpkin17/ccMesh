@@ -70,12 +70,8 @@ CI 里关闭 Rust 增量编译。增量产物体积大、跨 runner 无法复用
 
 ## 四、如何发布一个版本
 
-1. 确认发布提交已推送到 `master`，并用 `pnpm version:set <版本号>` 同步版本文件。
-2. 在该发布提交上打 tag 并推送：
-   ```bash
-   git tag v0.2.1-8
-   git push origin v0.2.1-8
-   ```
+1. 确认发布提交已推送到 `master`，工作区干净后运行 `pnpm version:set`，按提示输入版本号。
+2. 脚本会同步版本文件、刷新 `Cargo.lock`、创建发布提交和 tag，并原子推送 `master` 与 tag。
 3. `release.yml` 自动构建三平台；仅在所有平台成功后，才创建一个带版本 tag 的 **Release 草稿（draft）**，其中包含安装包、`.sig` 签名与 `latest.json`。
 4. 到 GitHub Releases 页面**手动 Publish** 这个草稿——只有正式发布后，updater 的 `latest/download` 更新源才会生效。
 
