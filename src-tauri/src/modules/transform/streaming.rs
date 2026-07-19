@@ -335,22 +335,48 @@ impl StreamConverter {
 }
 
 fn cache_read_tokens(usage: &Value) -> Option<i64> {
-    usage
-        .get("cache_read_input_tokens")
-        .or_else(|| usage.pointer("/input_tokens_details/cached_tokens"))
-        .or_else(|| usage.pointer("/prompt_tokens_details/cached_tokens"))
-        .or_else(|| usage.get("cached_tokens"))
-        .and_then(token_count)
-        .filter(|v| *v > 0)
+    [
+        usage_value(usage, "cache_read_input_tokens"),
+        usage_pointer_value(usage, "/input_tokens_details/cached_tokens"),
+        usage_pointer_value(usage, "/prompt_tokens_details/cached_tokens"),
+        usage_value(usage, "cached_tokens"),
+    ]
+    .into_iter()
+    .flatten()
+    .next()
 }
 
 fn cache_creation_tokens(usage: &Value) -> Option<i64> {
-    usage
-        .get("cache_creation_input_tokens")
-        .or_else(|| usage.pointer("/input_tokens_details/cache_write_tokens"))
-        .or_else(|| usage.pointer("/prompt_tokens_details/cache_write_tokens"))
-        .and_then(token_count)
-        .filter(|v| *v > 0)
+    [
+        usage_value(usage, "cache_creation_input_tokens"),
+        usage_value(usage, "cache_write_tokens"),
+        usage_value(usage, "cache_write_input_tokens"),
+        usage_value(usage, "cache_creation_tokens"),
+        usage_value(usage, "cache_creation"),
+        paired_usage_value(usage, "claude_cache_creation_5_m_tokens", "claude_cache_creation_1_h_tokens"),
+        usage_pointer_value(usage, "/input_tokens_details/cache_write_tokens"),
+        usage_pointer_value(usage, "/prompt_tokens_details/cache_write_tokens"),
+        usage_pointer_value(usage, "/input_tokens_details/cache_creation_tokens"),
+        usage_pointer_value(usage, "/prompt_tokens_details/cache_creation_tokens"),
+    ]
+    .into_iter()
+    .flatten()
+    .next()
+}
+
+fn usage_value(usage: &Value, key: &str) -> Option<i64> {
+    usage.get(key).map(|v| token_count(v).unwrap_or(0))
+}
+
+fn usage_pointer_value(usage: &Value, pointer: &str) -> Option<i64> {
+    usage.pointer(pointer).map(|v| token_count(v).unwrap_or(0))
+}
+
+fn paired_usage_value(usage: &Value, first: &str, second: &str) -> Option<i64> {
+    if usage.get(first).is_none() && usage.get(second).is_none() {
+        return None;
+    }
+    Some(usage_value(usage, first).unwrap_or(0) + usage_value(usage, second).unwrap_or(0))
 }
 
 #[cfg(test)]
@@ -481,6 +507,34 @@ mod tests {
         assert!(done.contains("\"cache_creation_input_tokens\":300"));
         assert!(done.contains("\"cache_read_input_tokens\":600"));
         assert_eq!(c.usage(), (100, 50, 300, 600));
+    }
+
+    #[test]
+    fn usage_chunk_explicit_zero_overwrites_previous_cache() {
+        let mut c = StreamConverter::new("m".into(), 0);
+        c.process_chunk(&json!({
+            "choices": [],
+            "usage": {
+                "prompt_tokens": 1000,
+                "completion_tokens": 50,
+                "prompt_tokens_details": {
+                    "cached_tokens": 600,
+                    "cache_write_tokens": 300
+                }
+            }
+        }));
+        c.process_chunk(&json!({
+            "choices": [],
+            "usage": {
+                "prompt_tokens": 1000,
+                "completion_tokens": 50,
+                "prompt_tokens_details": {
+                    "cached_tokens": 0,
+                    "cache_write_tokens": 0
+                }
+            }
+        }));
+        assert_eq!(c.usage(), (1000, 50, 0, 0));
     }
 
     #[test]

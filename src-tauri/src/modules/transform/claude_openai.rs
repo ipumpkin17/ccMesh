@@ -360,8 +360,15 @@ fn cache_read_usage_tokens(usage: Option<&Value>) -> i64 {
 fn cache_creation_usage_tokens(usage: Option<&Value>) -> i64 {
     [
         usage_field(usage, "cache_creation_input_tokens"),
+        usage_field(usage, "cache_write_tokens"),
+        usage_field(usage, "cache_write_input_tokens"),
+        usage_field(usage, "cache_creation_tokens"),
+        usage_field(usage, "cache_creation"),
+        usage_field(usage, "claude_cache_creation_5_m_tokens") + usage_field(usage, "claude_cache_creation_1_h_tokens"),
         nested_usage_field(usage, &["input_tokens_details", "cache_write_tokens"]),
         nested_usage_field(usage, &["prompt_tokens_details", "cache_write_tokens"]),
+        nested_usage_field(usage, &["input_tokens_details", "cache_creation_tokens"]),
+        nested_usage_field(usage, &["prompt_tokens_details", "cache_creation_tokens"]),
     ]
     .into_iter()
     .find(|v| *v > 0)

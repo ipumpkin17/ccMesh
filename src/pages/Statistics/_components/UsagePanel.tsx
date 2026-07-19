@@ -12,7 +12,6 @@ import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { RANGE_OPTIONS, rangeDates, startOfTodayMs, type RangeKey } from '@/lib/range'
 import { usageApi, type DayModelUsage, type UsageAppFilter } from '@/services/modules/usage'
 import { sectionTitleClass, tableHeadClass } from '@/lib/typography'
-import { hasUnknownCacheCreation } from '@/lib/tokenUsage'
 
 const APP_TABS: { key: UsageAppFilter; label: string }[] = [
   { key: 'all', label: '全部' },
@@ -21,8 +20,7 @@ const APP_TABS: { key: UsageAppFilter; label: string }[] = [
 ]
 
 const fmt = (n: number) => n.toLocaleString()
-export const formatCacheCreationTokens = (usage: Pick<DayModelUsage, 'appType' | 'cacheCreationTokens'>) =>
-  hasUnknownCacheCreation(usage.appType, usage.cacheCreationTokens) ? 'N/A' : fmt(usage.cacheCreationTokens)
+export const formatCacheCreationTokens = (usage: Pick<DayModelUsage, 'appType' | 'cacheCreationTokens'>) => fmt(usage.cacheCreationTokens)
 
 function appLabel(app: string): string {
   if (app === 'claude') return 'Claude Code'

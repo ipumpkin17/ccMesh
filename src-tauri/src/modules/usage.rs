@@ -1,11 +1,7 @@
-use std::sync::atomic::{AtomicBool, Ordering};
-
 use serde_json::Value;
 
 use crate::modules::token_count::token_count;
 use crate::modules::transform::transformer::UpstreamFormat;
-
-static MISSING_CACHE_CREATION_LOGGED: AtomicBool = AtomicBool::new(false);
 
 /// 一次请求的真实 token 用量（含缓存创建/读取）。
 #[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
@@ -30,13 +26,12 @@ pub fn from_response(body: &Value, format: UpstreamFormat) -> TokenUsage {
         UpstreamFormat::Claude => TokenUsage {
             input: first_field(usage, &["input_tokens", "prompt_tokens"]),
             output: first_field(usage, &["output_tokens", "completion_tokens"]),
-            cache_creation: field(usage, "cache_creation_input_tokens"),
+            cache_creation: cache_creation_tokens(usage),
             cache_read: cache_read_tokens(usage),
         },
         UpstreamFormat::OpenAiChat => {
             let cache_read = cache_read_tokens(usage);
             let cache_creation = cache_creation_tokens(usage);
-            log_missing_cache_creation(format, usage, cache_read, cache_creation);
             TokenUsage {
                 input: net_input(first_field(usage, &["prompt_tokens", "input_tokens"]), cache_read, cache_creation),
                 output: first_field(usage, &["completion_tokens", "output_tokens"]),
@@ -48,7 +43,6 @@ pub fn from_response(body: &Value, format: UpstreamFormat) -> TokenUsage {
         UpstreamFormat::OpenAiResponses => {
             let cache_read = cache_read_tokens(usage);
             let cache_creation = cache_creation_tokens(usage);
-            log_missing_cache_creation(format, usage, cache_read, cache_creation);
             TokenUsage {
                 input: net_input(first_field(usage, &["input_tokens", "prompt_tokens"]), cache_read, cache_creation),
                 output: first_field(usage, &["output_tokens", "completion_tokens"]),
@@ -66,15 +60,19 @@ fn net_input(raw_input: i64, cache_read: i64, cache_creation: i64) -> i64 {
 }
 
 fn field(usage: Option<&Value>, key: &str) -> i64 {
-    usage.and_then(|u| u.get(key)).and_then(token_count).unwrap_or(0)
+    field_value(usage, key).unwrap_or(0)
 }
 
-fn nested_field(usage: Option<&Value>, path: &[&str]) -> i64 {
+fn field_value(usage: Option<&Value>, key: &str) -> Option<i64> {
+    usage.and_then(|u| u.get(key)).map(|v| token_count(v).unwrap_or(0))
+}
+
+fn nested_field_value(usage: Option<&Value>, path: &[&str]) -> Option<i64> {
     let mut value = usage;
     for key in path {
         value = value.and_then(|v| v.get(*key));
     }
-    value.and_then(token_count).unwrap_or(0)
+    value.map(|v| token_count(v).unwrap_or(0))
 }
 
 fn first_field(usage: Option<&Value>, keys: &[&str]) -> i64 {
@@ -83,61 +81,42 @@ fn first_field(usage: Option<&Value>, keys: &[&str]) -> i64 {
 
 fn cache_read_tokens(usage: Option<&Value>) -> i64 {
     [
-        field(usage, "cache_read_input_tokens"),
-        nested_field(usage, &["input_tokens_details", "cached_tokens"]),
-        nested_field(usage, &["prompt_tokens_details", "cached_tokens"]),
-        field(usage, "cached_tokens"),
+        nested_field_value(usage, &["input_tokens_details", "cached_tokens"]),
+        nested_field_value(usage, &["prompt_tokens_details", "cached_tokens"]),
+        field_value(usage, "cache_read_input_tokens"),
+        field_value(usage, "cached_tokens"),
     ]
     .into_iter()
-    .find(|v| *v > 0)
+    .flatten()
+    .next()
     .unwrap_or(0)
 }
 
 fn cache_creation_tokens(usage: Option<&Value>) -> i64 {
     [
-        field(usage, "cache_creation_input_tokens"),
-        field(usage, "cache_write_tokens"),
-        field(usage, "cache_write_input_tokens"),
-        field(usage, "cache_creation_tokens"),
-        field(usage, "cache_creation"),
-        nested_field(usage, &["input_tokens_details", "cache_write_tokens"]),
-        nested_field(usage, &["prompt_tokens_details", "cache_write_tokens"]),
-        nested_field(usage, &["input_tokens_details", "cache_creation_tokens"]),
-        nested_field(usage, &["prompt_tokens_details", "cache_creation_tokens"]),
+        field_value(usage, "cache_creation"),
+        paired_field_value(usage, "claude_cache_creation_5_m_tokens", "claude_cache_creation_1_h_tokens"),
+        field_value(usage, "cache_creation_input_tokens"),
+        field_value(usage, "cache_write_tokens"),
+        field_value(usage, "cache_write_input_tokens"),
+        field_value(usage, "cache_creation_tokens"),
+        nested_field_value(usage, &["input_tokens_details", "cache_write_tokens"]),
+        nested_field_value(usage, &["prompt_tokens_details", "cache_write_tokens"]),
+        nested_field_value(usage, &["input_tokens_details", "cache_creation_tokens"]),
+        nested_field_value(usage, &["prompt_tokens_details", "cache_creation_tokens"]),
     ]
     .into_iter()
-    .find(|v| *v > 0)
+    .flatten()
+    .next()
     .unwrap_or(0)
 }
 
-fn log_missing_cache_creation(format: UpstreamFormat, usage: Option<&Value>, cache_read: i64, cache_creation: i64) {
-    if cache_read <= 0 || cache_creation > 0 {
-        return;
+fn paired_field_value(usage: Option<&Value>, first: &str, second: &str) -> Option<i64> {
+    let u = usage?;
+    if u.get(first).is_none() && u.get(second).is_none() {
+        return None;
     }
-    if MISSING_CACHE_CREATION_LOGGED.compare_exchange(false, true, Ordering::Relaxed, Ordering::Relaxed).is_err() {
-        return;
-    }
-
-    tracing::info!(
-        ?format,
-        cache_read,
-        usage_keys = ?object_keys(usage),
-        input_detail_keys = ?nested_object_keys(usage, &["input_tokens_details"]),
-        prompt_detail_keys = ?nested_object_keys(usage, &["prompt_tokens_details"]),
-        "上游 usage 包含缓存读取但未上报缓存创建字段"
-    );
-}
-
-fn object_keys(value: Option<&Value>) -> Vec<String> {
-    value.and_then(|v| v.as_object()).map(|object| object.keys().cloned().collect()).unwrap_or_default()
-}
-
-fn nested_object_keys(value: Option<&Value>, path: &[&str]) -> Vec<String> {
-    let mut current = value;
-    for key in path {
-        current = current.and_then(|v| v.get(*key));
-    }
-    object_keys(current)
+    Some(field_value(usage, first).unwrap_or(0) + field_value(usage, second).unwrap_or(0))
 }
 
 /// 流式 SSE token 用量累积器：逐分片喂入，按行解析 `data:` JSON，结束读出 `TokenUsage`。
@@ -192,11 +171,11 @@ impl UsageAccumulator {
                         if let Some(o) = u.get("output_tokens").and_then(|v| v.as_i64()) {
                             self.output = o;
                         }
-                        if let Some(c) = u.get("cache_creation_input_tokens").and_then(|v| v.as_i64()) {
-                            self.cache_creation = c;
+                        if has_cache_creation_field(u) {
+                            self.cache_creation = cache_creation_tokens(Some(u));
                         }
-                        if let Some(c) = u.get("cache_read_input_tokens").and_then(|v| v.as_i64()) {
-                            self.cache_read = c;
+                        if has_cache_read_field(u) {
+                            self.cache_read = cache_read_tokens(Some(u));
                         }
                     }
                 }
@@ -211,15 +190,11 @@ impl UsageAccumulator {
                                 self.input = i;
                             }
                         }
-                        if let Some(c) = u.get("cache_creation_input_tokens").and_then(|v| v.as_i64()) {
-                            if c > 0 {
-                                self.cache_creation = c;
-                            }
+                        if has_cache_creation_field(u) {
+                            self.cache_creation = cache_creation_tokens(Some(u));
                         }
-                        if let Some(c) = u.get("cache_read_input_tokens").and_then(|v| v.as_i64()) {
-                            if c > 0 {
-                                self.cache_read = c;
-                            }
+                        if has_cache_read_field(u) {
+                            self.cache_read = cache_read_tokens(Some(u));
                         }
                     }
                 }
@@ -229,14 +204,13 @@ impl UsageAccumulator {
                 if let Some(u) = j.get("usage") {
                     if !u.is_null() {
                         let cache_read = cache_read_tokens(Some(u));
-                        if cache_read > 0 {
+                        if cache_read > 0 || has_cache_read_field(u) {
                             self.cache_read = cache_read;
                         }
                         let cache_creation = cache_creation_tokens(Some(u));
-                        if cache_creation > 0 {
+                        if cache_creation > 0 || has_cache_creation_field(u) {
                             self.cache_creation = cache_creation;
                         }
-                        log_missing_cache_creation(self.format, Some(u), self.cache_read, self.cache_creation);
                         if let Some(i) = u.get("prompt_tokens").or_else(|| u.get("input_tokens")).and_then(|v| v.as_i64()) {
                             // prompt_tokens 已含缓存读取/写入，扣除后为净输入
                             self.input = net_input(i, self.cache_read, self.cache_creation);
@@ -253,14 +227,13 @@ impl UsageAccumulator {
                 if let Some(u) = u {
                     if !u.is_null() {
                         let cache_read = cache_read_tokens(Some(u));
-                        if cache_read > 0 {
+                        if cache_read > 0 || has_cache_read_field(u) {
                             self.cache_read = cache_read;
                         }
                         let cache_creation = cache_creation_tokens(Some(u));
-                        if cache_creation > 0 {
+                        if cache_creation > 0 || has_cache_creation_field(u) {
                             self.cache_creation = cache_creation;
                         }
-                        log_missing_cache_creation(self.format, Some(u), self.cache_read, self.cache_creation);
                         if let Some(i) = u.get("input_tokens").and_then(|v| v.as_i64()) {
                             // input_tokens 已含缓存读取/写入，扣除后为净输入
                             self.input = net_input(i, self.cache_read, self.cache_creation);
@@ -282,6 +255,27 @@ impl UsageAccumulator {
             cache_read: self.cache_read,
         }
     }
+}
+
+fn has_cache_read_field(usage: &Value) -> bool {
+    usage.get("cache_read_input_tokens").is_some()
+        || usage.pointer("/input_tokens_details/cached_tokens").is_some()
+        || usage.pointer("/prompt_tokens_details/cached_tokens").is_some()
+        || usage.get("cached_tokens").is_some()
+}
+
+fn has_cache_creation_field(usage: &Value) -> bool {
+    usage.get("cache_creation_input_tokens").is_some()
+        || usage.get("cache_write_tokens").is_some()
+        || usage.get("cache_write_input_tokens").is_some()
+        || usage.get("cache_creation_tokens").is_some()
+        || usage.get("cache_creation").is_some()
+        || usage.get("claude_cache_creation_5_m_tokens").is_some()
+        || usage.get("claude_cache_creation_1_h_tokens").is_some()
+        || usage.pointer("/input_tokens_details/cache_write_tokens").is_some()
+        || usage.pointer("/prompt_tokens_details/cache_write_tokens").is_some()
+        || usage.pointer("/input_tokens_details/cache_creation_tokens").is_some()
+        || usage.pointer("/prompt_tokens_details/cache_creation_tokens").is_some()
 }
 
 #[cfg(test)]
@@ -311,6 +305,20 @@ mod tests {
             "cache_creation_input_tokens": 30, "cache_read_input_tokens": 70
         } });
         assert_eq!(from_response(&body, UpstreamFormat::Claude), tu(100, 50, 30, 70));
+    }
+
+    #[test]
+    fn claude_non_stream_sums_cache_creation_detail_object() {
+        let body = json!({ "usage": {
+            "input_tokens": 50,
+            "output_tokens": 200,
+            "cache_read_input_tokens": 5000,
+            "cache_creation": {
+                "ephemeral_5m_input_tokens": 300,
+                "ephemeral_1h_input_tokens": 200
+            }
+        } });
+        assert_eq!(from_response(&body, UpstreamFormat::Claude), tu(50, 200, 500, 5000));
     }
 
     #[test]
@@ -353,6 +361,57 @@ mod tests {
             "total_tokens": 50120
         } });
         assert_eq!(from_response(&body, UpstreamFormat::OpenAiResponses), tu(4432, 120, 3072, 42496));
+    }
+
+    #[test]
+    fn responses_cache_write_zero_is_known_zero() {
+        let body = json!({ "usage": {
+            "input_tokens": 1000,
+            "output_tokens": 20,
+            "input_tokens_details": {
+                "cached_tokens": 900,
+                "cache_write_tokens": 0
+            }
+        } });
+        assert_eq!(from_response(&body, UpstreamFormat::OpenAiResponses), tu(100, 20, 0, 900));
+    }
+
+    #[test]
+    fn aggregate_cache_creation_zero_blocks_nested_write_fallback() {
+        let body = json!({ "usage": {
+            "input_tokens": 1000,
+            "output_tokens": 20,
+            "cache_creation_input_tokens": 0,
+            "input_tokens_details": {
+                "cached_tokens": 500,
+                "cache_write_tokens": 300
+            }
+        } });
+        assert_eq!(from_response(&body, UpstreamFormat::OpenAiResponses), tu(500, 20, 0, 500));
+    }
+
+    #[test]
+    fn responses_sse_cache_write_zero_overwrites_previous_value() {
+        let mut acc = UsageAccumulator::new(UpstreamFormat::OpenAiResponses);
+        acc.feed(
+            b"data: {\"type\":\"response.completed\",\"response\":{\"usage\":{\"input_tokens\":1000,\"output_tokens\":20,\"input_tokens_details\":{\"cached_tokens\":500,\"cache_write_tokens\":300}}}}\n\n",
+        );
+        acc.feed(
+            b"data: {\"type\":\"response.completed\",\"response\":{\"usage\":{\"input_tokens\":1000,\"output_tokens\":20,\"input_tokens_details\":{\"cached_tokens\":500,\"cache_write_tokens\":0}}}}\n\n",
+        );
+        assert_eq!(acc.finish(), tu(500, 20, 0, 500));
+    }
+
+    #[test]
+    fn claude_cache_creation_detail_aliases_are_summed() {
+        let body = json!({ "usage": {
+            "input_tokens": 1984,
+            "output_tokens": 312,
+            "cache_read_input_tokens": 1536,
+            "claude_cache_creation_5_m_tokens": 3,
+            "claude_cache_creation_1_h_tokens": 2
+        } });
+        assert_eq!(from_response(&body, UpstreamFormat::OpenAiResponses), tu(443, 312, 5, 1536));
     }
 
     #[test]

@@ -30,8 +30,8 @@ describe('groupByDate', () => {
 })
 
 describe('formatCacheCreationTokens', () => {
-  it('Codex 未上报缓存创建时显示未知而不是 0', () => {
-    expect(formatCacheCreationTokens({ appType: 'codex', cacheCreationTokens: 0 })).toBe('N/A')
+  it('Codex 缓存创建为 0 时显示 0', () => {
+    expect(formatCacheCreationTokens({ appType: 'codex', cacheCreationTokens: 0 })).toBe('0')
   })
 
   it('非 Codex 或已有缓存创建数时显示数字', () => {

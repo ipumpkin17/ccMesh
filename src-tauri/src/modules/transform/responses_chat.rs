@@ -418,26 +418,60 @@ fn first_usage(usage: Option<&Value>, keys: &[&str]) -> i64 {
 }
 
 fn cache_read_usage(usage: Option<&Value>) -> i64 {
-    usage
-        .and_then(|u| {
-            u.pointer("/prompt_tokens_details/cached_tokens")
-                .or_else(|| u.pointer("/input_tokens_details/cached_tokens"))
-                .or_else(|| u.get("cache_read_input_tokens"))
-                .or_else(|| u.get("cached_tokens"))
-        })
-        .and_then(token_count)
-        .unwrap_or(0)
+    cache_read_usage_value(usage).unwrap_or(0)
+}
+
+fn cache_read_usage_value(usage: Option<&Value>) -> Option<i64> {
+    let u = usage?;
+    [
+        usage_pointer_value(u, "/prompt_tokens_details/cached_tokens"),
+        usage_pointer_value(u, "/input_tokens_details/cached_tokens"),
+        usage_value(u, "cache_read_input_tokens"),
+        usage_value(u, "cached_tokens"),
+    ]
+    .into_iter()
+    .flatten()
+    .next()
 }
 
 fn cache_write_usage(usage: Option<&Value>) -> i64 {
-    usage
-        .and_then(|u| {
-            u.pointer("/prompt_tokens_details/cache_write_tokens")
-                .or_else(|| u.pointer("/input_tokens_details/cache_write_tokens"))
-                .or_else(|| u.get("cache_creation_input_tokens"))
-        })
-        .and_then(token_count)
-        .unwrap_or(0)
+    cache_write_usage_value(usage).unwrap_or(0)
+}
+
+fn cache_write_usage_value(usage: Option<&Value>) -> Option<i64> {
+    let Some(u) = usage else {
+        return None;
+    };
+    [
+        usage_pointer_value(u, "/prompt_tokens_details/cache_write_tokens"),
+        usage_pointer_value(u, "/input_tokens_details/cache_write_tokens"),
+        usage_value(u, "cache_creation_input_tokens"),
+        usage_value(u, "cache_write_tokens"),
+        usage_value(u, "cache_write_input_tokens"),
+        usage_value(u, "cache_creation_tokens"),
+        usage_value(u, "cache_creation"),
+        paired_usage_value(u, "claude_cache_creation_5_m_tokens", "claude_cache_creation_1_h_tokens"),
+        usage_pointer_value(u, "/prompt_tokens_details/cache_creation_tokens"),
+        usage_pointer_value(u, "/input_tokens_details/cache_creation_tokens"),
+    ]
+    .into_iter()
+    .flatten()
+    .next()
+}
+
+fn usage_value(usage: &Value, key: &str) -> Option<i64> {
+    usage.get(key).map(|v| token_count(v).unwrap_or(0))
+}
+
+fn usage_pointer_value(usage: &Value, pointer: &str) -> Option<i64> {
+    usage.pointer(pointer).map(|v| token_count(v).unwrap_or(0))
+}
+
+fn paired_usage_value(usage: &Value, first: &str, second: &str) -> Option<i64> {
+    if usage.get(first).is_none() && usage.get(second).is_none() {
+        return None;
+    }
+    Some(usage_value(usage, first).unwrap_or(0) + usage_value(usage, second).unwrap_or(0))
 }
 
 // ============================================================ 流式：Chat SSE → Responses SSE
@@ -731,12 +765,10 @@ impl ResponsesStreamConverter {
                 // 先取缓存读写，再算净输入：OpenAI 的 prompt_tokens/input_tokens
                 // 已含缓存读取/写入，需扣除以与 Claude（input_tokens 不含缓存）对齐，
                 // 避免下游合计 input + output + cache_read + cache_creation 双重计算缓存。
-                let cr = cache_read_usage(Some(u));
-                if cr > 0 {
+                if let Some(cr) = cache_read_usage_value(Some(u)) {
                     self.cache_read = cr;
                 }
-                let cc = cache_write_usage(Some(u));
-                if cc > 0 {
+                if let Some(cc) = cache_write_usage_value(Some(u)) {
                     self.cache_creation = cc;
                 }
                 if let Some(i) = u
@@ -1287,6 +1319,34 @@ mod tests {
         assert!(done.contains("\"cache_write_tokens\":300"));
         let (i, o, cc, cr) = c.usage();
         assert_eq!(i + o + cc + cr, 1050);
+    }
+
+    #[test]
+    fn stream_usage_chunk_explicit_zero_overwrites_previous_cache() {
+        let mut c = ResponsesStreamConverter::new("m".into(), 0);
+        c.process_chunk(&json!({
+            "choices": [],
+            "usage": {
+                "prompt_tokens": 1000,
+                "completion_tokens": 50,
+                "prompt_tokens_details": {
+                    "cached_tokens": 600,
+                    "cache_write_tokens": 300
+                }
+            }
+        }));
+        c.process_chunk(&json!({
+            "choices": [],
+            "usage": {
+                "prompt_tokens": 1000,
+                "completion_tokens": 50,
+                "prompt_tokens_details": {
+                    "cached_tokens": 0,
+                    "cache_write_tokens": 0
+                }
+            }
+        }));
+        assert_eq!(c.usage(), (1000, 50, 0, 0));
     }
 
     #[test]

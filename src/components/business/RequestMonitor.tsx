@@ -14,7 +14,6 @@ import { RANGE_OPTIONS, rangeMs, startOfTodayMs, type RangeKey } from '@/lib/ran
 import { formatDuration, formatTokenK } from '@/lib/format'
 import { statsApi, type RequestLog } from '@/services/modules/stats'
 import { sectionTitleClass, tableHeadClass } from '@/lib/typography'
-import { hasUnknownCacheCreation } from '@/lib/tokenUsage'
 
 type Mode = 'live' | 'ranged'
 
@@ -270,8 +269,7 @@ function RequestRow({ log }: { log: RequestLog }) {
 }
 
 function formatCacheCreationTokens(log: RequestLog): string {
-  const source = log.transformer ?? log.inboundFormat
-  return hasUnknownCacheCreation(source, log.cacheCreationTokens) ? 'N/A' : formatTokenK(log.cacheCreationTokens)
+  return formatTokenK(log.cacheCreationTokens)
 }
 
 export function TokenDetail({ log, total }: { log: RequestLog; total: number }) {

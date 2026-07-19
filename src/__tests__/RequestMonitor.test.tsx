@@ -205,8 +205,8 @@ describe('TokenDetail 实际模型', () => {
     expect(screen.getByText('claude-3')).toBeInTheDocument()
   })
 
-  it('Codex 未上报缓存创建时显示未知而不是 0', () => {
+  it('Codex 缓存创建为 0 时显示 0', () => {
     render(<TokenDetail log={{ ...log, transformer: 'codex', inboundFormat: 'openai', cacheCreationTokens: 0 }} total={18} />)
-    expect(screen.getByText('N/A')).toBeInTheDocument()
+    expect(screen.getAllByText('0').length).toBeGreaterThan(0)
   })
 })
