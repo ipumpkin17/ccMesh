@@ -156,12 +156,12 @@ jobs:
             '*.exe.sig'
           )
           for pattern in "${required_files[@]}"; do
-            if ! compgen -G "release-assets/$pattern" > /dev/null; then
+            if ! find release-assets -type f -name "$pattern" -print -quit | grep -q .; then
               echo "缺少发布资产：$pattern" >&2
               exit 1
             fi
           done
-          find release-assets -maxdepth 1 -type f -printf '%f\n' | sort
+          find release-assets -type f -printf '%P\n' | sort
 
       - name: Generate release notes
         run: |
@@ -185,12 +185,12 @@ jobs:
           set -euo pipefail
           version="${TAG#v}"
           base_url="https://github.com/${REPOSITORY}/releases/download/${TAG}"
-          macos_bundle="$(find release-assets -maxdepth 1 -name '*.app.tar.gz' -print -quit)"
-          linux_bundle="$(find release-assets -maxdepth 1 -name '*.AppImage' -print -quit)"
-          deb_bundle="$(find release-assets -maxdepth 1 -name '*.deb' -print -quit)"
-          rpm_bundle="$(find release-assets -maxdepth 1 -name '*.rpm' -print -quit)"
-          windows_bundle="$(find release-assets -maxdepth 1 -name '*.msi' -print -quit)"
-          nsis_bundle="$(find release-assets -maxdepth 1 -name '*.exe' -print -quit)"
+          macos_bundle="$(find release-assets -type f -name '*.app.tar.gz' -print -quit)"
+          linux_bundle="$(find release-assets -type f -name '*.AppImage' -print -quit)"
+          deb_bundle="$(find release-assets -type f -name '*.deb' -print -quit)"
+          rpm_bundle="$(find release-assets -type f -name '*.rpm' -print -quit)"
+          windows_bundle="$(find release-assets -type f -name '*.msi' -print -quit)"
+          nsis_bundle="$(find release-assets -type f -name '*.exe' -print -quit)"
           macos_signature="$(cat "${macos_bundle}.sig")"
           linux_signature="$(cat "${linux_bundle}.sig")"
           deb_signature="$(cat "${deb_bundle}.sig")"
@@ -234,4 +234,4 @@ jobs:
           body_path: release-notes.md
           draft: true
           prerelease: false
-          files: release-assets/*
+          files: release-assets/**/*
