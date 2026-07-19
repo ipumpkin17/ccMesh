@@ -7,6 +7,11 @@ on:
     tags:
       - 'v*.*.*-*'
   workflow_dispatch:
+    inputs:
+      release_tag:
+        description: '重新构建并发布的 tag，例如 v0.2.1-8；留空则只做手动构建验证'
+        required: false
+        type: string
 
 permissions:
   contents: write
@@ -59,6 +64,8 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event_name == 'workflow_dispatch' && inputs.release_tag || github.ref }}
 
       - name: Install pnpm
         uses: pnpm/action-setup@v6
@@ -117,13 +124,14 @@ jobs:
   publish-release:
     name: Publish GitHub Release draft
     needs: build
-    if: github.ref_type == 'tag'
+    if: github.ref_type == 'tag' || (github.event_name == 'workflow_dispatch' && inputs.release_tag != '')
     runs-on: ubuntu-latest
     steps:
       - name: Checkout full history
         uses: actions/checkout@v4
         with:
           fetch-depth: 0
+          ref: ${{ github.event_name == 'workflow_dispatch' && inputs.release_tag || github.ref }}
 
       - name: Setup Node
         uses: actions/setup-node@v4
@@ -167,7 +175,7 @@ jobs:
         run: |
           git remote add upstream https://github.com/VkRainB/ccMesh.git
           git fetch --tags upstream
-          current_tag="${{ github.ref_name }}"
+          current_tag="${RELEASE_TAG}"
           previous_tag="$(git tag --merged "$current_tag" --sort=-version:refname | awk -v current="$current_tag" '$0 != current && $0 ~ /^v[0-9]/ { print; exit }')"
           args=(--to "$current_tag" --output release-notes.md)
           if [ -n "$previous_tag" ]; then
@@ -176,10 +184,11 @@ jobs:
           npx --yes changelogithub@14.0.0 "${args[@]}"
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          RELEASE_TAG: ${{ github.event_name == 'workflow_dispatch' && inputs.release_tag || github.ref_name }}
 
       - name: Generate updater manifest
         env:
-          TAG: ${{ github.ref_name }}
+          TAG: ${{ github.event_name == 'workflow_dispatch' && inputs.release_tag || github.ref_name }}
           REPOSITORY: ${{ github.repository }}
         run: |
           set -euo pipefail
@@ -229,8 +238,8 @@ jobs:
       - name: Create draft release and upload assets
         uses: softprops/action-gh-release@v3
         with:
-          tag_name: ${{ github.ref_name }}
-          name: ccMesh ${{ github.ref_name }}
+          tag_name: ${{ github.event_name == 'workflow_dispatch' && inputs.release_tag || github.ref_name }}
+          name: ccMesh ${{ github.event_name == 'workflow_dispatch' && inputs.release_tag || github.ref_name }}
           body_path: release-notes.md
           draft: true
           prerelease: false

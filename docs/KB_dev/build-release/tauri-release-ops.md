@@ -38,6 +38,8 @@ pnpm release
 
 推完 tag 后 GitHub Actions 自动触发新的构建。不要删除、移动或复用已经推送的版本 tag。
 
+如果三平台构建已成功，但发布草稿步骤失败（例如产物汇总、Release notes、latest.json 生成失败），不要本地手动创建 Release。到 GitHub Actions 对 `release.yml` 点 **Run workflow**，选择 `master` 分支，并填写 `release_tag`（例如 `v0.2.1-8`）。workflow 会重新构建该 tag、自动生成变更日志、生成 `latest.json` 并创建 Draft Release。
+
 ## 三、正式发布（Draft → Published）
 
 Draft 只有仓库协作者可见，普通用户和 updater 都检测不到。

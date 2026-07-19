@@ -77,7 +77,9 @@ CI 里关闭 Rust 增量编译。增量产物体积大、跨 runner 无法复用
 
 > 不需要先跑 `master` CI。它只适合人工验证或提前预热缓存，不是发版前置条件。
 
-> 想先验证三平台能否构建、又不创建 Release：在 Actions 里对 `release.yml` 用 **workflow_dispatch 手动触发**。
+> 想先验证三平台能否构建、又不创建 Release：在 Actions 里对 `release.yml` 用 **workflow_dispatch 手动触发**，不要填写 `release_tag`。
+
+> 如果 tag 发布时三平台构建已成功，但发布草稿步骤失败：在 Actions 里对 `release.yml` 用 **workflow_dispatch 手动触发**，选择 `master` 分支并填写 `release_tag`（例如 `v0.2.1-8`）。workflow 会用当前最新流程重新构建指定 tag，并自动生成 Release notes、`latest.json` 和 Draft Release。
 
 ---
 
